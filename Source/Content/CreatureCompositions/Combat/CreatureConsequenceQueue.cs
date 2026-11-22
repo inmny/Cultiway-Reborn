@@ -65,27 +65,34 @@ public static class CreatureConsequenceQueue
         processors[effectFamilyId] = processor;
     }
 
+    /// <summary>确认同一生物和同一效果已经有等待执行的后果。</summary>
+    internal static bool IsPending(Entity owner, string effectFamilyId) =>
+        FindPending(owner, effectFamilyId) >= 0;
+
     /// <summary>尝试排队一条后果；队列已满或类别没有处理体时直接丢弃并返回假。</summary>
     public static bool TryEnqueue(CreatureConsequenceEntry entry)
     {
         if (string.IsNullOrEmpty(entry.EffectFamilyId) || !processors.ContainsKey(entry.EffectFamilyId))
             return false;
-        if (entries.Count >= Capacity) return false;
-
         // 同一生物单位同一类别未处理后果最多一条；新条目替换旧条目。
-        for (int i = 0; i < entries.Count; i++)
+        int index = FindPending(entry.Owner, entry.EffectFamilyId);
+        if (index >= 0)
         {
-            CreatureConsequenceEntry existing = entries[i];
-            if (existing.Owner.Id == entry.Owner.Id &&
-                string.Equals(existing.EffectFamilyId, entry.EffectFamilyId, StringComparison.Ordinal))
-            {
-                entries[i] = entry;
-                return true;
-            }
+            entries[index] = entry;
+            return true;
         }
 
+        if (entries.Count >= Capacity) return false;
         entries.Add(entry);
         return true;
+    }
+
+    private static int FindPending(Entity owner, string effectFamilyId)
+    {
+        for (int i = 0; i < entries.Count; i++)
+            if (entries[i].Owner == owner &&
+                string.Equals(entries[i].EffectFamilyId, effectFamilyId, StringComparison.Ordinal)) return i;
+        return -1;
     }
 
     /// <summary>在安全时机处理全部排队后果；由每帧系统调用。</summary>
@@ -105,10 +112,6 @@ public static class CreatureConsequenceQueue
         }
     }
 
-    /// <summary>清理世界时直接清空队列与登记的处理体。</summary>
-    public static void ClearWorldState()
-    {
-        entries.Clear();
-        processors.Clear();
-    }
+    /// <summary>世界清理只丢弃旧人物的后果，模组登记的处理体供下一个世界使用。</summary>
+    public static void ClearWorldState() => entries.Clear();
 }

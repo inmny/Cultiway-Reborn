@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.CreatureCompositions.Combat;
 using Friflo.Engine.ECS;
@@ -15,6 +15,8 @@ namespace Cultiway.Content.YaoBeasts;
 /// </summary>
 public static class YaoNirvanaService
 {
+    internal const string EffectId = "yao.nirvana";
+    internal const float StillnessDuration = 1.5f;
     private const float NirvanaDuration = 10f;
     private static bool initialized;
 
@@ -24,14 +26,14 @@ public static class YaoNirvanaService
         if (initialized) return;
         initialized = true;
 
-        CreatureConsequenceQueue.RegisterProcessor("yao.nirvana", EnterNirvana);
+        CreatureConsequenceQueue.RegisterProcessor(EffectId, EnterNirvana);
     }
 
     /// <summary>进入不可行动的涅槃体阶段：添加过程组件并让单位保持原地。</summary>
     private static void EnterNirvana(in CreatureConsequenceEntry entry)
     {
         ActorExtend actor = ResolveActor(entry.Owner);
-        if (actor?.Base == null || actor.Base.isRekt()) return;
+        if (actor?.Base == null || actor.Base.isRekt() || !actor.Base.isAlive()) return;
         if (actor.E.HasComponent<Nirvana>()) return;
         if (!actor.HasCultisys<Yao>()) return;
 
@@ -42,8 +44,7 @@ public static class YaoNirvanaService
             ExpiresAt = YaoTime.Now + duration,
             BodyIntegrity = 1f,
         });
-        // 涅槃体不可行动：用眩晕状态让单位保持在原地。
-        actor.Base.addStatusEffect("stunned", duration);
+        HoldStill(actor.Base);
         YaoWorldLog.NirvanaStarted(actor);
     }
 
@@ -54,22 +55,18 @@ public static class YaoNirvanaService
         if (actorBase == null) return;
         float now = YaoTime.Now;
 
-        // 涅槃期间保持不可行动。
-        if (now < nirvana.ExpiresAt)
-        {
-            actor.Base.addStatusEffect("stunned", 1.5f);
-        }
-
         // 涅槃体受到的持续伤害按时间与资源评估；这里用剩余生命比例近似完整度。
         nirvana.BodyIntegrity = Mathf.Clamp01(actorBase.getHealthRatio() + 0.35f);
 
         if (now < nirvana.ExpiresAt)
         {
+            HoldStill(actorBase);
             actor.E.GetComponent<Nirvana>() = nirvana;
             return;
         }
 
         actor.E.RemoveComponent<Nirvana>();
+        CombatStatusEffects.RemoveStatus(actorBase, StatusEffects.NirvanaStillness, actorBase);
         if (nirvana.BodyIntegrity >= 0.5f && YaoResourceService.TrySpend(actor, 10f))
         {
             // 原地恢复身体与能力。
@@ -82,6 +79,9 @@ public static class YaoNirvanaService
             actorBase.dieSimpleNone();
         }
     }
+
+    private static void HoldStill(Actor actor) =>
+        CombatStatusEffects.ApplyStatus(actor, StatusEffects.NirvanaStillness, StillnessDuration, actor);
 
     private static ActorExtend ResolveActor(Entity owner)
     {

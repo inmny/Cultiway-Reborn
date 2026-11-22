@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.CreatureCompositions.Combat;
+using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -55,24 +56,19 @@ public static class YaoOrganEffects
     {
         if (context.Damage < ownerHealth(context)) return; // 还不致命，不需要动用涅槃。
         if (!context.Owner.TryGetComponent(out Yao yao)) return;
-        if (yao.PhoenixRevivalUses <= 0) return;
-        if (context.Owner.E.HasComponent<Nirvana>()) return;
+        var owner = context.Owner.E;
+        if (owner.HasComponent<Nirvana>()) return;
+        if (!CreatureConsequenceQueue.IsPending(owner, YaoNirvanaService.EffectId))
+        {
+            if (yao.PhoenixRevivalUses <= 0) return;
+            int revision = owner.TryGetComponent(out CreaturePhenotype phenotype) ? phenotype.Revision : 0;
+            if (!CreatureConsequenceQueue.TryEnqueue(new CreatureConsequenceEntry(
+                    owner, revision, YaoNirvanaService.EffectId, context.SlotId, context.OrganId, -1, 8f))) return;
+            yao.PhoenixRevivalUses--;
+            owner.GetComponent<Yao>() = yao;
+        }
 
-        // 当场消费一次机会并拦下这次死亡。
-        yao.PhoenixRevivalUses--;
-        context.Owner.E.GetComponent<Yao>() = yao;
         context.Damage = 0f;
-
-        CreatureConsequenceQueue.TryEnqueue(new CreatureConsequenceEntry(
-            context.Owner.E,
-            context.Owner.E.HasComponent<CreatureCompositions.Components.CreaturePhenotype>()
-                ? context.Owner.E.GetComponent<CreatureCompositions.Components.CreaturePhenotype>().Revision
-                : 0,
-            "yao.nirvana",
-            context.SlotId,
-            context.OrganId,
-            -1,
-            8f));
     }
 
     /// <summary>九尾代命：与涅槃同一条保命路径，当场扣除一条尾命。</summary>
@@ -85,7 +81,9 @@ public static class YaoOrganEffects
         yao.NineTailLifeUses--;
         context.Owner.E.GetComponent<Yao>() = yao;
         context.Damage = 0f;
-        actorInvince(context.Owner.Base);
+        Actor actor = context.Owner.Base;
+        actor.addStatusEffect("shield", 2f);
+        actor.addStatusEffect("invincible", 2f);
 
         YaoWorldLog.TailLifeSubstituted(context.Owner);
     }
@@ -98,11 +96,5 @@ public static class YaoOrganEffects
     private static float yaoRecoveryCost(ActorExtend owner)
     {
         return owner.HasCultisys<Yao>() ? Mathf.Max(0.2f, owner.GetCultisys<Yao>().RecoveryCost) : 1f;
-    }
-
-    private static void actorInvince(Actor actor)
-    {
-        // 代命后的短促无敌，避免同一轮攻击把剩余生命也清空。
-        actor.addStatusEffect("shield", 2f);
     }
 }

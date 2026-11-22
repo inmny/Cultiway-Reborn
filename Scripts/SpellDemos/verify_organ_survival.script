@@ -1,0 +1,141 @@
+// 用实际伤害结算和共同世界循环验证防御、保命与恢复。
+Actor body = Make(64.5f, section == "tails" ? "fox" : "wolf"), enemy = Make(67f);
+ActorExtend owner = body.GetExtend();
+Check(YaoAwakeningService.TryAwakenByRain(owner), "对练妖兽正式启灵");
+const string nirvanaId = "yao.nirvana";
+var queue = service.Assembly.GetType("Cultiway.Content.CreatureCompositions.Combat.CreatureConsequenceQueue");
+var pending = queue.GetMethod("IsPending", F);
+bool Waiting() => (bool)pending.Invoke(null, new object[] { owner.E, nirvanaId });
+YaoOrganRecord Organ(string slot, string id, int rank = 1) =>
+    new YaoOrganRecord { SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited };
+var basic = Organ(YaoContent.Slots.Surface, "yao.scale.basic");
+var sense = Organ(YaoContent.Slots.Head, "yao.spirit.sense");
+void Outfit(YaoOrganRecord surface, params YaoOrganRecord[] extras)
+{
+    Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, new[] { surface, sense }.Concat(extras).ToArray()),
+        "正式身体表达完成", new { surface = surface.OrganId, organs = extras.Select(organ => organ.OrganId).ToArray() });
+    body.setStatsDirty();
+    body.updateStats();
+}
+void Strike(float amount)
+{
+    var iron = ElementComposition.Static.Iron;
+    owner.GetHit(amount, ref iron, enemy, AttackType.Other, ignore_damage_reduction: true,
+        attacker_power_level_override: owner.GetPowerLevel());
+}
+int Lose(float damage)
+{
+    int old = body.getHealth();
+    Strike(damage);
+    return old - body.getHealth();
+}
+async Task Until(Func<bool> condition, double maximum)
+{
+    double end = World.world.getCurWorldTime() + maximum;
+    Config.paused = false;
+    await Game.WaitUntil(() => condition() || World.world.getCurWorldTime() >= end, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+var fees = new List<float>();
+void Paid(ActorExtend payer, YaoPowerMutation change)
+{
+    if (payer == owner && change.Kind == YaoPowerMutationKind.Spend) fees.Add(-change.Delta);
+}
+YaoResourceService.MutationCommitted += Paid;
+try
+{
+    switch (section)
+    {
+        case "shell":
+        {
+            var shell = Organ(YaoContent.Slots.Surface, "yao.shell.black", 2);
+            Outfit(shell);
+            int reduced = Lose(100f);
+            Outfit(basic);
+            int removed = Lose(100f);
+            Outfit(shell);
+            int restored = Lose(100f);
+            Check(reduced == 75 && removed == 100 && restored == 75,
+                "真实伤害依次经过玄甲、撤除和再次装备", new { reduced, removed, restored });
+            break;
+        }
+        case "phoenix":
+        {
+            var heart = Organ(YaoContent.Slots.Heart, "yao.heart.nirvana");
+            Outfit(basic, heart);
+            owner.GetCultisys<Yao>().PhoenixRevivalUses = 2;
+            owner.GetCultisys<Yao>().yao_power = 1000f;
+            body.data.health = body.getMaxHealth() * 3 / 5;
+            int initialHealth = body.getHealth();
+            Check(Lose(40f) == 40 && owner.GetCultisys<Yao>().PhoenixRevivalUses == 2 && !Waiting(),
+                "未致命伤正常扣血，没有进入涅槃");
+            float fatal = body.getMaxHealth() * 2f;
+            int wounded = body.getHealth();
+            Strike(fatal);
+            Check(Waiting() && body.getHealth() == wounded && owner.GetCultisys<Yao>().PhoenixRevivalUses == 1,
+                "致命伤进入真实队列，确认后只使用一次涅槃机会");
+            Strike(fatal);
+            Check(Waiting() && body.getHealth() == wounded && owner.GetCultisys<Yao>().PhoenixRevivalUses == 1 &&
+                  !owner.E.HasComponent<Nirvana>() && fees.Count == 0, "等待间的第二次致命伤沿用已经确认的保命");
+            await Until(() => owner.E.HasComponent<Nirvana>(), .07);
+            var stillness = Cultiway.ModClass.L.StatusEffectLibrary.get("NirvanaStillness");
+            body.updateStats();
+            Check(body.isAlive() && owner.E.HasComponent<Nirvana>() && !Waiting() &&
+                  CombatStatusEffects.HasStatus(body, stillness, body) && body.stats.hasTag(Cultiway.Core.ActorControlTags.Silenced),
+                "正式世界循环接管涅槃并限制施法");
+            float expiry = owner.E.GetComponent<Nirvana>().ExpiresAt;
+            Check(Lose(12f) == 12 && body.isAlive(), "已进入涅槃体的实际伤害仍影响身体完整度");
+            Vector2 fixedPosition = body.current_position;
+            await Until(() => !owner.E.HasComponent<Nirvana>(), 1.6);
+            body.updateStats();
+            Check(body.isAlive() && !owner.E.HasComponent<Nirvana>() && body.getHealth() == body.getMaxHealth() &&
+                  fees.Count == 1 && fees[0] == 10f && YaoTime.Now >= expiry && owner.GetCultisys<Yao>().PhoenixRevivalUses == 1 &&
+                  Vector2.Distance(body.current_position, fixedPosition) < .001f,
+                "到期在原处重生，使用实际费用并恢复生命",
+                new { initialHealth, wounded, hp = body.getHealth(), fees, expiry, now = YaoTime.Now });
+            Check(!CombatStatusEffects.HasStatus(body, stillness) && !body.stats.hasTag(Cultiway.Core.ActorControlTags.Silenced) &&
+                  CombatStatusEffects.HasStatus(body, hold), "重生只解除自身施法限制，场景原有作用仍在");
+            Strike(fatal);
+            Check(Waiting() && owner.GetCultisys<Yao>().PhoenixRevivalUses == 0,
+                "恢复后第二次致命伤仍可使用最后一次机会");
+            World.world.save_manager.loadWorld(fixture);
+            await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+            Config.paused = true;
+            await Game.WaitUntil(Boundary, 1800);
+            Check(!Waiting() && Cultiway.ModClass.I.W.Query<Nirvana>().Count == 0,
+                "真正切换世界后清除未执行的旧人物后果");
+            break;
+        }
+        case "tails":
+        {
+            Outfit(basic, Organ(YaoContent.Slots.Tail, "yao.crown.tails", 6));
+            owner.GetCultisys<Yao>().NineTailLifeUses = 2;
+            int health = body.getHealth();
+            float fatal = body.getMaxHealth() * 2f;
+            Strike(fatal);
+            Check(body.isAlive() && owner.GetCultisys<Yao>().NineTailLifeUses == 1 &&
+                  body.getHealth() == health && body.hasStatus("invincible"), "九尾挡下致命伤并取得实际短时保护");
+            Strike(fatal);
+            Check(body.isAlive() && owner.GetCultisys<Yao>().NineTailLifeUses == 1 && body.getHealth() == health,
+                "短时保护拦截紧随的致命伤，不重复消耗");
+            await Until(() => !body.hasStatus("invincible") && !body.is_invincible, 3.2);
+            Check(body.isAlive() && !body.hasStatus("invincible") && !body.is_invincible, "短时保护自然退出");
+            Strike(fatal);
+            Check(body.isAlive() && owner.GetCultisys<Yao>().NineTailLifeUses == 0 && body.getHealth() == health,
+                "保护后新的致命伤消耗最后一条尾命");
+            await Until(() => !body.hasStatus("invincible") && !body.is_invincible, 3.2);
+            Strike(fatal);
+            body.checkDeath();
+            Check(!body.isAlive(), "次数耗尽后让实际致死结果生效");
+            break;
+        }
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    YaoResourceService.MutationCommitted -= Paid;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

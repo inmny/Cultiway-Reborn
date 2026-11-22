@@ -43,6 +43,9 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     /// <summary>完整束缚状态，行动限制与空间显示共用一个持续时间。</summary>
     public static StatusEffectAsset Bound { get; private set; }
 
+    /// <summary>涅槃期间由过程本身维持的行动限制。</summary>
+    internal static StatusEffectAsset NirvanaStillness { get; private set; }
+
     public static StatusEffectAsset Silence { get; private set; }
     public static StatusEffectAsset Concealed { get; private set; }
     public static StatusEffectAsset Imprisoned { get; private set; }
@@ -153,6 +156,10 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetSpatialVisual(new StatusSpatialSettings
                 { Form = StatusSpatialForm.Bind, Color = new Color(.55f, .35f, .85f, .45f), RadiusRatio = .45f })
             .Build();
+        NirvanaStillness = StatusEffectAsset.StartBuild(nameof(NirvanaStillness))
+            .SetIconPath("cultiway/icons/iconCultivation")
+            .SetDuration(YaoBeasts.YaoNirvanaService.StillnessDuration)
+            .SetStats(CreateReactionStats(true)).Build();
         Silence = StatusEffectAsset.StartBuild(nameof(Silence))
             .SetNegative()
             .SetIconPath("cultiway/icons/element_root/neg")

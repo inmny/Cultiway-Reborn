@@ -260,7 +260,7 @@ public sealed class YaoContent : ICanInit, ICanReload
         CreatureOrganEffectFamilies.Register(new CreatureOrganEffectFamily(
             "yao.gluttony", CreatureOrganEventMask.Kill, YaoOrganEffects.OnGluttony));
         CreatureOrganEffectFamilies.Register(new CreatureOrganEffectFamily(
-            "yao.nirvana", CreatureOrganEventMask.Survival, YaoOrganEffects.OnNirvana));
+            YaoNirvanaService.EffectId, CreatureOrganEventMask.Survival, YaoOrganEffects.OnNirvana));
         CreatureOrganEffectFamilies.Register(new CreatureOrganEffectFamily(
             "yao.nine_tail", CreatureOrganEventMask.Survival, YaoOrganEffects.OnNineTailSubstitute));
     }

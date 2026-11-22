@@ -45,6 +45,8 @@ Cultiway.SoulTrauma,神魂创伤,Soul trauma
 Cultiway.SoulTrauma.Description,抵御夺舍留下的神魂损伤，暂时降低神魂与神识上限,Resisting possession temporarily reduces soul strength and spiritual sense capacity.
 Cultiway.BodyReconstructionWeakness,塑体虚弱,Reconstruction weakness
 Cultiway.BodyReconstructionWeakness.Description,本相肉身刚刚重塑，速度、伤害与神魂承载暂时降低,A newly rebuilt body temporarily has reduced speed and damage as well as soul capacity.
+Cultiway.NirvanaStillness,涅槃静息,Nirvana trance
+Cultiway.NirvanaStillness.Description,涅槃期间暂停移动与施法，过程结束后解除,Movement and casting are suspended during nirvana. The trance lifts when the process ends.
 Cultiway.BodyStrain,扭伤,Strained
 Cultiway.BodyStrain.Description,接触扭劲损伤攻击能力，持续结束后恢复,Contact strain reduces attack power until the effect ends.
 Cultiway.BodyExposure,破甲,Armor exposed
