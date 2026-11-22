@@ -14,6 +14,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, SCRIPTS, world_helper
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('prepare', 'cold'), required=True)
+    parser.add_argument('--case', choices=('actives', 'structure'), default='actives')
     parser.add_argument('--archive', type=Path, help='prepare 输出的目录')
     args = parser.parse_args()
     if (args.section == 'cold') != bool(args.archive):
@@ -24,7 +25,7 @@ def main():
     import baseline_scenarios as baseline
 
     baseline.connect(False, validate_runtime=False)
-    output = Path(tempfile.mkdtemp(prefix=f'artifact-actives-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    output = Path(tempfile.mkdtemp(prefix=f'artifact-{args.case}-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     source = args.archive.resolve() if args.archive else output
     restoring = args.section == 'cold'
     world = source / 'archive' if restoring else PROJECT / FIXTURE
@@ -35,9 +36,12 @@ def main():
         if not receipt['passed'] or hashlib.sha256((world / 'map.wbox').read_bytes()).hexdigest() != receipt['archiveSha256']:
             parser.error('冷启动需要 prepare 验证通过并写出的原档')
     program = output / 'input.script'
+    body = Path(__file__).with_suffix('.script') if args.case == 'actives' else SCRIPTS / 'verify_artifact_structure_archive.script'
+    anchors = ''.join((SCRIPTS / name).read_text() for name in (
+        'verify_artifact_views.script', 'verify_artifact_model_anchor.script')) if args.case == 'structure' else ''
     program.write_text(IMPORTS + world_helpers(output, world, restore=restoring)
-                       + (SCRIPTS / 'weapon_flight_scene.script').read_text()
-                       + settings + Path(__file__).with_suffix('.script').read_text())
+                       + (SCRIPTS / 'weapon_flight_scene.script').read_text() + anchors
+                       + settings + body.read_text())
     try:
         result = baseline.call('run', str(program), '150000')
     except RuntimeError as error:

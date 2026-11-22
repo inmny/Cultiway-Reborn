@@ -1,0 +1,203 @@
+// 同一场地的原件、部署、飞剑归还和金钟活动通过正式存档。
+var gourdAsset = ArtifactAbilities.HeavenSwallowingGourd;
+var mirrorAsset = ArtifactAbilities.TruthRevealingMirror;
+var swordAsset = ArtifactAbilities.FlyingSwordAttack;
+var bellAsset = ArtifactAbilities.GoldenBellBarrier;
+var center = new Vector3(68.25f, 72f);
+var process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var bellWard = service.Assembly.GetType("Cultiway.Content.Artifacts.ArtifactBellWard");
+bool Registered(Entity bell) => (bool)bellWard.GetMethod("IsRaised", F).Invoke(null, new object[] { bell });
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var identityGetter = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity item)
+{
+    object[] args = { null };
+    return (bool)identityGetter.Invoke(item, args) ? (string)Field(args[0], "Id") : null;
+}
+JToken Snapshot(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+float Stored(Entity item) => ArtifactStorageOperations.GetAmount(item.GetComponent<ArtifactStorageState>(),
+    ArtifactStorageOperations.AbsorbedPower);
+float Capacity(Entity item) => Entry(item, bellAsset.id).GetNumber("shield_current");
+object Record(ActorExtend owner, Entity item, ArtifactAbilityAsset asset)
+{
+    var relation = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item);
+    var activity = Entry(item, asset.id);
+    return new
+    {
+        identity = Identity(item), appearance = item.GetComponent<ArtifactAppearance>(), abilities = item.GetComponent<ArtifactAbilitySet>(),
+        relation = new { relation.mode, relation.locked, relation.priority }, activity.cooldown_until,
+        activity.activity_carrier_actor_id, activity.activity_started_at,
+        stored = asset == gourdAsset ? Stored(item) : 0f,
+        remaining = asset == bellAsset ? Capacity(item) : 0f
+    };
+}
+Entity MakeItem(ActorExtend owner, ArtifactShapeAsset shape, ArtifactAbilityAsset asset, params ArtifactAtomAsset[] atoms)
+{
+    var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = shape, Atoms = atoms, Level = new ItemLevel { Stage = 3, Level = 8 }, Name = asset.GetName() + "构造存档"
+    }));
+    Check(blueprint.AbilitySet.abilities.Any(value => value.ability_id == asset.id), "正式配方取得" + asset.GetName());
+    Entity item = ArtifactBlueprintCodec.Materialize(blueprint, owner.Base.getName());
+    owner.AddSpecialItem(item);
+    Check(owner.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "装备" + asset.GetName() + "原件");
+    return item;
+}
+bool Deploy(ActorExtend owner, Entity item, ArtifactAbilityAsset asset)
+{
+    owner.Base.attack_timer = 0f;
+    bool accepted = ActiveAbilityService.TryUse(owner, ArtifactHandle(item, asset.id),
+        new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Script);
+    owner.Base.attack_timer = 999f;
+    return accepted;
+}
+bool HasForm(string form) => FormVisualScene.Instances.Any(view => view.Resource.Description.Id == form);
+void CheckAnchor(Entity item, string slot, string key, string form)
+{
+    var anchor = ModelAnchor(item, slot, key);
+    var view = FormVisualScene.Instances.First(value => value.Resource.Description.Id == form);
+    Check(Vector3.Distance(anchor, ModelRelativeFormOrigin(view)) < .035f &&
+        Vector2.Distance(anchor, center) < .035f, "读档后的" + form + "仍由真实器身确定落点",
+        new { anchor = anchor.ToString(), effect = ModelRelativeFormOrigin(view).ToString() });
+}
+
+if (saved == null)
+{
+    PrepareArtifactArena(48, 90, 56, 88);
+    Actor source = Make(64.35f), foe = Make(75f);
+    ActorExtend owner = source.GetExtend(), enemy = foe.GetExtend();
+    owner.AddComponent(new Xian { level = 4, wakan = 9000f });
+    enemy.AddComponent(new Xian { level = 4, wakan = 100f });
+    await Setup(source, foe);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+    Place(source, 64.35f, 72f);
+    Place(foe, 75f, 72f);
+    enemy.GetCultisys<Xian>().wakan = 100f;
+    Entity gourd = MakeItem(owner, ItemShapes.Gourd, gourdAsset, ArtifactAtoms.DevouringGourd,
+        ArtifactAtoms.DevouringVortex, ArtifactAtoms.SunfireGlass, ArtifactAtoms.SoulJade);
+    Entity mirror = MakeItem(owner, ItemShapes.Mirror, mirrorAsset, ArtifactAtoms.SoulMirror,
+        ArtifactAtoms.MoonWater, ArtifactAtoms.FrostJade, ArtifactAtoms.PureYang);
+    Entity sword = MakeItem(owner, ItemShapes.Sword, swordAsset, ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron);
+    Entity bell = MakeItem(owner, ItemShapes.Bell, bellAsset, ArtifactAtoms.PurifyingBell, ArtifactAtoms.Iron);
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    foreach (Entity item in new[] { gourd, mirror, sword, bell }) lifecycle.Invoke(null, new object[] { item });
+    await Game.NextFrame();
+    Check(Deploy(owner, gourd, gourdAsset) && Deploy(owner, mirror, mirrorAsset),
+        "原器口吞摄与原镜照影同时部署");
+    await WaitFor(() => Stored(gourd) > 0f && HasForm("truth_mirror"), .95f);
+    Check(Stored(gourd) > 0f && HasForm("truth_mirror"), "存档前原葫芦已实际入库，原镜已照影");
+    Place(foe, 72f, 72f);
+    Check(Use(owner, ArtifactHandle(bell, bellAsset.id), source) && Registered(bell) &&
+          Use(owner, ArtifactHandle(sword, swordAsset.id), foe) && sword.HasComponent<SkillExecutionBodyLease>(),
+        "存档时有活跃金钟及已经离手的原剑");
+    await Advance(.19f);
+    Check(Capacity(bell) > 40f && sword.HasComponent<SkillExecutionBodyLease>(),
+        "存档前金钟余量、原剑离手同时可见");
+    float initialCapacity = Capacity(bell);
+    CombatDamageEffects.DealDamage(null, source, 40f, ElementComposition.Static.Iron,
+        ignoreDamageReduction: true, attackerPowerLevel: 4f);
+    await WaitFor(() => Capacity(bell) < initialCapacity, .35f);
+    Check(Mathf.Abs(initialCapacity - Capacity(bell) - 40f) < .003f && Capacity(bell) > 0f &&
+          sword.HasComponent<SkillExecutionBodyLease>(), "原钟实际消耗后的余量与离手原剑写入存档");
+    World.world.units.checkContainer();
+    World.world.items.checkLists();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.RemoveStatus(source, boost);
+    string path = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(path);
+    Check(File.Exists(Path.Combine(path, "map.wbox")) &&
+          new[] { gourd, mirror, sword, bell }.All(item => Identity(item) != null), "四件原物写入真实正式世界");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), Snapshot(new
+    {
+        process, source = source.id, target = foe.id, gourd = Record(owner, gourd, gourdAsset),
+        mirror = Record(owner, mirror, mirrorAsset), sword = Record(owner, sword, swordAsset), bell = Record(owner, bell, bellAsset)
+    }).ToString(Formatting.Indented));
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(!Registered(bell) && !HasForm("truth_mirror") && !HasForm("gourd_vortex"),
+        "切换地图清除旧活动的临时碰撞与画面");
+    return new { passed = true, process, archive = path };
+}
+
+Check(process != (int)saved["process"], "新游戏进程重新读入同一原档");
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+Check(report != null && report.BackupError == null && report.Skipped.Count == 0, "正式世界完整恢复",
+    new { skipped = report?.Skipped, backupError = report?.BackupError });
+Actor restored = World.world.units.get((long)saved["source"]), attacker = World.world.units.get((long)saved["target"]);
+Check(restored != null && restored.isAlive() && attacker != null && attacker.isAlive(), "恢复两位原对练人物");
+ActorExtend restoredOwner = restored.GetExtend();
+Entity Recover(string key, ArtifactAbilityAsset asset)
+{
+    var expected = saved[key];
+    Entity item = restoredOwner.GetEquippedArtifacts().Single(candidate => Identity(candidate) == (string)expected["identity"]);
+    Check(restoredOwner.GetItems().Contains(item) && JToken.DeepEquals(Snapshot(Record(restoredOwner, item, asset)), expected),
+        asset.GetName() + "读回原件、模型、参数、装备、冷却和余量");
+    return item;
+}
+var originalGourd = Recover("gourd", gourdAsset);
+var originalMirror = Recover("mirror", mirrorAsset);
+var originalSword = Recover("sword", swordAsset);
+var originalBell = Recover("bell", bellAsset);
+Check(originalGourd.HasComponent<ArtifactDeployment>() && originalMirror.HasComponent<ArtifactDeployment>() &&
+    Registered(originalBell) && Capacity(originalBell) > 0f && !originalSword.HasComponent<SkillExecutionBodyLease>() &&
+    !HasForm("gourd_vortex") && !HasForm("truth_mirror"),
+    "部署与剩余钟盾保留，读档不重播上一轮施法或飞行");
+foreach (var actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+restored.attack_timer = attacker.attack_timer = 999f;
+restored.addAggro(attacker);
+attacker.addAggro(restored);
+await WaitFor(() => HasForm("gourd_vortex") && HasForm("truth_mirror"), 1.3f);
+Check(HasForm("gourd_vortex") && HasForm("truth_mirror"), "保存后的部署恢复后续真实范围作用");
+var archiveCamera = World.world.camera;
+archiveCamera.transform.position = new Vector3(center.x, center.y, archiveCamera.transform.position.z);
+MoveCamera.instance.forceZoom(15f);
+await Game.NextFrame();
+await Game.NextFrame();
+CheckAnchor(originalGourd, "mouth", "focus", "gourd_vortex");
+CheckAnchor(originalMirror, "surface", "center", "truth_mirror");
+
+Check(ArtifactAbilityLifecycle.Recall(originalGourd, Definition(originalGourd, gourdAsset.id).instance_id) &&
+      ArtifactAbilityLifecycle.Recall(originalMirror, Definition(originalMirror, mirrorAsset.id).instance_id),
+    "核对原落点后召回两个范围法宝，单独验证读回的金钟");
+await Advance(.13f);
+Place(restored, 71f, 72f);
+Place(attacker, 64f, 72f);
+restored.position_height = attacker.position_height = 0f;
+ConstructedAbilityService.NotifyActorChanged(restored);
+ConstructedAbilityService.NotifyActorChanged(attacker);
+float before = Capacity(originalBell);
+int hp = restored.data.health;
+var actorHits = new List<ConstructedContact>();
+const string spellId = "test.artifact-structure.cold-shield";
+void Confirmed(ConstructedContact value) { if (value.AbilityId == spellId) actorHits.Add(value); }
+ConstructedAbilityService.ContactConfirmed += Confirmed;
+try
+{
+    attacker.GetExtend().GetCultisys<Xian>().wakan = 9000f;
+    await Fire(new AbilityDefinition
+    {
+        Id = spellId, Name = "冷启动后实测剑气", Lifetime = .28f, TargetRange = 12f, Resource = "wakan", Cost = 1.25f, Power = 2f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+        Impact = new ConstructionImpact { DamageScale = .65f },
+        Root = new ConstructionNode
+        {
+            Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = [-90f, 0f, 0f],
+            Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                WorldVelocity = true, InheritVelocity = false, Vector = [55f, 0f, 0f] }]
+        }
+    }, attacker, restored);
+    attacker.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await WaitFor(() => Capacity(originalBell) < before, .25f);
+    Check(Capacity(originalBell) > 0f && Capacity(originalBell) < before && restored.data.health == hp && actorHits.Count == 0,
+        "冷启动后的剩余金钟继续在实体钟面拦截，不触发人物受击", new { before, remaining = Capacity(originalBell), hp, finalHealth = restored.data.health, bodyHits = actorHits.Count });
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Confirmed;
+}
+return new { passed = true, process };

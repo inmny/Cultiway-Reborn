@@ -2917,3 +2917,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 金钟的真实防御表面（10.07）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_golden_bell_absorption.py` 复验实战小击拦截、外侧擦过和破盾余伤。默认在两种视角采集相同的撞点，加 `--skip-views` 可只核对行为。
+
+### 法宝结构正式存读（10.07）
+
+用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_artifact_actives_archive.py --case structure --section prepare` 写正式世界，再在新游戏进程以 `--case structure --section cold --archive <prepare 输出目录>` 读取同一份档。核对四件原物的组合、参数、冷却、部署与剩余容量，并实测读回的金钟。

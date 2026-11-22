@@ -28,7 +28,8 @@ internal static class ArtifactBellWard
         foreach (Entity item in items)
         {
             if (!item.TryGetComponent(out ArtifactAbilitySet set) ||
-                !item.TryGetComponent(out ArtifactAbilityRuntime runtime)) continue;
+                !item.TryGetComponent(out ArtifactAbilityRuntime runtime) || set.abilities == null ||
+                runtime.abilities?.Length != set.abilities.Length) continue;
             for (int i = 0; i < set.abilities.Length; i++)
                 if (set.abilities[i].ability_id == ArtifactAbilities.GoldenBellBarrier.id &&
                     runtime.abilities[i].activity_kind != ArtifactAbilityActivityKind.None)
@@ -48,6 +49,7 @@ internal static class ArtifactBellWard
         index = -1;
         if (!item.IsAvailable() || !item.TryGetComponent(out ArtifactAbilityRuntime runtime) ||
             !runtime.attached || !item.TryGetComponent(out ArtifactAbilitySet set) ||
+            set.abilities == null || runtime.abilities?.Length != set.abilities.Length ||
             !ArtifactAbilityLifecycle.MeetsState(runtime.control_state, ArtifactControlState.Operating)) return false;
         for (int i = 0; i < set.abilities.Length; i++)
         {
