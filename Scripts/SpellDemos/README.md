@@ -3019,3 +3019,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 功能术的万法阁试放（10.13 B1）
 
 在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_preview.py`。用真实编辑按钮选人，检查无目标时返回草稿、实际净化、运行中等待和结束后再次试放。输出同一草稿的返回截图及试放前后的法力、学习和使用记录。
+
+### 功能术的正式存读（10.13 B2）
+
+用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_utility_archive.py --case prepare --legacy 历史交付目录` 读入带有 `restart-expected.json` 和 `save/map.wbox` 的原功能术存档。脚本从恢复的实际容器写书及导入万法阁，然后保存正式世界。
+
+退出并重启同一独立环境，使用 `--case cold --archive 准备阶段的输出目录`。脚本核对正式存档校验值、旧词条、全球蓝图、书籍与阅读，实际再次施放时记录逐发扣费并再次存读。两段都加载世界副本。

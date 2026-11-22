@@ -1,0 +1,143 @@
+// 保留旧世界原学习顺序、原效果和费用，也经过正式万法阁及书本入口。
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "由另一实际游戏进程读取正式存档");
+long sourceId = (long)expected["actor"];
+Actor source = World.world.units.get(sourceId);
+var owner = source.GetExtend();
+var getLearned = typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F);
+IReadOnlyList<Entity> Learned(Actor actor) => (IReadOnlyList<Entity>)getLearned.Invoke(actor.GetExtend(), null);
+string[] Signatures(Actor actor) => Learned(actor).Select(SkillContainerSignature.Build).ToArray();
+var oldSignatures = expected["learned"].Values<string>().ToArray();
+Check(Signatures(source).SequenceEqual(oldSignatures), "原已学法术及改造按原顺序完整恢复");
+var saves = Cultiway.ModClass.I.WorldSaves;
+string[] skipped = saves.LastReport.Skipped.ToArray();
+Check(skipped.All(entry => allowedSkips.Values<string>().Contains(entry)) && saves.LastReport.BackupError == null,
+    "正式恢复只可报告已移除的原测试状态，功能资料完整", skipped);
+Entity skill = Learned(source).Single(value => value.HasComponent<HugeModifier>() && value.HasComponent<SalvoCount>());
+string signature = SkillContainerSignature.Build(skill);
+var aim = new Vector3(68, 72, 0);
+var pavilion = WanfaPavilionService.Instance;
+double Quote(Actor actor, Entity spell) => SkillCastResources.Mana.Quote(actor.GetExtend(),
+    SkillCastCost.CalculatePlanDemand(spell, SkillCastPlanner.CreatePointPlan(actor.GetExtend(), spell, aim)) *
+    Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(actor.GetExtend(), spell)));
+
+if (stage == "prepare")
+{
+    Actor reader = Make(63);
+    reader.GetExtend().AddComponent(new Xian { level = 2, wakan = 500 });
+    var saved = pavilion.Import(source, skill);
+    Check(saved.Blueprint != null && saved.Status is WanfaPavilionSaveStatus.Saved or WanfaPavilionSaveStatus.Duplicate,
+        "原功能术通过实际万法阁入口保存为蓝图");
+    SkillBlueprint blueprint = saved.Blueprint;
+    if (!pavilion.IsSelected(blueprint.Id)) pavilion.ToggleSelected(blueprint.Id);
+    Book book = World.world.books.WriteSkillbookBook(source, skill);
+    Check(book != null && book.GetExtend().E.TryGetComponent(out Skillbook content) &&
+          SkillContainerSignature.Build(content.SkillContainer) == signature,
+        "通过正式写法术书入口保存相同改造");
+    long bookId = book.getID(), readerId = reader.id;
+    double price = Quote(source, skill);
+    Check(price > 0, "准备阶段记录原能力实际报价", price);
+    await Advance(.2f);
+    CombatStatusEffects.RemoveStatus(reader, hold);
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "写出实际原版世界档");
+    return new { passed = true, process, actor = sourceId, learned = oldSignatures, reader = readerId, book = bookId,
+        blueprint = blueprint.Id, revision = blueprint.Revision, blueprintSignature = SkillBlueprintSignature.Build(blueprint),
+        signature, price, checks };
+}
+
+string blueprintId = (string)expected["blueprint"];
+SkillBlueprint restored = pavilion.Get(blueprintId);
+Check(restored != null && restored.Revision == (int)expected["revision"] && pavilion.IsSelected(blueprintId) &&
+    SkillBlueprintSignature.Build(restored) == (string)expected["blueprintSignature"],
+    "重新启动保留原蓝图编号、版本、选中状态与所有改造");
+Book originalBook = World.world.books.get((long)expected["book"]);
+Check(originalBook != null && originalBook.GetExtend().E.TryGetComponent(out Skillbook bookContent) &&
+    SkillContainerSignature.Build(bookContent.SkillContainer) == signature,
+    "正式世界保留原法术书和引用的完整法术");
+Actor learner = World.world.units.get((long)expected["reader"]);
+Check(learner != null && Learned(learner).Count == 0, "恢复时不会自动授予书中能力");
+var read = typeof(BehFinishReading).GetMethod("checkBookAssetAction", F);
+read.Invoke(read.IsStatic ? null : Activator.CreateInstance(typeof(BehFinishReading)), new object[] { learner, originalBook });
+Check(Signatures(learner).SequenceEqual(new[] { signature }), "从原阅读入口学到相同改造，且只授予一次");
+
+var starts = new List<ConstructedCastStarted>();
+var worldHits = new List<ConstructedWorldContact>();
+var debits = new List<double>();
+int legacy = 0;
+const long replayCorrelation = 101352;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == sourceId && fact.CorrelationId == replayCorrelation &&
+        fact.AbilityId == SkillEntities.RaiseTerrain.id) starts.Add(fact);
+}
+void WorldHit(ConstructedWorldContact fact)
+{
+    if (starts.Any(start => start.CastId == fact.CastId) && fact.Result.Changed) worldHits.Add(fact);
+}
+void Old(Entity execution)
+{
+    if (execution.GetComponent<SkillContext>().RuntimeData.CorrelationId == replayCorrelation) legacy++;
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+var originalEmission = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var paymentField = typeof(SkillEmission).GetField("Payment", F);
+Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+{
+    if (request.Source != source || request.SkillContainer != skill ||
+        request.RuntimeData.CorrelationId != replayCorrelation) return originalEmission(request);
+    int prepaidBalance = source.getMana();
+    var payment = (SkillCastPayment)paymentField.GetValue(request);
+    var result = originalEmission(request);
+    Check(result == SkillEmissionResult.Accepted && payment?.IsCommitted == true && source.getMana() == prepaidBalance,
+        "每发受理时提交原支付，构造不会重复扣费");
+    debits.Add(payment.Entries.Single(entry => entry.Resource == SkillCastResources.Mana).Spent);
+    return result;
+};
+try
+{
+    await Advance(.2f);
+    Check(starts.Count == 0 && legacy == 0, "恢复世界不会重放已经结束的施放");
+    // 与原恢复复验使用相同的空地，避免老世界已抬升或被建筑占用的地块没有可改变项。
+    for (int x = 63; x <= 73; x++)
+    for (int y = 67; y <= 77; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.building != null) tile.building.removeBuildingFinal();
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+    WorldTile centre = World.world.GetTileSimple(68, 72);
+    double price = Quote(source, skill);
+    Check(Math.Abs(price - (double)expected["price"]) < .001d, "恢复的费用与准备保存前相同", price);
+    source.setMana(1500, false);
+    int before = source.getMana();
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, aim, runtimeData: new SkillCastRuntimeData { CorrelationId = replayCorrelation }),
+        ActiveAbilityUseOrigin.Script), "从原已学入口再次使用正式恢复的功能术");
+    Check(source.getMana() == before, "排队等待期间没有预扣两发费用");
+    await Advance(2.1f);
+    Check(debits.Count == 2 && Math.Abs(debits.Sum() - price) < .001d, "实际两发合计支付与保存前报价一致", debits.ToArray());
+    Check(starts.Count == 2 && worldHits.Count > 0 && legacy == 0, "多发实改地形，只产生共同执行",
+        new { started = starts.Count, changed = worldHits.Count, legacy, ground = centre.main_type.id });
+    string resave = Path.Combine(folder, "resave");
+    SaveManager.saveWorldToDirectory(resave);
+    World.world.save_manager.loadWorld(resave);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    await Game.WaitUntil(Boundary, 1800);
+    Check(Signatures(World.world.units.get(sourceId)).SequenceEqual(oldSignatures) &&
+        Signatures(World.world.units.get((long)expected["reader"])).SequenceEqual(new[] { signature }) &&
+        World.world.books.get((long)expected["book"]).GetExtend().E.TryGetComponent(out Skillbook finalBook) &&
+        SkillContainerSignature.Build(finalBook.SkillContainer) == signature && saves.LastReport.Skipped.Count == 0,
+        "再次保存读取保留原学习、阅读结果和书籍引用");
+    return new { passed = true, process, actor = sourceId, blueprint = blueprintId, price, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmission;
+}
