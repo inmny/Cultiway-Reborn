@@ -1,0 +1,207 @@
+// 同一份档保存实际护盾消耗、器灵复苏等待和宗门供奉。
+const long sectId = 901;
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var spiritAsset = ArtifactAbilities.ArtifactSpiritAwakening;
+var shieldAsset = ArtifactAbilities.CloudRobeShield;
+var sectAsset = ArtifactAbilities.SectGuardianTreasure;
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var readIdentity = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity item)
+{
+    object[] value = { null };
+    return (bool)readIdentity.Invoke(item, value) ? (string)Field(value[0], "Id") : null;
+}
+JToken Snapshot(object value) => JToken.Parse(JsonConvert.SerializeObject(value));
+float Shield(Entity robe) => Entry(robe, shieldAsset.id).GetNumber("shield_current");
+float Health(Actor actor) { actor.updateStats(); return actor.stats[S.health]; }
+bool Close(float a, float b) => Mathf.Abs(a - b) < .015f;
+void Strike(Actor from, Actor target, float amount)
+{
+    var iron = ElementComposition.Static.Iron;
+    target.GetExtend().GetHit(amount, ref iron, from, AttackType.Other, ignore_damage_reduction: true,
+        attacker_power_level_override: 4f);
+}
+Actor[] Spirits(Entity item)
+{
+    var alive = new List<Actor>();
+    var relations = item.GetRelations<ArtifactSpiritAvatarRelation>();
+    for (int i = 0; i < relations.Length; i++)
+    {
+        Entity entity = relations[i].avatar;
+        if (!entity.IsNull && entity.TryGetComponent(out ActorBinder binder) && binder.Actor != null && binder.Actor.isAlive())
+            alive.Add(binder.Actor);
+    }
+    return alive.ToArray();
+}
+int Installations(Entity item, Sect sect) => item.GetIncomingLinks<ArtifactSectInstallationRelation>().Entities
+    .Count(inventory => inventory.GetComponent<SectInventoryBinder>().Sect == sect);
+var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+bool Vein() => meshes.Cast<object>().Any(row => (string)Field(Field(row, "Model"), "Name") == "artifact_sect_vein");
+Entity Craft(Actor source, ArtifactShapeAsset shape, ArtifactAbilityAsset ability, params ArtifactAtomAsset[] atoms)
+{
+    var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = shape, Atoms = atoms, Name = ability.GetName() + "正式存档原件",
+        Level = new ItemLevel { Stage = 3, Level = 8 }
+    }));
+    Check(recipe.AbilitySet.abilities.Any(row => row.ability_id == ability.id), "原配方取得" + ability.GetName());
+    return ArtifactBlueprintCodec.Materialize(recipe, source.getName());
+}
+void Equip(ActorExtend owner, Entity item, ArtifactEquipMode mode)
+{
+    owner.AddSpecialItem(item);
+    Check(owner.EquipArtifact(item, locked: true, mode: mode, priority: 100), "装备正式原件");
+}
+async Task<(Actor source, Actor outsider, Sect sect, Building hall, Entity seal)> PrepareOffering()
+{
+    PrepareArtifactArena(58, 82, 64, 83);
+    Actor source = Make(68.2f), outsider = Make(73f);
+    Sect sect = WorldboxGame.I.Sects.get(sectId);
+    source.GetExtend().SetSect(sect);
+    Building hall = World.world.buildings.addBuilding(Buildings.SectHall.id, World.world.GetTileSimple(68, 74));
+    hall.data.set(BuildingDataKeys.SectID_Long, sectId);
+    WorldboxGame.I.Sects.setDirtyBuildings(sect);
+    Place(source, 68.2f, 72.5f);
+    Place(outsider, 73f, 72.5f);
+    Entity seal = Craft(source, ItemShapes.Seal, sectAsset, ArtifactAtoms.HeavySeal, ArtifactAtoms.FortuneVeinCore,
+        ArtifactAtoms.AncestralGuardianVow);
+    sect.Treasures.AddOwnership(seal);
+    sect.AddSpecialItem(seal);
+    await Advance(.32f);
+    return (source, outsider, sect, hall, seal);
+}
+
+try
+{
+    if (saved == null)
+    {
+        var (source, outsider, sect, hall, seal) = await PrepareOffering();
+        Check(ArtifactSectService.ResolveInstallationBuilding(sect) == hall && Installations(seal, sect) == 1 &&
+              sect.Treasures.Owns(seal) && sect.Treasures.IsStored(seal), "原印实际供奉于指定大殿");
+        var owner = source.GetExtend();
+        owner.AddComponent(new PermanentStats { Stats = new BaseStats { [S.health] = 600f,
+            [nameof(WorldboxGame.BaseStats.DivineSense)] = 1720f } });
+        owner.MarkCultiwayStatsDirty();
+        owner.SetPowerLevel(4f);
+        outsider.GetExtend().SetPowerLevel(4f);
+        source.updateStats();
+        Entity sword = Craft(source, ItemShapes.Sword, spiritAsset, ArtifactAtoms.SwordBreaker,
+            ArtifactAtoms.Iron, ArtifactAtoms.SoulCore, ArtifactAtoms.SpiritAwakeningScript);
+        Entity robe = Craft(source, ItemShapes.Robe, shieldAsset, ArtifactAtoms.CloudRobe, ArtifactAtoms.VoidSilk,
+            ArtifactAtoms.VoidMark, ArtifactAtoms.CloudPattern);
+        Equip(owner, sword, ArtifactEquipMode.ForcedOperating);
+        Equip(owner, robe, ArtifactEquipMode.Standby);
+        await WaitFor(() => Spirits(sword).Length == 1 && Shield(robe) > 30f, .8f);
+        Check(Spirits(sword).Length == 1 && Shield(robe) > 30f, "器灵与可用护盾均由原件生成");
+        Actor spirit = Spirits(sword).Single();
+        int hp = source.data.health;
+        float capacity = Shield(robe);
+        Strike(null, source, 28f);
+        await WaitFor(() => Shield(robe) < capacity, .42f);
+        Check(Shield(robe) > 0f && Shield(robe) < capacity && hp == source.data.health,
+            "真实来伤先耗去部分原护盾，待命保存剩余",
+            new { before = capacity, remaining = Shield(robe) });
+        float experience = sword.GetComponent<ArtifactSpiritState>().experience;
+        Strike(source, outsider, 95f);
+        await WaitFor(() => sword.GetComponent<ArtifactSpiritState>().experience > experience, .42f);
+        spirit.updateStats();
+        double deathAt = World.world.getCurWorldTime();
+        long priorSpirit = spirit.id;
+        float fatal = Mathf.Max(spirit.data.health, spirit.getMaxHealth()) * 4f;
+        Strike(null, spirit, fatal);
+        await WaitFor(() => Spirits(sword).Length == 0 && sword.GetComponent<ArtifactSpiritState>().recovery_until > deathAt, .72f);
+        var state = sword.GetComponent<ArtifactSpiritState>();
+        Check(state.experience > experience && state.recovery_until > deathAt && Spirits(sword).Length == 0,
+            "法剑保留真实成长和本次阵亡的原复苏时点",
+            new { state.experience, state.bond, state.recovery_until, priorSpirit, fatal });
+
+        foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+        World.world.units.checkContainer();
+        World.world.items.checkLists();
+        string path = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(path);
+        Check(File.Exists(Path.Combine(path, "map.wbox")) &&
+              new[] { sword, robe, seal }.All(item => Identity(item) != null), "三件原物写入同一份正式档");
+        string swordIdentity = Identity(sword), robeIdentity = Identity(robe), sealIdentity = Identity(seal);
+        File.WriteAllText(Path.Combine(folder, "expected.json"), Snapshot(new
+        {
+            process, source = source.id, outsider = outsider.id, hall = hall.id, sword = swordIdentity,
+            robe = robeIdentity, seal = sealIdentity, spirit = state, priorSpirit, shield = Shield(robe), storedHealth = Health(source),
+            storedArmor = source.stats[S.armor], outsiderHealth = Health(outsider), outsiderArmor = outsider.stats[S.armor]
+        }).ToString(Formatting.Indented));
+
+        World.world.save_manager.loadWorld(originalWorld);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        await Game.NextFrame();
+        Check(!Vein() && !Cultiway.ModClass.I.W.Query<ArtifactAbilitySet>().Entities
+            .Any(item => Identity(item) is string id && (id == swordIdentity || id == robeIdentity || id == sealIdentity)),
+            "换世界清除原档中的器物与供奉画面");
+        return new { passed = true, process, archive = path };
+    }
+
+    Check(process != (int)saved["process"], "新游戏进程读取原档");
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report != null && report.BackupError == null && report.Skipped.Count == 0,
+        "正式读取未丢弃记录", new { skipped = report?.Skipped, backupError = report?.BackupError });
+    Actor restored = World.world.units.get((long)saved["source"]), foe = World.world.units.get((long)saved["outsider"]);
+    var restoredOwner = restored.GetExtend();
+    Sect restoredSect = WorldboxGame.I.Sects.get(sectId);
+    Entity Find(IEnumerable<Entity> source, string key) => source.Single(item => Identity(item) == (string)saved[key]);
+    Entity restoredSword = Find(restoredOwner.GetEquippedArtifacts(), "sword");
+    Entity restoredRobe = Find(restoredOwner.GetEquippedArtifacts(), "robe");
+    Entity restoredSeal = Find(restoredSect.Treasures.GetStoredItems(), "seal");
+    var restoredSpirit = restoredSword.GetComponent<ArtifactSpiritState>();
+    float remaining = Shield(restoredRobe);
+    Check(JToken.DeepEquals(Snapshot(restoredSpirit), saved["spirit"]) && Spirits(restoredSword).Length == 0 &&
+          World.world.getCurWorldTime() < restoredSpirit.recovery_until &&
+          Close(remaining, (float)saved["shield"]) && restoredOwner.GetItems().Contains(restoredSword) &&
+          restoredOwner.GetItems().Contains(restoredRobe),
+        "原剑成长和复苏时点、原袍护盾余量和装备关系如实读回",
+        new { remaining, restoredSpirit.experience, restoredSpirit.recovery_until });
+
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+    await WaitFor(() => Vein() && ArtifactSectService.ResolveInstallationBuilding(restoredSect) != null, .72f);
+    Check(restoredOwner.sect == restoredSect && restoredSect.Treasures.Owns(restoredSeal) &&
+          Installations(restoredSeal, restoredSect) == 1 &&
+          ArtifactSectService.ResolveInstallationBuilding(restoredSect)?.id == (long)saved["hall"] && Vein() &&
+          Close(Health(restored), (float)saved["storedHealth"]) && Close(restored.stats[S.armor], (float)saved["storedArmor"]) &&
+          Close(Health(foe), (float)saved["outsiderHealth"]) && Close(foe.stats[S.armor], (float)saved["outsiderArmor"]),
+        "原印、大殿、物权和实际成员属性读回，地脉从同一处恢复");
+
+    int startingHealth = restored.data.health;
+    Strike(null, restored, 15f);
+    await WaitFor(() => Shield(restoredRobe) < remaining, .48f);
+    Check(Shield(restoredRobe) > 0f && Shield(restoredRobe) < remaining && restored.data.health == startingHealth,
+        "读档后继续消耗同一原袍的实际余量");
+    restoredSect.ExtractSpecialItem(restoredSeal);
+    await WaitFor(() => Installations(restoredSeal, restoredSect) == 0 && !Vein(), .64f);
+    Check(!Vein() && Installations(restoredSeal, restoredSect) == 0 && Health(restored) < (float)saved["storedHealth"] &&
+          restored.stats[S.armor] < (float)saved["storedArmor"], "读档后取回原印仍撤去护持");
+
+    double due = restoredSpirit.recovery_until;
+    Config.setWorldSpeed("x3", false);
+    Config.paused = false;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= due - .45, 9600);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    double beforeDue = World.world.getCurWorldTime();
+    Check(beforeDue >= due - .45 && beforeDue < due && Spirits(restoredSword).Length == 0, "冷启动后没有提前复苏");
+    await WaitFor(() => Spirits(restoredSword).Length > 0, (float)(due - beforeDue) + 1.3f);
+    Actor[] revived = Spirits(restoredSword);
+    Check(revived.Length == 1 && revived[0].GetExtend().GetComponent<ArtifactSpiritAvatar>().artifact == restoredSword &&
+          World.world.getCurWorldTime() >= due && JToken.DeepEquals(Snapshot(restoredSword.GetComponent<ArtifactSpiritState>()),
+              saved["spirit"]),
+        "仍在原时点复苏一位器灵，原剑成长没有重复入账");
+    return new { passed = true, process, source = restored.id, spirit = revived[0].id, beforeDue, due };
+}
+finally
+{
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}

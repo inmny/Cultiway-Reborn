@@ -2897,3 +2897,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 镇宗宝脉（10.06）
 
 用 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_artifact_sect_vein.py` 检查实际入库供奉、成员属性、原印取回和重新入库。同一供奉时刻采集原版与 Worldfall 画面，用 `--skip-views` 可只检查游戏行为。
+
+### 法宝被动正式存读（10.06）
+
+用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_artifact_passives_archive.py --section prepare` 写档并核对换世界清理。关闭写档进程，在新游戏进程用 `--section cold --archive <prepare输出目录>` 读取同一原档，核对护盾余量、器灵成长与复苏、宗门供奉及读后再次生效。
