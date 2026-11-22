@@ -1,0 +1,134 @@
+Actor caster = Make(64.5f), receiver = Make(67.5f, "wolf");
+long sourceId = caster.id;
+var source = caster.GetExtend();
+source.SetPowerLevel(.4f);
+CombatStatusEffects.ApplyStrongestStatus(caster, Cultiway.Content.StatusEffects.BattleBlessing, 60f, 1f, caster,
+    new BaseStats { ["damage"] = 40f });
+caster.removeTrait("super_health");
+caster.updateStats();
+await Advance(.2f);
+caster.setHealth(caster.getMaxHealth() / 2);
+receiver.setHealth(receiver.getMaxHealth());
+int startHealth = receiver.getHealth();
+
+var harm = new[]
+{
+    (Cultiway.Content.StatusEffects.Burn, AttackType.Fire, 3.5f, .10f, new ElementComposition(fire: 1f, normalize: true)),
+    (Cultiway.Content.StatusEffects.Poison, AttackType.Poison, 2.35f, .16f, new ElementComposition(wood: 1f, normalize: true)),
+    (Cultiway.Content.StatusEffects.EternalCurse, AttackType.Other, 4.4f, .22f, new ElementComposition(neg: 1f, normalize: true))
+};
+var restoration = Cultiway.Content.StatusEffects.Rejuvenating;
+var definition = new AbilityDefinition
+{
+    Id = "test.periodic-statuses.ray",
+    Name = "周期状态复验",
+    Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, Lifetime = .26f, TargetRange = 8f,
+    Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Object },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = true, Height = .32f },
+    Impact = new ConstructionImpact
+    {
+        Targets = SkillUseTargetRelation.Hostile, SelectedTargetOnly = true, DamageScale = 0f,
+        Statuses = harm.Select(effect => new ConstructionStatus
+        {
+            Id = effect.Item1.id, Duration = effect.Item3, Application = ConstructionStatusApplication.Refresh,
+            Tick = new ConstructionStatusTick { ForcePerSecond = effect.Item4, Element = effect.Item5 }
+        }).ToArray(),
+        Restoration = new ConstructionRestoration
+        {
+            Target = ConstructionRestorationTarget.Controller, HealthPerSecond = 12f, Duration = 1.35f
+        }
+    },
+    Root = new ConstructionNode
+    {
+        Id = "ray", Form = "energy_ray", Matter = "lightning", State = "energy",
+        Operations = new[]
+        {
+            new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Ray,
+                Ray = new ConstructionRay { Length = 5f, FollowTarget = true, FadeOut = .08f }
+            }
+        }
+    }
+};
+var ticks = new List<(AttackType Type, long Attacker, float Amount, float[] Element, bool Reaction, double At)>();
+void Observe(ActorExtend target, BaseSimObject attacker, ref ElementComposition composition, ref AttackType type,
+    ref float amount, ref bool ignore)
+{
+    if (target.Base != receiver) return;
+    ElementComposition element = composition;
+    ticks.Add((type, attacker?.id ?? 0, amount, Enumerable.Range(0, 8).Select(index => element[index]).ToArray(),
+        CombatDamageEffects.IsResolvingReaction, World.world.getCurWorldTime()));
+}
+Entity StatusOn(Actor actor, Cultiway.Core.Libraries.StatusEffectAsset effect) =>
+    actor.GetExtend().GetStatuses().Single(status => status.GetComponent<StatusComponent>().Type == effect);
+object Trace() => ticks.Select(tick => new
+    { type = tick.Type.ToString(), tick.Attacker, tick.Amount, tick.Element, tick.Reaction, tick.At }).ToArray();
+bool Close(float first, float second) => Mathf.Abs(first - second) < .004f;
+var repairs = (IList)service.GetField("lifeRepairs", F).GetValue(null);
+object LastRepair() => repairs.Cast<object>().LastOrDefault(repair => (long)Field(repair, "Id") == sourceId);
+var beforeAttack = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+var previous = beforeAttack.GetValue(null);
+ActorExtend.RegisterActionBeforeBeAttacked(Observe);
+try
+{
+    await Fire(definition, caster, receiver);
+    await Advance(.38f);
+    Entity[] active = harm.Select(effect => StatusOn(receiver, effect.Item1)).ToArray();
+    Entity healing = StatusOn(caster, restoration);
+    float firstTimer = active[0].GetComponent<StatusTickState>().Timer;
+    Check(contacts.Any(hit => hit.TargetId == receiver.id) && ticks.Count == 0 &&
+        receiver.getHealth() == startHealth && LastRepair() == null &&
+        firstTimer > .1f && firstTimer < 1f, "同次真实接触施加三种伤害与回春，未提前结算",
+        new { startHealth, firstTimer, contacts = contacts.Count });
+
+    await Fire(definition, caster, receiver);
+    await Advance(.32f);
+    Check(harm.Select(effect => StatusOn(receiver, effect.Item1)).SequenceEqual(active) &&
+        StatusOn(caster, restoration) == healing && active[0].GetComponent<StatusTickState>().Timer > firstTimer &&
+        ticks.Count == 0, "同源再次接触刷新期限，原周期继续计时");
+    float[] amounts = active.Select(status => status.GetComponent<StatusTickState>().Value).ToArray();
+    caster.setHealth(caster.getMaxHealth() / 2);
+    int startHealing = caster.getHealth();
+    await Advance(.43f);
+    object repair = LastRepair();
+    Check(ticks.Count == harm.Length && harm.Select((effect, index) => ticks.Count(tick =>
+        tick.Type == effect.Item2 && tick.Attacker == sourceId && Close(tick.Amount, amounts[index]) &&
+        Enumerable.Range(0, 8).All(element => Close(tick.Element[element], effect.Item5[element])) &&
+        tick.Reaction) == 1).All(match => match) && receiver.getHealth() < startHealth &&
+        repair != null && (int)Field(repair, "Amount") == 12 && caster.getHealth() >= startHealing + 12,
+        "每类只提交一次原类别、元素和份量，回春实际恢复十二点",
+        new { ticks = Trace(), amounts, hp = receiver.getHealth(), recovered = caster.getHealth() - startHealing });
+
+    Check(CombatStatusEffects.RemoveStatus(receiver, harm[0].Item1, caster) == 1, "按原来源指定解除灼烧");
+    await Advance(1.22f);
+    Check(ticks.Count(tick => tick.Type == AttackType.Fire) == 1 &&
+        ticks.Count(tick => tick.Type == AttackType.Poison) == 2 &&
+        ticks.Count(tick => tick.Type == AttackType.Other) == 2 &&
+        !CombatStatusEffects.HasStatus(caster, restoration) && LastRepair() == null,
+        "解除的灼烧停止，其他状态继续，回春到期后不再恢复", Trace());
+
+    caster.dieAndDestroy(AttackType.None);
+    await Advance(1.04f);
+    var continuation = ticks.Last();
+    var curse = StatusOn(receiver, harm[2].Item1).GetComponent<StatusComponent>();
+    Check(World.world.units.get(sourceId) == null && !CombatStatusEffects.HasStatus(receiver, harm[1].Item1) &&
+        ticks.Count(tick => tick.Type == AttackType.Poison) == 2 &&
+        continuation.Type == AttackType.Other && continuation.Attacker == 0 &&
+        Close(continuation.Amount, amounts[2]) && continuation.Reaction && Close(curse.SourcePowerLevel ?? -1f, .4f),
+        "来源已消失，原诅咒继续按保存强度结算且没有冒用人物身份，中毒自然结束", Trace());
+
+    await Advance(1.6f);
+    int endedHits = ticks.Count;
+    await Advance(1.04f);
+    Check(!CombatStatusEffects.HasStatus(receiver, harm[2].Item1) && endedHits == ticks.Count &&
+        ticks.Count(tick => tick.Type == AttackType.Other) == 4, "最后一段诅咒到期后没有尾跳或回放", Trace());
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, hits = Trace() };
+}
+finally
+{
+    Config.paused = true;
+    beforeAttack.SetValue(null, previous);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+}

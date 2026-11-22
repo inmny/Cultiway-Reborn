@@ -2963,3 +2963,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏用 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_yao_tribulation.py --section prepare` 验证凝丹支付、劫心四格边界及返回后结算，随后写入一记已承接、下一记仍在途的正式世界。
 
 用另一个新启动的独立游戏运行同一入口并改为 `--section cold --archive 保存阶段的输出目录`。它核对存读前的同一份正式文件，确认劫心和承伤延续、超时退劫、化形入口和换世界后清理。
+
+`dev.py exec --timeout 125 -- python3 Scripts/SpellDemos/verify_periodic_statuses.py` 在同一对练场核对灼烧、中毒、诅咒和回春的实际周期。记录同源刷新、实际恢复、解除及到期，以及原施放者消失后的诅咒结算。

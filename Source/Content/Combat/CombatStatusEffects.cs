@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Cultiway.Content.Combat;
 
 /// <summary>内容系统共用的状态查询、施加、刷新、净化与驱散原语。</summary>
-public static class CombatStatusEffects
+public static partial class CombatStatusEffects
 {
     /// <summary>查询本时点仍可供玩法使用的共享状态，已到期或回收的不参与。</summary>
     /// <param name="target">接收者。</param><param name="effect">已登记状态。</param><param name="active">真实持有的状态。</param>
