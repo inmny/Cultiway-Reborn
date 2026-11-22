@@ -2967,3 +2967,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `dev.py exec --timeout 125 -- python3 Scripts/SpellDemos/verify_periodic_statuses.py` 在同一对练场核对灼烧、中毒、诅咒和回春的实际周期。记录同源刷新、实际恢复、解除及到期，以及原施放者消失后的诅咒结算。
 
 `dev.py exec --timeout 125 -- python3 Scripts/SpellDemos/verify_environment_sources.py` 通过启灵雨的实际点按与笔刷回调发出原版雨滴。复验落地前、实际落空和启灵三种结果，并核对同一地块入口的正常人物抬地。
+
+保持上一步的世界，在同一进程用 `dev.py exec --timeout 137 -- python3 Scripts/SpellDemos/verify_environment_archive.py --environment-result 环境验证输出目录/result.json` 写入正式世界。用另一个新启动的独立游戏运行同一入口，将参数改为 `--archive 保存阶段的输出目录`。它会比对原正式档，确认已完成的启灵和抬地、新旧劫风边界、状态周期、独立天气及换世界清理。

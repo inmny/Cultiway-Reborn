@@ -1,0 +1,158 @@
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var windType = service.Assembly.GetType("Cultiway.Content.BalefulWindTribulationSkillService");
+var cloudType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+JArray Capture(Type type, string method, string property) =>
+    (JArray)JObject.Parse(JsonConvert.SerializeObject(type.GetMethod(method, F).Invoke(null, null),
+        Cultiway.Core.Persistence.StableSaveJson.Settings))[property];
+JArray Winds() => Capture(windType, "CaptureWorldSave", "Sessions");
+JArray Clouds() => Capture(cloudType, "Capture", "Clouds");
+var burn = Cultiway.Content.StatusEffects.Burn;
+Entity Burning(Actor actor) => actor.GetExtend().GetStatuses().Single(status =>
+    status.GetComponent<StatusComponent>().Type == burn);
+object Phase(Actor actor)
+{
+    Entity status = Burning(actor);
+    var clock = status.GetComponent<StatusTickState>();
+    var source = status.GetComponent<StatusComponent>();
+    return new { clock.Timer, clock.Value, source.SourceActorId, source.SourcePowerLevel,
+        Elapsed = status.GetComponent<AliveTimer>().value, Limit = status.GetComponent<AliveTimeLimit>().value };
+}
+bool Near(float a, float b) => Mathf.Abs(a - b) < .005f;
+const string weatherId = "test.environment-archive.cloud";
+const string waveId = "Cultiway.Tribulation.BalefulWind.Wave";
+if (!cold)
+{
+    Check(process == (int)saved["process"], "保存直接承接同一进程内已经确认的启灵与抬地");
+    var landed = saved["rain"].Last;
+    var earth = saved["surface"].Single();
+    Actor body = World.world.units.get((long)earth["SourceId"]);
+    WorldTile landedOn = World.world.GetTileSimple((int)landed["X"], (int)landed["Y"]);
+    Actor beast = World.world.units.getSimpleList().Single(candidate =>
+        candidate.current_tile == landedOn && candidate.GetExtend().HasCultisys<Yao>());
+    var owner = body.GetExtend();
+    owner.GetCultisys<Xian>().level = 3;
+    owner.E.AddComponent(new Yuanying { formation = new CoreFormationSnapshot { refinement = 9 } });
+    owner.MarkCultiwayStatsDirty();
+    body.setStatsDirty();
+    body.updateStats();
+    body.setHealth(body.getMaxHealth());
+    Place(body, 68f);
+    var cloud = new AbilityDefinition
+    {
+        Id = weatherId, Name = "正式存档雨云", Lifetime = .32f, TargetRange = 20f,
+        Resource = "none", Cost = 0f, Power = 1f,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact { DamageScale = 0f, WorldEffects = new[]
+        {
+            new ConstructionWorldEffect { Action = "weather.rain", TileCentreOnly = true, MaximumTiles = 1, Duration = 15f }
+        } },
+        Root = new ConstructionNode { Id = "cloud", Form = "world_domain", Scale = .12f, Volume = 0f }
+    };
+    await Fire(cloud, body, body, aim: new Vector3(70.5f, 73.5f, 0f), aggro: false);
+    var startWind = windType.GetMethod("Start", F, null, new[] { typeof(ActorExtend) }, null);
+    Check((bool)startWind.Invoke(null, new object[] { owner }), "正式开始同一修士的实际煞风劫");
+    await Advance(2.52f);
+    CombatStatusEffects.ApplyTickingStatus(beast, burn, 6f, 37f,
+        new ElementComposition(fire: 1f, normalize: true), body);
+    await Advance(.33f);
+    JArray winds = Winds(), clouds = Clouds();
+    JObject phase = JObject.FromObject(Phase(beast));
+    Check(winds.Count == 1 && winds[0]["Resolved"].Values<int>().Sum() > 0 &&
+        winds[0]["Resolved"].Values<int>().Sum() < 45 && !(bool)winds[0]["Completed"] &&
+        clouds.Count == 1 && (long)clouds[0]["Source"] == body.id && (double)clouds[0]["Age"] >= 2d &&
+        (float)phase["Timer"] > .2f && (float)phase["Timer"] < .65f,
+        "同一存档中已有承接劫风、未完成状态周期和实际雨云",
+        new { winds, clouds, phase });
+    foreach (Actor actor in World.world.units.getSimpleList().ToArray())
+        CombatStatusEffects.RemoveStatus(actor, hold);
+    World.world.units.checkContainer();
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+    Check(File.Exists(Path.Combine(folder, "archive", "map.wbox")), "写入同一份正式世界文件");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process, casterId = body.id, beastId = beast.id, hp = beast.getHealth(), wind = winds[0], cloud = clouds[0],
+        phase, earthX = (int)earth["X"], earthY = (int)earth["Y"],
+        genome = JObject.Parse(YaoPersistence.Capture(beast.GetExtend()))["Body"]
+    }));
+    return new { passed = true, section = "prepare", process };
+}
+
+Check(process != (int)saved["process"], "在另一独立进程读取原正式文件");
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+Check(report.BackupError == null && report.Skipped.Count == 0, "正式读取报告包含所有可恢复资料",
+    new { report.BackupError, report.Skipped });
+Actor restored = World.world.units.get((long)saved["beastId"]);
+Actor caster = World.world.units.get((long)saved["casterId"]);
+Check(restored.GetExtend().HasCultisys<Yao>() &&
+    JToken.DeepEquals(JObject.Parse(YaoPersistence.Capture(restored.GetExtend()))["Body"], saved["genome"]) &&
+    World.world.GetTileSimple((int)saved["earthX"], (int)saved["earthY"]).main_type == TileLibrary.soil_high,
+    "启灵取得的同一身体与已抬高的原地块都真实恢复");
+JToken oldWind = saved["wind"], oldCloud = saved["cloud"], oldPhase = saved["phase"];
+JToken wind = Winds().Single(), cloudState = Clouds().Single();
+JObject restoredPhase = JObject.FromObject(Phase(restored));
+float tickElapsed = (float)restoredPhase["Timer"] - (float)oldPhase["Timer"];
+Check(JToken.DeepEquals(wind, oldWind) && (long)cloudState["Id"] == (long)oldCloud["Id"] &&
+    (string)cloudState["Ability"] == weatherId && (long)cloudState["Source"] == caster.id &&
+    Near((float)cloudState["Lifespan"], (float)oldCloud["Lifespan"]) &&
+    (float)cloudState["Age"] >= (float)oldCloud["Age"] &&
+    (float)cloudState["Age"] - (float)oldCloud["Age"] < .20f && tickElapsed >= -.005f && tickElapsed < .20f &&
+    (long)restoredPhase["SourceActorId"] == caster.id && Near((float)restoredPhase["Value"], (float)oldPhase["Value"]) &&
+    JToken.DeepEquals(restoredPhase["SourcePowerLevel"], oldPhase["SourcePowerLevel"]) &&
+    restored.getHealth() == (int)saved["hp"], "原劫风、状态强度与时点、实际雨云在加载后保留原进度",
+    new { wind, cloudState, restoredPhase, tickElapsed });
+
+foreach (Actor actor in new[] { caster, restored })
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+    actor.updateStats();
+    actor.attack_timer = 999f;
+}
+var windHits = new List<ConstructedContact>();
+var tickHits = new List<float>();
+void Wave(ConstructedContact contact)
+{
+    if (contact.AbilityId == waveId) windHits.Add(contact);
+}
+void Tick(ActorExtend target, BaseSimObject attacker, ref ElementComposition composition,
+          ref AttackType attack, ref float damage, ref bool unmitigated)
+{
+    if (target.Base == restored && attacker == caster && attack == AttackType.Fire && CombatDamageEffects.IsResolvingReaction)
+        tickHits.Add(damage);
+}
+var beforeAttack = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+var priorAttack = beforeAttack.GetValue(null);
+ConstructedAbilityService.ContactConfirmed += Wave;
+ActorExtend.RegisterActionBeforeBeAttacked(Tick);
+using var drops = Trace.Method(typeof(DropManager), "spawn",
+    argumentTypes: new[] { typeof(WorldTile), typeof(string), typeof(float), typeof(float), typeof(long) });
+try
+{
+    await Advance(.82f);
+    Check(tickHits.Count == 1 && Near(tickHits[0], (float)oldPhase["Value"]),
+        "继续保存中已计时的下一次伤害，旧周期没有重播", tickHits);
+    await Advance(.72f);
+    var continued = Winds().Single();
+    var resumed = continued["Resolved"].Values<int>().Sum() - oldWind["Resolved"].Values<int>().Sum();
+    Check(resumed > 0 && windHits.Count == resumed && windHits.All(contact =>
+            contact.TargetId == caster.id && contact.SourceId == 0 && contact.DamageAttempted) &&
+        Clouds().Count == 1 && (float)Clouds()[0]["Age"] > (float)oldCloud["Age"] &&
+        drops.Events.Any(entry => entry.Arguments?.ToString().Contains("rain") == true),
+        "旧劫风只续接未结算部分，同一原版云继续降雨",
+        new { resumed, contacts = windHits.Count, rainDrops = drops.Events.Count, clouds = Clouds() });
+    World.world.save_manager.loadWorld(originalFixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+        !ReferenceEquals(report, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    await Advance(.23f);
+    Check(Winds().Count == 0 && Clouds().Count == 0 && World.world.units.get((long)saved["beastId"]) == null &&
+        World.world.units.get((long)saved["casterId"]) == null, "正式换世界清空原劫程、天气和状态持有者");
+    return new { passed = true, section = "cold", process };
+}
+finally
+{
+    Config.paused = true;
+    beforeAttack.SetValue(null, priorAttack);
+    ConstructedAbilityService.ContactConfirmed -= Wave;
+}
