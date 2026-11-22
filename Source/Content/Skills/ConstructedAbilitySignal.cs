@@ -1,8 +1,10 @@
 using System;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Content.Combat;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
@@ -32,6 +34,28 @@ public readonly struct ConstructedSignalReceipt
 
 public sealed partial class ConstructedAbilityService
 {
+    /// <summary>沿用原隐匿标签，也识别同一时点刚加上的真实状态。</summary>
+    /// <param name="target">实际接触的人物。</param>
+    private static bool BlocksPerception(Actor target) =>
+        target.stats.hasTag(ActorControlTags.Concealed) ||
+        CombatStatusEffects.TryGetActiveStatus(target, StatusEffects.Concealed, out _);
+
+    /// <summary>先处理真实显影，再把接触位置交给现有亲历记忆。</summary>
+    /// <param name="observer">当前接触归属。</param>
+    /// <param name="target">实际接触的人物。</param>
+    /// <param name="position">接触时的实际脚下位置。</param>
+    /// <param name="perception">实际选用的感知方式。</param>
+    /// <param name="clock">确认接触的世界时点。</param>
+    private static void ConfirmPerception(CastAuthority observer, Actor target, Vector2 position,
+        ConstructionPerception perception, double clock)
+    {
+        if (!observer.IsLive || !observer.Matches(SkillUseTargetRelation.Hostile, target)) return;
+        if (perception == ConstructionPerception.Reveal && CombatStatusEffects.RemoveStatus(target, StatusEffects.Concealed) > 0)
+            target.updateStats();
+        if (!BlocksPerception(target))
+            CombatWorldService.RecordPerceivedContact(observer.Actor, target, position, clock);
+    }
+
     /// <summary>首次有效登记或更换实际发信人之后发布；同来源刷新不会重复发出。</summary>
     public static event Action<ConstructedSignalReceipt> SignalReceived;
 

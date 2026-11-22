@@ -1,0 +1,76 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var source = Make(63);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+owner.GetCultisys<Xian>().wakan = 10000;
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, definition.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+Button ButtonNamed(string key) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == key);
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(row => ((Text)Field(row, "_title")).text == T(key));
+
+void Choose(string key, string value)
+{
+    ((Button)Field(Row(key), "_action")).onClick.Invoke();
+    editor.GetComponentsInChildren<Button>(false).Single(button => button.name.StartsWith("Option") &&
+        button.GetComponentInChildren<Text>().text == T(value)).onClick.Invoke();
+}
+async Task Capture(string locale)
+{
+    Canvas.ForceUpdateCanvases();
+    var row = (RectTransform)Row("Perception").transform;
+    var scroll = row.GetComponentInParent<ScrollRect>();
+    Vector3 local = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
+    float offset = scroll.content.rect.yMax - local.y - scroll.viewport.rect.height * .5f;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(offset / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    for (int wait = 0; wait < 4; wait++) await Game.NextFrame();
+    Screen.Capture(Path.Combine(folder, "perception-" + locale + ".png"));
+    await Game.NextFrame();
+}
+try
+{
+    ButtonNamed("Page4").onClick.Invoke();
+    Choose("ContactPanel", "ContactPanel.6");
+    Choose("Perception", "Perception.Observe");
+    Check(Session().Draft.Impact.Perception == ConstructionPerception.Observe && ButtonNamed("Replace").interactable &&
+        ((Text)Field(Row("PerceptionRules"), "_title")).text == "感知规则",
+        "中文表单可以添加感知");
+    Choose("Perception", "Perception.Reveal");
+    Check(Session().Draft.Impact.Perception == ConstructionPerception.Reveal, "编辑为显影");
+    ButtonNamed("Undo").onClick.Invoke();
+    Check(Session().Draft.Impact.Perception == ConstructionPerception.Observe, "撤销显影恢复感知");
+    await Capture("cz");
+    Choose("Perception", "Perception.Reveal");
+    LocalizedTextManager.instance.setLanguage("en");
+    ButtonNamed("Page4").onClick.Invoke();
+    Check(((Text)Field(Row("Perception"), "_title")).text == "Contact perception" &&
+        ((Text)Field(Row("PerceptionRules"), "_title")).text == "Perception rules", "英文表单使用实际翻译");
+    await Capture("en");
+    ButtonNamed("Replace").onClick.Invoke();
+    var saved = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(saved.Impact.Perception == ConstructionPerception.Reveal &&
+        saved.Root.Children[1].Impact.Signal.Kind == ConstructionSignalKind.ObservedContact,
+        "正式覆盖保留新感知字段及独立的范围传讯部位");
+    File.WriteAllText(Path.Combine(folder, "saved-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    return new { passed = true, saved.Id };
+}
+finally
+{
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    LocalizedTextManager.instance.setLanguage("cz");
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}

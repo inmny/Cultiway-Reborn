@@ -1,0 +1,33 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.PatrolSignal",
+  "Name": "巡影传讯",
+  "Resource": "mana",
+  "Cost": 6,
+  "Cooldown": 0.4,
+  "Lifetime": 3.1,
+  "Power": 1,
+  "TargetRange": 20,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Binding": {"Anchor": "Target"},
+  "Impact": {"Targets": "Hostile", "DamageScale": 0},
+  "Root": {
+    "Id": "patrol", "Form": "pivot", "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "scout", "Form": "truth_mirror", "Matter": "spirit", "State": "energy",
+        "Scale": 2.5, "Volume": 0, "ActiveFrom": 0.17, "ActiveUntil": 1.98,
+        "ContactActorCenter": true, "IgnoreFormClashes": true,
+        "Contact": {"Mode": "Pulse", "Interval": 0.25, "MaximumPerTarget": 2},
+        "Impact": {"Targets": "Hostile", "DamageScale": 0, "Perception": "Reveal"}
+      },
+      {
+        "Id": "relay", "Form": "purification_surge", "Matter": "spirit", "State": "energy",
+        "Scale": 1.6, "Volume": 0, "ActiveFrom": 0.5, "ActiveUntil": 2.55,
+        "ContactActorCenter": true, "IgnoreFormClashes": true,
+        "Contact": {"Mode": "Pulse", "Interval": 0.43, "PulseOffset": 0.11, "MaximumPerTarget": 8},
+        "Impact": {"Targets": "Friendly", "DamageScale": 0, "Signal": {"Kind": "ObservedContact", "Duration": 2.8}}
+      }
+    ]
+  }
+}

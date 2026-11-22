@@ -3099,3 +3099,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 双门来源失效（11.09）
 
 在独立游戏运行 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_spatial_mapping.py --section staging-source`。复用原暂存双门，确认旅客实际进入等待，原施术者死亡后解除入口占用，并在经过出口原开放时点后核对没有补发结果。
+
+## 感知显影与范围传讯（11.10）
+
+在独立游戏中运行 `dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_perception_relay.py --section cast`。用现成世界实际施放巡影传讯，核对隐匿与显影、两名圈内友方各自收信、移动后的旧方位、同一次连续施放内更新和到期。
+
+单独用 `--section editor` 查看中英编辑菜单、感知与显影切换、撤销及正式覆盖后的规则。截图和读回资料一起留在本次输出目录。构造在 [巡影传讯](../../Doc/技能系统全面重构/构造输入/巡影传讯.json)。

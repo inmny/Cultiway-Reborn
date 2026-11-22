@@ -1001,6 +1001,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         ? MatchesArtifactArea(owner, actor.Actor, area)
                         : explicitReaction || running.FormationArea.HasValue || owner.Matches(effect.Targets, actor.Actor);
                     if (effect.SelectedTargetOnly && owner.TargetId != actor.Id || !matches ||
+                        effect.Perception == ConstructionPerception.Observe && BlocksPerception(actor.Actor) ||
                         !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
                     int node = shape.To.Node;
                     if (node == 0 && owner.TargetId == 0 && running.BuildingContact is { ChainStartRadius: > 0f } chain &&
@@ -1315,6 +1316,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 priorVelocity: priorVelocity, forceReceiver: forceReceiver,
                 strength: strength, settled: primaryDamage, contact: hit.Point);
         if (contactGeneration != worldGeneration) return;
+        if (result == ApplyAttackState.Hit && impact.Perception != ConstructionPerception.None &&
+            actor.Actor.data?.id == actor.Id && actor.Actor.isAlive())
+            ConfirmPerception(contactOwner, actor.Actor, spreadCenter, impact.Perception, simulation.contactTime);
         if (result == ApplyAttackState.Hit && impact.WakanTransfer > 0f &&
             actor.Actor.data?.id == actor.Id && actor.Actor.isAlive() && actor.Actor.hasHealth() &&
             (response.Damage.ShieldAbsorbed <= 0f || response.Damage.HealthLost > 0))

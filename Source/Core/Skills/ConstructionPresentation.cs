@@ -183,6 +183,8 @@ public static class ConstructionPresentation
             if (impact.EquipmentRepair is { } repair)
                 lines.Add(F("EquipmentRepair", targets, L("Cultiway.Construction.EquipmentSlot." + repair.Slot),
                     repair.MaterialInput, repair.Durability));
+            if (impact.Perception != ConstructionPerception.None)
+                lines.Add(T("Perception." + impact.Perception));
             if (impact.Signal is { } signal)
                 lines.Add(F("Signal", targets, signal.DisplayName, signal.Duration));
             foreach (var conditional in impact.ConditionalContacts)

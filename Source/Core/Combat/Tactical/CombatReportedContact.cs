@@ -21,7 +21,22 @@ public readonly struct CombatReportedContact
 
 public static partial class CombatWorldService
 {
-    /// <summary>只取本人真实交战时冻结的一条记录，收到的传讯不能继续冒充亲自交战。</summary>
+    /// <summary>把实际感知接触记入本人观察，记录接触时的方位。</summary>
+    /// <param name="observer">接触归属的活人。</param>
+    /// <param name="target">真正确认接触的敌人。</param>
+    /// <param name="position">接触时的实际脚下位置。</param>
+    /// <param name="now">实际确认的世界时点。</param>
+    internal static void RecordPerceivedContact(Actor observer, Actor target, Vector2 position, double now)
+    {
+        var runtime = GetOrCreateActorState(observer);
+        CombatObservation observation = CombatObservationService.ObserveVisible(runtime, observer, target, now);
+        observation.LastPosition = position;
+        runtime.LastConfirmedContact = CombatObservationService.CopyObservation(observation, runtime.LastConfirmedContact);
+        runtime.NextPlanAt = 0;
+        runtime.TouchRevision();
+    }
+
+    /// <summary>只取本人真实交战或感知时冻结的一条记录，收到的传讯不能冒充亲见。</summary>
     internal static CombatObservation ReportableContact(Actor sender, Actor recipient, double now, float duration)
     {
         if (sender == recipient || !SkillTargetRelationResolver.IsFriendly(sender, recipient) ||
