@@ -2,12 +2,19 @@ using System;
 using Cultiway.Content.Persistence;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Wanfa.Persistence;
 using Cultiway.Core.SkillLibV3.Wanfa.Persistence.Migrations;
 using Newtonsoft.Json.Linq;
 
 /// <summary>检查实际蓝图转换链，避免清理配方时丢失普通技能参数。</summary>
 internal static class SkillSettingsMigrationTests
 {
+    private static readonly ISaveMigration[] WanfaMigrations =
+    {
+        new WanfaPavilionV1ToV2(), new WanfaPavilionV2ToV3(), new WanfaPavilionV3ToV4(),
+        new WanfaPavilionV4ToV5(), new WanfaPavilionV5ToV6()
+    };
+
     /// <summary>覆盖世界与全局库、局部丢弃、旧版本和原输入保留。</summary>
     internal static void Run()
     {
@@ -34,8 +41,7 @@ internal static class SkillSettingsMigrationTests
         Check(world.ToString() == oldWorld && skill.ToString() == original, "转换不能修改原输入");
 
         var library = new JObject { ["Blueprints"] = new JArray(skill.DeepClone()), ["SelectedBlueprintIds"] = new JArray("kept") };
-        var global = SaveDataVersioning.Upgrade("wanfa", 6,
-            new ISaveMigration[] { new Identity(1), new Identity(2), new Identity(3), new WanfaPavilionV4ToV5(), new WanfaPavilionV5ToV6() }, library, 5);
+        var global = SaveDataVersioning.Upgrade("wanfa", 6, WanfaMigrations, library, 5);
         Check(JToken.DeepEquals(global["Blueprints"][0], expected) && ((JArray)global["MigrationWarnings"]).Count == 1,
             "全局库与世界必须保留同一主体并提示丢弃");
         Check(JToken.DeepEquals(global["SelectedBlueprintIds"], library["SelectedBlueprintIds"]), "保留技能的选中记录不能丢失");
@@ -52,7 +58,35 @@ internal static class SkillSettingsMigrationTests
         var lower = JObject.Parse("{\"schemaversion\":4,\"recipe\":{\"parts\":[{}]},\"areamultiplier\":2}");
         Check(SkillBlueprintMigration.RemoveRecipe(lower) != null && lower["recipe"] == null && (int)lower["areamultiplier"] == 2,
             "转换应兼容旧资料字段的大小写");
+        CheckLegacyLibrary();
         Console.WriteLine("通过：实际蓝图转换链、通用参数保留、配方丢弃提示、原输入保留、世界与全局库一致。");
+    }
+
+    /// <summary>旧库从正式导入入口逐版升级，较新的蓝图不被早期步骤降级。</summary>
+    private static void CheckLegacyLibrary()
+    {
+        var oldLibrary = JObject.Parse("""
+        {"SchemaVersion":1,"Blueprints":[
+            {"Id":"old","EntityAssetId":"Cultiway.Fireball","AreaMultiplier":1.8},
+            {"Id":"current","SchemaVersion":5,"AnimationIndex":2},
+            {"Id":"future","SchemaVersion":6,"FutureData":{"Value":23}}
+        ],"SelectedBlueprintIds":["old","current"]}
+        """);
+        string original = oldLibrary.ToString();
+        var importer = new WanfaLegacyImporter();
+        Check(importer.TryImport(oldLibrary, out int version, out JObject legacy) && version == 1 &&
+            legacy["SchemaVersion"] == null, "旧库版本应从原格式识别，外层旧字段停在导入入口");
+        SaveDataVersioning.Validate("wanfa", 6, WanfaMigrations);
+        var upgraded = SaveDataVersioning.Upgrade("wanfa", 6, WanfaMigrations, legacy, version);
+        var blueprints = (JArray)upgraded["Blueprints"];
+        Check(JToken.DeepEquals(blueprints[0], JObject.Parse("""
+            {"Id":"old","EntityAssetId":"Cultiway.Fireball","AreaMultiplier":1.8,"AnimationIndex":0,"SchemaVersion":5}
+            """)), "第一版蓝图应逐版补齐动画和格式，保留原编号与设定");
+        Check(JToken.DeepEquals(blueprints[1], oldLibrary["Blueprints"][1]) &&
+            JToken.DeepEquals(blueprints[2], oldLibrary["Blueprints"][2]),
+            "早期转换应保留当前和过新蓝图，让当前读取器按真实版本处理");
+        Check(JToken.DeepEquals(upgraded["SelectedBlueprintIds"], oldLibrary["SelectedBlueprintIds"]) &&
+            oldLibrary.ToString() == original, "选择关系和原库内容应保留");
     }
 
     /// <summary>检查实际转换结果。</summary>
@@ -61,18 +95,5 @@ internal static class SkillSettingsMigrationTests
     private static void Check(bool condition, string message)
     {
         if (!condition) throw new Exception(message);
-    }
-
-    /// <summary>测试只从第五版读取，更早版本用占位登记满足完整性检查。</summary>
-    private sealed class Identity : ISaveMigration
-    {
-        /// <summary>测试登记的来源版本。</summary>
-        public int FromVersion { get; }
-        /// <summary>登记测试占位版本。</summary>
-        /// <param name="version">来源版本。</param>
-        internal Identity(int version) => FromVersion = version;
-        /// <summary>本测试不经过这些版本。</summary>
-        /// <param name="data">原资料。</param>
-        public JObject Apply(JObject data) => throw new Exception("不应执行测试占位转换");
     }
 }
