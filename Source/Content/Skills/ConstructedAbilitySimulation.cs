@@ -312,7 +312,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (running.Cast.Plan.MirrorNodes.Length > 0) AppendMirrorImages(running, now);
                 AppendSpatialViews(running, now);
                 AppendSoulPact(running, now);
-                AppendWorldCondition(running, now);
+                AppendWorldCondition(running.WorldCondition, now);
             }
             if (!running.BodyControlled) continue;
             BodyPose pose = running.Cast.BodyPose.Value;
@@ -325,6 +325,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
         }
 
+        UpdateRestoredConditions(now);
         AppendSteamVisuals(now);
         AppendConductionVisuals(now);
         AppendWindScars(now);

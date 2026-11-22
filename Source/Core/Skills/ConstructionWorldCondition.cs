@@ -10,13 +10,15 @@ public enum ConstructionWorldConditionKind
     PreventIgnition = 0
 }
 
-/// <summary>由已付款的施放维护，在本次活动结束后解除。</summary>
+/// <summary>由已付款的施放建立的有限世界条件。</summary>
 public sealed class ConstructionWorldCondition
 {
     public ConstructionWorldConditionKind Kind;
     public float Radius = 5f;
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool EntireWorld;
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ContinueAfterLoad;
 }
 
 /// <summary>施放注册、点火与实际显示共用的冻结范围。</summary>
@@ -24,6 +26,7 @@ internal sealed class CompiledWorldCondition
 {
     internal readonly float Radius;
     internal readonly bool EntireWorld;
+    internal readonly bool ContinueAfterLoad;
 
     internal CompiledWorldCondition(ConstructionWorldCondition source)
     {
@@ -32,5 +35,6 @@ internal sealed class CompiledWorldCondition
             throw new InvalidDataException("WorldCondition：需要已登记的条件，区域半径须为0.5至256格");
         Radius = source.Radius;
         EntireWorld = source.EntireWorld;
+        ContinueAfterLoad = source.ContinueAfterLoad;
     }
 }

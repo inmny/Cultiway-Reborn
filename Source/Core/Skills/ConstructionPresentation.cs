@@ -153,9 +153,12 @@ public static class ConstructionPresentation
                 L("Cultiway.Construction.WorldAction." + effect.Action.Id) +
                 (effect.ProcessTime == null ? " " + T("RestoreProcessTime") : ProcessTimeDescription(effect.ProcessTime))).Distinct());
         if (plan.WorldCondition is { } condition)
+        {
             lines.Add(condition.EntireWorld
                 ? F("WorldFireEntire", plan.Lifetime)
                 : F("WorldFireArea", condition.Radius, plan.Lifetime));
+            if (condition.ContinueAfterLoad) lines.Add(T("WorldFireContinueAfterLoad"));
+        }
         string[] distributions = plan.Nodes.Where(node => node.DistributionSource.HasValue)
             .Select(node => L("Cultiway.Construction.DistributionSource." + node.DistributionSource.Value)).Distinct().ToArray();
         if (distributions.Length > 0) lines.Add(F("Distributions", string.Join("、", distributions)));

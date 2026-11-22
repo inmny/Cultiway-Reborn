@@ -16,6 +16,7 @@ public sealed partial class WindowWanfaConstructionEditor
 
         Row("WorldFireRules", T("WorldFireHint"));
         Toggle("WorldFireEntire", condition.EntireWorld, value => condition.EntireWorld = value);
+        Toggle("WorldFireContinueAfterLoad", condition.ContinueAfterLoad, value => condition.ContinueAfterLoad = value);
         if (!condition.EntireWorld) Number("WorldFireRadius", condition.Radius, value => condition.Radius = value);
         ActionRow("WorldFireRemove", "", () => Change(() => session.Draft.WorldCondition = null));
     }
