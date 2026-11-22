@@ -1,4 +1,59 @@
 // 同一修士依次使用原袍、原葫芦，观察正式周期留下的实账。
+string ReserveIdentity(Entity item)
+{
+    var type = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity", true);
+    var read = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+        method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(type);
+    object[] values = { null };
+    return (bool)read.Invoke(item, values) ? (string)Field(values[0], "Id") : null;
+}
+
+if (section == "gourd-load")
+{
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Check(process != (int)expectedReserve["process"], "另一游戏进程正式读回有余量的灵葫");
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report != null && report.BackupError == null && report.Skipped.Count == 0, "正式读回没有丢弃");
+    Actor restored = World.world.units.get((long)expectedReserve["actor"]);
+    var restoredOwner = restored.GetExtend();
+    string savedId = (string)expectedReserve["gourd"];
+    Entity same = restoredOwner.GetEquippedArtifacts().Single(item => ReserveIdentity(item) == savedId);
+    float Reserve() => ArtifactStorageOperations.GetAmount(same.GetComponent<ArtifactStorageState>(), ArtifactStorageOperations.Wakan);
+    float savedAmount = (float)expectedReserve["amount"];
+    Check(restoredOwner.GetItems().Contains(same) && Math.Abs(Reserve() - savedAmount) < .016f &&
+          Math.Abs(restoredOwner.GetCultisys<Xian>().wakan - (float)expectedReserve["balance"]) < .016f,
+        "原持有关系、器内存量及同一修士余额正式读回", new { amount = Reserve(), savedAmount });
+
+    var credited = new List<WakanMutation>();
+    var eventInfo = typeof(WakanResourceService).GetField("mutationCommitted", F);
+    object attached = eventInfo.GetValue(null);
+    void Observe(ActorExtend participant, in WakanMutation mutation)
+    {
+        if (participant == restoredOwner) credited.Add(mutation);
+    }
+    WakanResourceService.RegisterMutationCommitted(Observe);
+    try
+    {
+        await Advance(.64f);
+        Check(Math.Abs(Reserve() - savedAmount) < .016f &&
+              credited.All(value => value.Kind != WakanMutationKind.Spend), "读档后在中间档位未重复收纳或回注");
+        restored.updateStats();
+        WakanResourceService.Set(restoredOwner, ref restoredOwner.GetCultisys<Xian>(), restored.stats[BaseStatses.MaxWakan.id] * .08f);
+        credited.Clear();
+        for (int i = 0; i < 18 && Reserve() > .016f; i++) await Advance(.06f);
+        float backed = credited.Where(value => value.Kind == WakanMutationKind.Gain)
+            .Where(value => Math.Abs(value.Delta - savedAmount) < .016f).Sum(value => value.Delta);
+        Check(Reserve() < .016f && Math.Abs(backed - savedAmount) < .016f,
+            "冷读原件只归还一次保存下来的存量", new { backed, savedAmount, remaining = Reserve() });
+        await Advance(.64f);
+        Check(Reserve() < .016f && credited.Count(value => value.Kind == WakanMutationKind.Gain &&
+              Math.Abs(value.Delta - savedAmount) < .016f) == 1,
+            "原件空仓后继续经过周期也没有第二次回注");
+        return new { passed = true, section, process, actor = restored.id, gourd = savedId, amount = savedAmount, backed, checks };
+    }
+    finally { eventInfo.SetValue(null, attached); }
+}
+
 PrepareArtifactArena(59, 79, 65, 80);
 Actor actor = Make(69.5f);
 var owner = actor.GetExtend();
@@ -41,7 +96,7 @@ try
     foreach (bool healing in new[] { true, false })
     {
         string key = healing ? "healing" : "gourd";
-        if (section != "all" && section != key) continue;
+        if (section != "all" && section != key && (healing || section != "gourd-save")) continue;
         var asset = healing ? ArtifactAbilities.VitalityRenewal : ArtifactAbilities.SpiritGourdReserve;
         var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
         {
@@ -122,6 +177,22 @@ try
             await Advance(.64f);
             Check(CloseAmount(Stored(), recorded) && UsedWakan() == 0f && !Storing() && !Restoring() &&
                   Shows(item, "spirit_gourd_reserve"), "两阈值之间保持原件存量和静态反馈");
+
+            if (section == "gourd-save")
+            {
+                foreach (Actor person in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(person, hold);
+                CombatStatusEffects.RemoveStatus(actor, boost);
+                actor.updateStats();
+                SetBalance(actor.stats[BaseStatses.MaxWakan.id] * .70f);
+                World.world.units.checkContainer();
+                var archive = Path.Combine(folder, "archive");
+                SaveManager.saveWorldToDirectory(archive);
+                string identity = ReserveIdentity(item);
+                Check(identity != null && File.Exists(Path.Combine(archive, "map.wbox")) && CloseAmount(Stored(), recorded),
+                    "把非空原葫芦及原持有人写入正式存档");
+                return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+                    actor = actor.id, gourd = identity, amount = recorded, balance = CurrentWakan(), archive, checks };
+            }
 
             SetBalance(maximum * .08f);
             mutations.Clear();
