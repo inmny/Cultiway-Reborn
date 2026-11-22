@@ -29,6 +29,8 @@ internal static partial class BodyWorldfallRenderer
         InstallAttachments(assembly, rig);
         InstallNaturalPose(assembly);
         BodySurfaceBinding.Provider = CreateSurface;
+        ConstructedAbilityService.CastingSurfaceProvider = actor => actor.asset.is_humanoid ? null :
+            BodyOrganWorldfall.CreateSurface(actor, geometryOnly: true);
     }
 
     /// <summary>不依赖人物曾被镜头采集，直接取得其正式外观。</summary>

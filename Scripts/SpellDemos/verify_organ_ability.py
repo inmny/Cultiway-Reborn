@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""用同一只雷角妖兽复验主动来源、出手扣费和撤去器官。"""
+"""复验器官来源、实际身体出口和出手扣费。"""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -11,13 +12,19 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--section', default='source', choices=('source', 'horn', 'mouth', 'torso', 'poison'))
+    args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
-    output = Path(tempfile.mkdtemp(prefix='organ-ability-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    output = Path(tempfile.mkdtemp(prefix=f'organ-ability-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     script = output / 'input.script'
+    body = Path(__file__).with_suffix('.script') if args.section == 'source' else Path(__file__).with_name('verify_organ_outlets.script')
     script.write_text(IMPORTS + 'using Cultiway.Content.CreatureCompositions.ActiveAbilities;\n'
+                      + 'using Cultiway.Core.Visuals.Forms;\n'
                       + world_helpers(output, PROJECT / FIXTURE)
-                      + Path(__file__).with_suffix('.script').read_text())
+                      + ('' if args.section == 'source' else f'const string section = "{args.section}";\n')
+                      + body.read_text())
     baseline.connect(False, validate_runtime=False)
     try:
         result = baseline.call('run', str(script), '90000')

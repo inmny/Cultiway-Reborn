@@ -2,9 +2,11 @@ using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Models;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Content.CreatureCompositions.Visuals;
-using Cultiway.Content.YaoBeasts;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
+using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Visuals.Forms;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -26,23 +28,49 @@ internal static class CreatureOrganCastingPosition
         if (!compiled.TryGetSkillSource(skillId, out var selected) ||
             !CreatureOrganSkillRegistry.TryGetContainer(skillId, out Entity source) || source != container)
             return null;
-        Actor actor = caster.Base;
         string layerId = selected.Organ.Rank.CastingLayerId;
         if (!string.IsNullOrEmpty(layerId))
-            return CreatureAppearanceService.TryGetAnchor(compiled, actor, layerId, "cast", out Vector3 point)
+            return CreatureAppearanceService.TryGetAnchor(compiled, caster.Base, layerId, "cast", out Vector3 point)
                 ? point : null;
-        AnimationFrameData frame = actor.getAnimationFrameData();
-        float scale = Mathf.Max(.03f, actor.actor_scale);
-        float width = Mathf.Max(4f, frame?.size_unit.x ?? 6f) * scale;
-        float height = Mathf.Max(4f, frame?.size_unit.y ?? 6f) * scale;
-        float facing = actor.is_looking_left ? -1f : 1f;
-        string slot = selected.Organ.Entry.SlotId;
-        // 尚未声明制作出口的器官继续原来的部位近似，不冒称已经完成实际挂点接入。
-        float forward = slot == YaoContent.Slots.Tail ? -.42f :
-            slot == YaoContent.Slots.Head || slot == YaoContent.Slots.Breath ? .40f : .05f;
-        float elevation = slot == YaoContent.Slots.Tail ? .3f :
-            slot == YaoContent.Slots.Limbs ? .25f : .55f;
-        return new Vector3(actor.current_position.x + facing * width * forward,
-            actor.current_position.y, actor.position_height + height * elevation);
+        if (!TryResolveWorld(caster.Base, compiled, selected.Organ, out Vector3 world)) return null;
+        world.z -= ConstructedAbilityService.BodyTerrain?.Sample(world.x, world.y) ?? 0f;
+        return world;
+    }
+
+    /// <summary>使用真正可见的制作点，或当前共用身体表面。坐标已包含地表和实际承托。</summary>
+    internal static bool TryResolveWorld(Actor actor, CompiledCreaturePhenotype body, in CompiledCreatureOrgan source,
+        out Vector3 point)
+    {
+        string layerId = source.Rank.CastingLayerId;
+        if (string.IsNullOrEmpty(layerId))
+            return BodyCastOutlets.TryGet(actor, source.Rank.BodyOutlet, out point, out _);
+        if (BodyOrganBinding.ModelProvider == null)
+        {
+            if (!CreatureAppearanceService.TryGetAnchor(body, actor, layerId, "cast", out point)) return false;
+            point.z += ConstructedAbilityService.BodyFoot(actor).z - actor.position_height;
+            return true;
+        }
+
+        point = default;
+        BodySurfacePose pose = ConstructedAbilityService.BodyCastingSurface(actor);
+        if (pose == null) return false;
+        string organId = "organ:" + source.Organ.id;
+        for (int i = 0; i < pose.Parts.Length; i++)
+        {
+            BodySurfacePart part = pose.Parts[i];
+            if (part.Id != organId || part.Triangles.Length == 0) continue;
+            var layer = Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layerId);
+            BodyOrganModel model = BodyOrganBinding.ModelProvider(actor, layer);
+            if (model == null) return false;
+            foreach (FormAnchorBinding anchor in model.Resource.Anchors)
+            {
+                if (anchor.Id != "cast") continue;
+                Matrix4x4 matrix = pose.Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
+                point = matrix.MultiplyPoint3x4(anchor.Frame().GetColumn(3));
+                return true;
+            }
+            return false;
+        }
+        return false;
     }
 }

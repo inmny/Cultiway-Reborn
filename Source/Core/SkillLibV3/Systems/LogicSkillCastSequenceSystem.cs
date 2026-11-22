@@ -81,6 +81,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     SpatialSource = sequence.Sourceless ? null : (sequence.Carrier ?? sequence.Caster).Base,
                     SourcePos = source,
                     HasSourcePosition = step.HasSourcePosition || resolved,
+                    SourceIsWorld = step.SourceIsWorld,
                     Target = step.Target,
                     TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,

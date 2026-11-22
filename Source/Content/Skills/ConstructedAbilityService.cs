@@ -921,6 +921,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BodyControlState.Clear();
         bodySurfaces.Clear();
         selectionSurfaces.Clear();
+        castingSurfaces.Clear();
         selectionSurfaceFrame = -1;
         presentedSurfaces = new();
         ConstructedActorImpulse.Clear();

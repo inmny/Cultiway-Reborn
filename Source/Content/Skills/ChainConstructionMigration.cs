@@ -43,6 +43,7 @@ internal static class ChainConstructionMigration
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
+            sourceIsWorld: emission.SourceIsWorld,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
             buildingContact: LegacyBuildingContact.From(in emission))
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;

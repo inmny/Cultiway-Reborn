@@ -25,6 +25,9 @@ public struct SkillEmission
     /// <summary>是否已有步骤固定坐标或实际释放时解析出的身体出口。</summary>
     public bool HasSourcePosition;
 
+    /// <summary>实际出口已包含世界高度，由接管世界坐标的执行入口使用。</summary>
+    internal bool SourceIsWorld;
+
     /// <summary>实际跟踪对象及本步骤确定的目标位置。</summary>
     public BaseSimObject Target;
 

@@ -197,13 +197,21 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
     }
 
     /// <summary>确认能力仍由当前肉身的同一部位和等级授予，共用技能容器本身不能证明来源。</summary>
-    private bool IsAvailable(ActorExtend caster, ActiveAbilityHandle handle)
+    private bool IsAvailable(ActorExtend caster, ActiveAbilityHandle handle) =>
+        TryResolveSource(caster, handle, out _, out _);
+
+    private bool TryResolveSource(ActorExtend caster, ActiveAbilityHandle handle, out CompiledCreaturePhenotype body,
+        out CompiledCreatureOrgan organ)
     {
-        return handle.ProviderId == Id && !handle.Source.IsNull &&
-               handle.Source.TryGetComponent(out SkillContainer skill) && HasOwnBody(caster) &&
-               TryGetBody(caster, out var body) && body.TryGetSkillSource(skill.SkillEntityAssetID, out var source) &&
-               CreatureOrganSkillRegistry.TryGetContainer(skill.SkillEntityAssetID, out var registered) &&
-               registered == handle.Source && source.EntryId == handle.EntryId;
+        body = null;
+        organ = default;
+        if (handle.ProviderId != Id || handle.Source.IsNull ||
+            !handle.Source.TryGetComponent(out SkillContainer skill) || !HasOwnBody(caster) ||
+            !TryGetBody(caster, out body) || !body.TryGetSkillSource(skill.SkillEntityAssetID, out var source) ||
+            !CreatureOrganSkillRegistry.TryGetContainer(skill.SkillEntityAssetID, out var registered) ||
+            registered != handle.Source || source.EntryId != handle.EntryId) return false;
+        organ = source.Organ;
+        return true;
     }
 
     /// <summary>在实际发射和收费前确认原部位仍可出手。</summary>
@@ -216,9 +224,10 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
 
         public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step)
         {
-            return GeneralSettings.EnableSkillSystems && provider.IsAvailable(context.Caster, handle) &&
-                   SkillCastPlanner.CanCast(context.Caster, handle.Source)
-                ? SkillCastStepDecision.Emit(step)
+            return GeneralSettings.EnableSkillSystems && SkillCastPlanner.CanCast(context.Caster, handle.Source) &&
+                   provider.TryResolveSource(context.Caster, handle, out var body, out var organ) &&
+                   CreatureOrganCastingPosition.TryResolveWorld(context.Caster.Base, body, in organ, out var point)
+                ? SkillCastStepDecision.Emit(step.WithWorldSource(point))
                 : SkillCastStepDecision.Cancel();
         }
     }

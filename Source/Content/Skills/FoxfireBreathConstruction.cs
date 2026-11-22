@@ -1,8 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Libraries;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Core;
 using Cultiway.Core.EventSystem.Events;
@@ -65,38 +65,7 @@ internal static class FoxfireBreathConstruction
             !phenotype.IsValid || !CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex,
                 phenotype.Signature, out var current) ||
             !current.OrderedOrgans.Any(organ => organ.Organ.id == "yao.gland.foxfire")) return false;
-        BodySurfacePose pose = ConstructedAbilityService.BodySelectionSurface(actor);
-        if (pose == null) return false;
-        forward = new Vector3(Mathf.Cos(pose.Heading), Mathf.Sin(pose.Heading), 0f);
-        Vector3 side = Vector3.Cross(forward, Vector3.forward);
-        var vertices = new List<Vector3>();
-        float low = float.PositiveInfinity, high = float.NegativeInfinity;
-        for (int i = 0; i < pose.Parts.Length; i++)
-        {
-            var part = pose.Parts[i];
-            if (part.Id is not ("head" or "part:head" or "part:jaw") || part.Attachment != null) continue;
-            Matrix4x4 matrix = pose.Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
-            Vector3[] points = pose.Vertices(i);
-            foreach (int index in part.Triangles)
-            {
-                Vector3 actual = matrix.MultiplyPoint3x4(points[index]);
-                low = Mathf.Min(low, actual.z);
-                high = Mathf.Max(high, actual.z);
-                vertices.Add(actual);
-            }
-        }
-        if (!(high > low)) return false;
-        float jaw = Mathf.Lerp(low, high, .32f), best = float.NegativeInfinity;
-        foreach (Vector3 actual in vertices)
-        {
-            Vector3 offset = actual - pose.Foot;
-            float score = Vector3.Dot(offset, forward) - Mathf.Abs(actual.z - jaw) * 1.15f -
-                          Mathf.Abs(Vector3.Dot(offset, side)) * .30f;
-            if (score <= best) continue;
-            best = score;
-            point = actual;
-        }
-        return true;
+        return BodyCastOutlets.TryGet(actor, CreatureOrganBodyOutlet.Mouth, out point, out forward);
     }
 
     /// <summary>喷口与真实朝向保持一致，不能向已经在脑后的目标发火。</summary>

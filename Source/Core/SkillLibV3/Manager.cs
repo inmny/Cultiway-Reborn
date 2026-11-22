@@ -461,6 +461,7 @@ public class Manager
         if (request.RuntimeData.WorldScope != null && !request.RuntimeData.WorldScope.IsValid()) return false;
         SkillEmissionResult result = ConstructionEmission?.Invoke(request) ?? SkillEmissionResult.Unhandled;
         if (result != SkillEmissionResult.Unhandled) return result == SkillEmissionResult.Accepted;
+        if (request.SourceIsWorld) return false;
         Entity execution = request.Sourceless
             ? SpawnSourcelessSkill(request.SkillContainer, request.SourcePos, request.Target, request.TargetPos,
                 request.Strength,

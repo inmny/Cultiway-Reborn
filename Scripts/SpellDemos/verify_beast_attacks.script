@@ -14,7 +14,7 @@ source.setStatsDirty(); source.updateStats(); source.finishScale(); source.check
 owner.GetCultisys<Yao>().yao_power = 50f;
 var activeHandles = new List<ActiveAbilityHandle>();
 ActiveAbilityService.Collect(owner, activeHandles);
-const string breathEntry = "/yao.gland.foxfire/Cultiway.FoxfireBreath";
+const string breathEntry = "/yao.gland.foxfire/2/Cultiway.FoxfireBreath";
 Check(activeHandles.Any(handle => handle.EntryId.EndsWith(breathEntry, StringComparison.Ordinal)),
       "实际狐火腺公开吐息句柄", new { entries = activeHandles.Select(handle => handle.EntryId).ToArray() });
 var breathHandle = activeHandles.Single(handle => handle.EntryId.EndsWith(breathEntry, StringComparison.Ordinal));

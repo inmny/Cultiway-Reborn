@@ -19,6 +19,8 @@ public sealed partial class ConstructedAbilityService
     public static void NotifyActorChanged(Actor actor)
     {
         if (simulation == null || actor?.data == null) return;
+        selectionSurfaces.Remove(actor.data.id);
+        castingSurfaces.Remove(actor.data.id);
         if (!simulation.actorsSampled)
         {
             if (simulation.history.ContainsKey(actor.data.id))

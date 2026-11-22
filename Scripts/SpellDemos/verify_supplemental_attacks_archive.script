@@ -77,7 +77,7 @@ foreach (var entry in archives)
         Check(owner.E.TryGetComponent(out YaoBody data) && data.TryGetForm(YaoFormIds.TrueForm, out var plan) &&
               plan.Organs.Any(organ => organ.OrganId == "yao.gland.foxfire" && organ.Rank == 2) &&
               plan.Organs.Any(organ => organ.OrganId == "yao.horn.thunder" && organ.Rank == 2) &&
-              active.Any(handle => handle.EntryId.EndsWith("/yao.gland.foxfire/Cultiway.FoxfireBreath", StringComparison.Ordinal)),
+              active.Any(handle => handle.EntryId.EndsWith("/yao.gland.foxfire/2/Cultiway.FoxfireBreath", StringComparison.Ordinal)),
             "原狐火腺和雷角的等级与正式吐息来源保留");
     }
     if (kind == "seal")

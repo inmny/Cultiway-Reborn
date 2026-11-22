@@ -61,14 +61,14 @@ internal static partial class BodyOrganWorldfall
 
     /// <summary>动物沿真实骨架采集，龙使用实际独立龙骨架。</summary>
     /// <param name="actor">真实目标。</param>
-    internal static BodySurfaceBinding CreateSurface(Actor actor)
+    internal static BodySurfaceBinding CreateSurface(Actor actor, bool geometryOnly = false)
     {
         if ((bool)dragonIs.Invoke(null, new object[] { actor }) && (bool)dragonReady.GetValue(null))
             return new DragonSurface(actor);
         string family = (string)familyOf.Invoke(null, new object[] { actor });
         if (family == null || !family.StartsWith("animal_", StringComparison.Ordinal)) return null;
-        object image = BodyWorldfallRenderer.SurfaceImage(actor);
-        if (image == null) return null;
+        object image = geometryOnly ? null : BodyWorldfallRenderer.SurfaceImage(actor);
+        if (!geometryOnly && image == null) return null;
         object model = detailed.Invoke(null, new object[] { family, 0f, null });
         if (model == null) return null;
         model = PatternFor(actor, model)?.Model ?? model;
@@ -198,13 +198,16 @@ internal static partial class BodyOrganWorldfall
             mesh = Activator.CreateInstance(meshType);
             meshModel.SetValue(mesh, model);
             creatureEnsurePose.Invoke(mesh, null);
-            if (patternStatePalette.GetValue(state) == null)
+            if (image != null)
             {
-                object basis = patternOrigins.TryGetValue(model, out PatternBody patterned) ? patterned.Base : model;
-                patternStatePalette.SetValue(state, WorldfallSurfaceColors.CreaturePalette(basis, image));
+                if (patternStatePalette.GetValue(state) == null)
+                {
+                    object basis = patternOrigins.TryGetValue(model, out PatternBody patterned) ? patterned.Base : model;
+                    patternStatePalette.SetValue(state, WorldfallSurfaceColors.CreaturePalette(basis, image));
+                }
+                FinishPatternPalette(state, mesh, patternStatePalette);
+                patternMeshPalette.SetValue(mesh, patternStatePalette.GetValue(state));
             }
-            FinishPatternPalette(state, mesh, patternStatePalette);
-            patternMeshPalette.SetValue(mesh, patternStatePalette.GetValue(state));
             native = (Array)modelParts.GetValue(model);
             var parts = new List<BodySurfacePart>();
             foreach (var visible in BodyOrganBinding.VisibleOrgans(actor))
@@ -231,6 +234,12 @@ internal static partial class BodyOrganWorldfall
                 for (int p = 0; p < vertices.Length; p++)
                     vertices[p] = new Vector3(raw[p * 3], raw[p * 3 + 1], raw[p * 3 + 2]);
                 string name = (string)partName.GetValue(part), group = null;
+                string outlet = family != "animal_snake" ? null : name switch
+                {
+                    "body" => "casting.muzzle",
+                    "seg_1" or "seg_2" or "seg_3" => "casting.torso",
+                    _ => null
+                };
                 for (int parent = i; parent >= 0; parent = (int)partParent.GetValue(native.GetValue(parent)))
                 {
                     string ancestor = (string)partName.GetValue(native.GetValue(parent));
@@ -249,13 +258,17 @@ internal static partial class BodyOrganWorldfall
                         string[] selections = BodyOrganBinding.VisibleOrgans(actor)
                             .Where(visible => region.Layers.Contains(visible.Layer.id))
                             .Select(visible => "organ:" + visible.Id).Distinct().ToArray();
+                        if (outlet != null) selections = selections.Append(outlet).ToArray();
                         parts.Add(new BodySurfacePart("part:" + name, vertices, region.Triangles,
-                            transformIndex: i, group: group, faceColors: WorldfallSurfaceColors.Read(mesh, part, region.Triangles)).WithSelections(selections));
+                            transformIndex: i, group: group, faceColors: image == null ? null :
+                            WorldfallSurfaceColors.Read(mesh, part, region.Triangles)).WithSelections(selections));
                     }
                 }
                 else parts.Add(new BodySurfacePart("part:" + name, vertices,
                         organs.Any(o => o.Replaces.Contains(name)) ? Array.Empty<int>() : (int[])partTriangles.GetValue(part),
-                        transformIndex: i, group: group, faceColors: WorldfallSurfaceColors.Read(mesh, part)));
+                        transformIndex: i, group: group, faceColors: image == null ? null :
+                        WorldfallSurfaceColors.Read(mesh, part)).WithSelections(
+                        outlet == null ? Array.Empty<string>() : new[] { outlet }));
             }
 
             foreach (OrganSurface organ in organs.Where(organ => !organ.Borrowed))
@@ -265,7 +278,7 @@ internal static partial class BodyOrganWorldfall
                     string control = organ.Model.Resource.Description.Parts[part].Control;
                     parts.Add(new BodySurfacePart(string.IsNullOrEmpty(control) ? organ.Id : organ.Id + "/" + control, resource.vertices, resource.triangles,
                         transformIndex: organ.Transform, group: models[organ.Layer].Mount == "tail" ? "tail" : null,
-                        vertexColors: WorldfallSurfaceColors.Read(organ.Model.Resource, part)).WithSelections(
+                        vertexColors: image == null ? null : WorldfallSurfaceColors.Read(organ.Model.Resource, part)).WithSelections(
                         organ.Model.Parent == "head" ? new[] { organ.Id, "head" } : new[] { organ.Id }));
                 }
 

@@ -1,0 +1,191 @@
+// 核对正式出手使用当前实际表面的世界坐标。
+const string provider = "content.creature_phenotype";
+const string hornId = "yao.horn.thunder";
+const string layerId = "yao.layer.horn_thunder";
+Actor source = Make(64.5f, section == "poison" ? "snake" : "wolf"), enemy = Make(67f);
+ActorExtend owner = source.GetExtend();
+Check(YaoAwakeningService.TryAwakenByRain(owner), "沿用实际启灵兽形");
+CreatureOrganSkillRegistry.EnsureBuilt();
+var bodyBinding = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+bool worldfall = bodyBinding.GetField("Provider", F).GetValue(null) != null;
+var surfaceReader = service.GetMethod("BodyCastingSurface", F);
+var starts = new List<(ConstructedCastStarted Fact, Vector3 Point, float Error)>();
+var spendings = new List<float>();
+var targets = new List<long>();
+long correlation = 100920;
+
+YaoOrganRecord Organ(string slot, string id, int rank) =>
+    new YaoOrganRecord { SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited };
+
+void Outfit(YaoOrganRecord head, params YaoOrganRecord[] other)
+{
+    var plan = new[] { Organ(YaoContent.Slots.Surface, "yao.scale.basic", 1), head }.Concat(other).ToArray();
+    Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, plan), "正式换入 " + plan.Last().OrganId);
+    source.setStatsDirty();
+    source.updateStats();
+    source.finishScale();
+    source.checkAnimationContainer();
+    owner.GetCultisys<Yao>().yao_power = 1000f;
+    source.attack_timer = enemy.attack_timer = 999f;
+    source.addAggro(enemy);
+    enemy.addAggro(source);
+}
+
+ActiveAbilityHandle Handle(string spell)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    return handles.Single(value => value.ProviderId == provider && value.EntryId.EndsWith("/Cultiway." + spell, StringComparison.Ordinal));
+}
+
+bool Use(ActiveAbilityHandle handle)
+{
+    source.attack_timer = 0;
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos(),
+        runtimeData: new SkillCastRuntimeData { CorrelationId = correlation }), ActiveAbilityUseOrigin.Script);
+    source.attack_timer = 999;
+    return accepted;
+}
+
+float CheckSurface(Vector3 point)
+{
+    if (section == "horn" && !worldfall)
+    {
+        var current = owner.E.GetComponent<CreaturePhenotype>();
+        if (!CreaturePhenotypeCompiler.TryGetCompiled(current.CompiledIndex, current.Signature, out var body) ||
+            !CreatureAppearanceService.TryGetAnchor(body, source, layerId, "cast", out Vector3 expected)) return float.MaxValue;
+        return Vector3.Distance(point, expected);
+    }
+
+    object surface = surfaceReader.Invoke(null, new object[] { source });
+    if (surface == null) return float.MaxValue;
+    Array parts = (Array)Field(surface, "Parts");
+    var matrices = (Matrix4x4[])Field(surface, "Matrices");
+    float error = float.MaxValue;
+    for (int i = 0; i < parts.Length; i++)
+    {
+        object part = parts.GetValue(i);
+        string id = (string)Field(part, "Id");
+        var triangles = (int[])Field(part, "Triangles");
+        if (triangles.Length == 0 || Field(part, "Attachment") != null) continue;
+        int transform = (int)Field(part, "TransformIndex");
+        Matrix4x4 matrix = matrices[transform < 0 ? i : transform];
+        if (section == "horn" && id == "organ:" + hornId)
+        {
+            var anchor = FormResources.Load("horn_thunder").Anchors.Single(value => value.Id == "cast");
+            return Vector3.Distance(point, matrix.MultiplyPoint3x4(anchor.Frame().GetColumn(3)));
+        }
+
+        bool correct = section == "torso" ? id is "torso" or "part:body" or "part:chest" :
+            section != "horn" && (id is "head" or "part:head" or "part:jaw" || section == "poison" && worldfall && id == "part:body");
+        if (!correct) continue;
+        var vertices = (Vector3[])surface.GetType().GetMethod("Vertices", F).Invoke(surface, new object[] { i });
+        foreach (int vertex in triangles)
+            error = Mathf.Min(error, Vector3.Distance(point, matrix.MultiplyPoint3x4(vertices[vertex])));
+    }
+    return error;
+}
+
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.CorrelationId != correlation) return;
+    var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    Vector3 point = (Vector3)Field(running, "LastSourceFoot");
+    starts.Add((fact, point, CheckSurface(point)));
+}
+void Contact(ConstructedContact fact)
+{
+    if (starts.Any(value => value.Fact.CastId == fact.CastId)) targets.Add(fact.TargetId);
+}
+void Spent(ActorExtend actor, YaoPowerMutation change)
+{
+    if (actor == owner && change.Kind == YaoPowerMutationKind.Spend) spendings.Add(-change.Delta);
+}
+
+async Task FireFromBody(string spell, bool move = false)
+{
+    correlation++;
+    starts.Clear();
+    spendings.Clear();
+    targets.Clear();
+    Place(source, 64.5f);
+    source.flip = false;
+    Place(enemy, 67f);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    await Game.NextFrame();
+    var entry = Handle(spell);
+    float cost = SkillCastCost.CalculateStepDemand(entry.Source);
+    Check(Use(entry) && spendings.Count == 0, spell + " 正式受理后等待实际发射");
+    if (move)
+    {
+        Place(source, 65.5f);
+        ConstructedAbilityService.NotifyActorChanged(source);
+    }
+    await Advance(1.25f);
+    Check(starts.Count == 1 && starts[0].Error < .001f && spendings.Count == 1 && Mathf.Abs(spendings[0] - cost) < .002f &&
+          targets.Contains(enemy.id) && (!move || starts[0].Point.x > 65f),
+        spell + " 从当前真实出口出手、支付并接触目标",
+        new { worldfall, entry = entry.EntryId, expectedCost = cost, spendings, targets,
+            starts = starts.Select(value => new { point = value.Point.ToString(), value.Error }).ToArray() });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+YaoResourceService.MutationCommitted += Spent;
+try
+{
+    var sense = Organ(YaoContent.Slots.Head, "yao.spirit.sense", 1);
+    switch (section)
+    {
+        case "horn":
+            Outfit(Organ(YaoContent.Slots.Head, hornId, 2));
+            if (worldfall)
+            {
+                var tile = World.world.GetTileSimple(62, 72);
+                tile.setTileTypes(TileLibrary.shallow_waters, null, true);
+                Place(source, 64.5f);
+                source.flip = false;
+                Check(Use(Handle("ChainLightning")), "干地排入雷链");
+                Place(source, 62.5f);
+                await Game.NextFrame();
+                Check(source.isAffectedByLiquid(), "等待阶段真实进入水中");
+                await Advance(.20f);
+                Check(starts.Count == 0 && spendings.Count == 0, "三维角不显示时未发射也未收费");
+            }
+            await FireFromBody("ChainLightning", move: true);
+            break;
+        case "mouth":
+            Outfit(sense, Organ(YaoContent.Slots.Metabolism, "yao.lung.cloud", 2));
+            await FireFromBody("WaterBlade");
+            Outfit(sense, Organ(YaoContent.Slots.Metabolism, "yao.lung.darkwater", 2));
+            await FireFromBody("WaterOrb");
+            Outfit(sense, Organ(YaoContent.Slots.Breath, "yao.vent.truefire", 2));
+            await FireFromBody("FireBlade");
+            Outfit(sense, Organ(YaoContent.Slots.Breath, "yao.gland.foxfire", 2));
+            await FireFromBody("FoxfireBreath");
+            break;
+        case "torso":
+            Outfit(sense, Organ(YaoContent.Slots.Spirit, "yao.spirit.windwater", 2));
+            await FireFromBody("WindBlade", move: true);
+            break;
+        case "poison":
+            var fang = Organ(YaoContent.Slots.Head, "yao.venom.fang", 1);
+            Outfit(fang, Organ(YaoContent.Slots.Breath, "yao.venom.gland.enhanced", 2));
+            Check(Handle("PoisonNeedle").EntryId.Contains("/yao.venom.gland.enhanced/2/"), "同一毒针由高阶毒腺授予");
+            await FireFromBody("PoisonNeedle");
+            Outfit(fang);
+            Check(Handle("PoisonNeedle").EntryId.Contains("/yao.venom.fang/1/"), "移除毒腺后重新取得毒牙的入口");
+            await FireFromBody("PoisonNeedle");
+            break;
+    }
+    return new { passed = true, worldfall, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    YaoResourceService.MutationCommitted -= Spent;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}

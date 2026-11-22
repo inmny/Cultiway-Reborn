@@ -17,6 +17,11 @@ public sealed partial class ConstructedAbilityService
     private static readonly Dictionary<long, (BodySurfaceBinding Binding, BodySurfacePose Pose)> selectionSurfaces =
         new();
 
+    /// <summary>配色图尚未就绪时，同帧的施放查询可复用仅含实际网格的身体。</summary>
+    private static readonly Dictionary<long, BodySurfacePose> castingSurfaces = new();
+
+    internal static Func<Actor, BodySurfaceBinding> CastingSurfaceProvider;
+
     /// <summary>选择查询缓存的实际帧，世界切换也会清空。</summary>
     private static int selectionSurfaceFrame = -1;
 
@@ -34,6 +39,7 @@ public sealed partial class ConstructedAbilityService
         if (selectionSurfaceFrame != Time.frameCount || selectionSurfaceTime != LogicTime)
         {
             selectionSurfaces.Clear();
+            castingSurfaces.Clear();
             selectionSurfaceFrame = Time.frameCount;
             selectionSurfaceTime = LogicTime;
         }
@@ -57,6 +63,22 @@ public sealed partial class ConstructedAbilityService
         BodySurfaceBinding binding = bodySurfaces.TryGetValue(actor.id, out var active) ? active :
             selectionSurfaces.TryGetValue(actor.id, out var selected) ? selected.Binding : null;
         return (binding, binding?.Structure(binding.To));
+    }
+
+    /// <summary>第一发也要在实际地表已知后采集身体，吻端和角尖直接返回世界高度。</summary>
+    internal static BodySurfacePose BodyCastingSurface(Actor actor)
+    {
+        if (GroundProvider != null && simulation.terrain == null)
+            simulation.CaptureTerrain(new Rect(actor.current_position, Vector2.zero));
+        BodySurfacePose pose = BodySelectionSurface(actor);
+        if (pose != null || CastingSurfaceProvider == null) return pose;
+        if (castingSurfaces.TryGetValue(actor.id, out pose)) return pose;
+        BodySurfaceBinding binding = CastingSurfaceProvider(actor);
+        if (binding == null) return null;
+        StartingPose(actor, out Vector3 foot, out float height);
+        binding.Capture(foot, height, LogicTime);
+        castingSurfaces[actor.id] = binding.To;
+        return binding.To;
     }
 
     /// <summary>主线程冻结关节输入时读取本轮共同地表，工作线程只接收数值快照。</summary>

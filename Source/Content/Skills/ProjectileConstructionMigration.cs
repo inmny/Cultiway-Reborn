@@ -74,15 +74,19 @@ internal static partial class ProjectileConstructionMigration
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
             return SkillEmissionResult.Unhandled;
+        Vector3 targetPosition = emission.TargetPos;
+        if (emission.SourceIsWorld && emission.Target is Actor actor)
+            emission.TargetPos = ConstructedAbilityService.BodyFoot(actor);
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage, out Vector3 forward);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
-            emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
+            targetPosition, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         LegacyAreaImpact area = definition.Root.Children?.Any(node => node.Id == "burst") == true
             ? LegacyAreaImpact.From(in emission, "root/burst") : null;
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource, legacyArea: area,
+            emission.SourcePos, emission.Payment, damage, forward, spatialSource: emission.SpatialSource,
+            sourceIsWorld: emission.SourceIsWorld, legacyArea: area,
             groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom),
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
             buildingContact: LegacyBuildingContact.From(in emission))

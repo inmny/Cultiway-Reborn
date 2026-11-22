@@ -122,7 +122,8 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(1, 2, stats: [Stat("armor", 2f)], visuals: ["yao.layer.pattern_scale"]);
         AddOrgan("yao.venom.fang", CreatureOrganCategoryMask.NaturalWeapon, Slots.Head, morphTags: "serpentine")
             .WithSemantics(SkillSemantics.Element.Poison, 1f)
-            .WithRank(1, 3, stats: [Stat("damage", 2f)], skills: ["Cultiway.PoisonNeedle"], effects: [("yao.venom", 1)]);
+            .WithRank(1, 3, stats: [Stat("damage", 2f)], skills: ["Cultiway.PoisonNeedle"], effects: [("yao.venom", 1)],
+                bodyOutlet: CreatureOrganBodyOutlet.Mouth);
         AddOrgan("yao.spirit.sense", CreatureOrganCategoryMask.Perception, Slots.Head)
             .WithSemantics(SkillSemantics.Element.Wind, 1f)
             .WithRank(1, 2, stats: [Stat("accuracy", 5f)]);
@@ -136,7 +137,8 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(1, 3, stats: [Stat("speed", -1f)]);
         AddOrgan("yao.venom.gland.enhanced", CreatureOrganCategoryMask.Breath, Slots.Breath, prerequisite: "yao.venom.fang")
             .WithSemantics(SkillSemantics.Element.Poison, 1f)
-            .WithRank(2, 5, stats: [Stat("damage", 4f)], skills: ["Cultiway.PoisonNeedle"], effects: [("yao.venom", 2)]);
+            .WithRank(2, 5, stats: [Stat("damage", 4f)], skills: ["Cultiway.PoisonNeedle"], effects: [("yao.venom", 2)],
+                bodyOutlet: CreatureOrganBodyOutlet.Mouth);
         AddOrgan("yao.scale.fine", CreatureOrganCategoryMask.Surface, Slots.Surface, prerequisite: "yao.scale.basic")
             .WithSemantics(SkillSemantics.Element.Earth, 1f)
             .WithRank(2, 5, stats: [Stat("armor", 6f), Stat("speed", -2f)], visuals: ["yao.layer.pattern_scale_cold"]);
@@ -151,7 +153,7 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(3, 9, stats: [Stat("armor", 14f), Stat("speed", -2f)], visuals: ["yao.layer.pattern_scale_cold"]);
         AddOrgan("yao.lung.cloud", CreatureOrganCategoryMask.Metabolism, Slots.Metabolism)
             .WithSemantics(SkillSemantics.Element.Water, 1f)
-            .WithRank(2, 5, stats: [Stat("speed", 3f)], skills: ["Cultiway.WaterBlade"]);
+            .WithRank(2, 5, stats: [Stat("speed", 3f)], skills: ["Cultiway.WaterBlade"], bodyOutlet: CreatureOrganBodyOutlet.Mouth);
         AddOrgan("yao.horn.thunder", CreatureOrganCategoryMask.Perception, Slots.Head)
             .WithSemantics(SkillSemantics.Element.Lightning, 1f)
             .WithRank(2, 5, stats: [Stat("damage", 5f)], skills: ["Cultiway.ChainLightning"],
@@ -175,12 +177,12 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(2, 4, stats: [Stat("accuracy", 8f), Stat("diplomacy", 3f)], visuals: ["yao.layer.eye_glow"]);
         AddOrgan("yao.gland.foxfire", CreatureOrganCategoryMask.Breath, Slots.Breath)
             .WithSemantics(SkillSemantics.Element.Fire, 1f)
-            .WithRank(2, 5, stats: [Stat("damage", 4f)], skills: ["Cultiway.FoxfireBreath"]);
+            .WithRank(2, 5, stats: [Stat("damage", 4f)], skills: ["Cultiway.FoxfireBreath"], bodyOutlet: CreatureOrganBodyOutlet.Mouth);
 
         // ===== 金乌与凤凰 =====
         AddOrgan("yao.vent.truefire", CreatureOrganCategoryMask.Breath, Slots.Breath)
             .WithSemantics(SkillSemantics.Element.Fire, 1f)
-            .WithRank(2, 5, stats: [Stat("damage", 5f)], skills: ["Cultiway.FireBlade"]);
+            .WithRank(2, 5, stats: [Stat("damage", 5f)], skills: ["Cultiway.FireBlade"], bodyOutlet: CreatureOrganBodyOutlet.Mouth);
         AddOrgan("yao.feather.fire", CreatureOrganCategoryMask.Surface, Slots.Surface)
             .WithSemantics(SkillSemantics.Element.Fire, 1f)
             .WithRank(2, 5, stats: [Stat("armor", 5f), Stat("speed", 3f)], visuals: ["yao.layer.pattern_fire"]);
@@ -194,7 +196,7 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(2, 7, stats: [Stat("armor", 16f), Stat("speed", -4f)], effects: [("yao.turtle_stance", 2)], visuals: ["yao.layer.shell"]);
         AddOrgan("yao.lung.darkwater", CreatureOrganCategoryMask.Metabolism, Slots.Metabolism)
             .WithSemantics(SkillSemantics.Element.Water, 1f)
-            .WithRank(2, 4, stats: [Stat("speed", 1f)], skills: ["Cultiway.WaterOrb"]);
+            .WithRank(2, 4, stats: [Stat("speed", 1f)], skills: ["Cultiway.WaterOrb"], bodyOutlet: CreatureOrganBodyOutlet.Mouth);
         AddOrgan("yao.tail.snake", CreatureOrganCategoryMask.Appendage, Slots.Tail)
             .WithSemantics(SkillSemantics.Element.Earth, 1f)
             .WithRank(2, 4, stats: [Stat("damage", 3f)]);
@@ -222,7 +224,7 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(2, 6, stats: [Stat("speed", 6f)], visuals: ["yao.layer.wing_fupeng"]);
         AddOrgan("yao.spirit.windwater", CreatureOrganCategoryMask.Spirit, Slots.Spirit)
             .WithSemantics(SkillSemantics.Element.Wind, 1f)
-            .WithRank(2, 4, stats: [Stat("speed", 2f)], skills: ["Cultiway.WindBlade"]);
+            .WithRank(2, 4, stats: [Stat("speed", 2f)], skills: ["Cultiway.WindBlade"], bodyOutlet: CreatureOrganBodyOutlet.Torso);
 
         // ===== 白泽 =====
         AddOrgan("yao.eye.insight", CreatureOrganCategoryMask.Perception, Slots.Head)
@@ -537,7 +539,7 @@ public sealed class YaoContent : ICanInit, ICanReload
         internal OrganBuilder WithRank(
             int rank, int complexity, CreatureStatValue[] stats = null,
             string[] skills = null, (string familyId, int rank)[] effects = null, string[] visuals = null,
-            string castingLayerId = null)
+            string castingLayerId = null, CreatureOrganBodyOutlet bodyOutlet = CreatureOrganBodyOutlet.None)
         {
             string rankId = $"{organ.id}.rank{rank}";
             Content.Libraries.Manager.CreatureOrganRankLibrary.add(new CreatureOrganRankAsset
@@ -550,6 +552,7 @@ public sealed class YaoContent : ICanInit, ICanReload
                 EffectRanks = ToEffectRanks(effects),
                 VisualLayerIds = visuals ?? Array.Empty<string>(),
                 CastingLayerId = castingLayerId,
+                BodyOutlet = bodyOutlet,
             });
             rankIds.Add(rankId);
             organ.RankIds = rankIds.ToArray();

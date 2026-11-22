@@ -30,6 +30,7 @@ public readonly struct SkillCastStep
     public readonly Vector3 SourcePos;
 
     public readonly bool HasSourcePosition;
+    internal readonly bool SourceIsWorld;
 
     public SkillCastStep(BaseSimObject target, float delay, float initialAngleOffsetDegrees = 0f)
     {
@@ -40,6 +41,7 @@ public readonly struct SkillCastStep
         InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
         SourcePos = default;
         HasSourcePosition = false;
+        SourceIsWorld = false;
     }
 
     public SkillCastStep(Vector3 targetPos, float delay, float initialAngleOffsetDegrees = 0f)
@@ -51,10 +53,11 @@ public readonly struct SkillCastStep
         InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
         SourcePos = default;
         HasSourcePosition = false;
+        SourceIsWorld = false;
     }
 
     private SkillCastStep(Vector3 sourcePos, BaseSimObject target, Vector3 targetPos, bool trackTarget,
-        float delay, float initialAngleOffsetDegrees)
+        float delay, float initialAngleOffsetDegrees, bool sourceIsWorld = false)
     {
         Target = target;
         TargetPos = targetPos;
@@ -63,6 +66,7 @@ public readonly struct SkillCastStep
         InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
         SourcePos = sourcePos;
         HasSourcePosition = true;
+        SourceIsWorld = sourceIsWorld;
     }
 
     /// <summary>创建从指定世界坐标生成的无施法者序列步骤。</summary>
@@ -71,6 +75,10 @@ public readonly struct SkillCastStep
     {
         return new SkillCastStep(sourcePos, target, targetPos, trackTarget, delay, initialAngleOffsetDegrees);
     }
+
+    /// <summary>沿用本步目标与时点，从实际世界表面的出口发射。</summary>
+    internal SkillCastStep WithWorldSource(Vector3 point) =>
+        new(point, Target, TargetPos, TrackTarget, Delay, InitialAngleOffsetDegrees, sourceIsWorld: true);
 }
 
 public static class SkillCastPlanner

@@ -1,7 +1,6 @@
 // 使用正式主动能力入口，核对原器官和实际出手。
 const string provider = "content.creature_phenotype";
 const string thunder = "yao.horn.thunder";
-const string layer = "yao.layer.horn_thunder";
 const long cancelled = 100901, fired = 100902;
 Actor source = Make(64f, "wolf"), enemy = Make(69f);
 ActorExtend owner = source.GetExtend();
@@ -38,10 +37,15 @@ bool Pending(long correlation) => Cultiway.ModClass.I.W.Query<SkillCastSequence>
 Vector3 Outlet()
 {
     var body = owner.E.GetComponent<CreaturePhenotype>();
-    if (!CreaturePhenotypeCompiler.TryGetCompiled(body.CompiledIndex, body.Signature, out var compiled) ||
-        !CreatureAppearanceService.TryGetAnchor(compiled, source, layer, "cast", out Vector3 point))
+    if (!CreaturePhenotypeCompiler.TryGetCompiled(body.CompiledIndex, body.Signature, out var compiled))
+        throw new InvalidOperationException("缺少当前身体");
+    var organ = compiled.OrderedOrgans.Single(value => value.Organ.id == thunder);
+    var resolve = service.Assembly.GetType("Cultiway.Content.CreatureCompositions.ActiveAbilities.CreatureOrganCastingPosition")
+        .GetMethod("TryResolveWorld", F);
+    var args = new object[] { source, compiled, organ, null };
+    if (!(bool)resolve.Invoke(null, args))
         throw new InvalidOperationException("当前头部没有正式雷角出口");
-    return point;
+    return (Vector3)args[3];
 }
 var starts = new List<(ConstructedCastStarted Fact, Vector3 Point, Vector3 Outlet)>();
 var spending = new List<float>();
@@ -88,7 +92,7 @@ try
     await Advance(.38f);
     var hit = starts.Single();
     Check(hit.Fact.CorrelationId == fired && spending.Count == 1 && Mathf.Abs(spending[0] - cost) < .002f &&
-          Vector2.Distance(hit.Point, hit.Outlet) < .001f && Vector2.Distance(hit.Point, before) > 1f &&
+          Vector3.Distance(hit.Point, hit.Outlet) < .001f && Vector2.Distance(hit.Point, before) > 1f &&
           hits.Any(value => value.TargetId == enemy.id) && !Pending(fired),
         "真实雷链从移动后的器官发出，只扣实际妖力并接触对练对象",
         new { before = before.ToString(), emitted = hit.Point.ToString(), outlet = hit.Outlet.ToString(),
