@@ -1,0 +1,116 @@
+const int row = 73;
+const int shore = 73;
+for (int y = row - 2; y <= row + 2; y++)
+for (int x = shore - 3; x <= shore + 3; x++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    tile.building?.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.sand, null);
+    tile.Height = TileLibrary.sand.height_min;
+}
+WorldTile gap = World.world.GetTileSimple(shore, row);
+gap.setTileTypes(TileLibrary.shallow_waters, null);
+gap.Height = TileLibrary.shallow_waters.height_min;
+
+Actor walker = Make(shore - 1);
+var owner = walker.GetExtend();
+var stride = Moving("passage", Vector3.right, walk: true);
+stride.Cooldown = .1f;
+var receipts = new List<ConstructedWorldContact>();
+var movements = new List<object>();
+void Changed(ConstructedWorldContact fact)
+{
+    if (fact.SourceId == walker.id && fact.AbilityId.StartsWith("test.body-footwork.passage.", StringComparison.Ordinal) &&
+        fact.Result.Changed) receipts.Add(fact);
+}
+
+ActiveAbilityHandle Learn(AbilityDefinition definition)
+{
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    return new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+}
+
+var step = Learn(stride);
+async Task<float> Walk(string stage)
+{
+    if (!ControllableUnit.isControllingUnit(walker)) Ready(walker);
+    Place(walker, shore - .38f, row + .5f);
+    var target = new ActiveAbilityTarget(null, new Vector3(shore + 1.75f, row + .5f, 0));
+    // 场景没有镜头追踪，原版绘制时才把已经恢复的转角读到模型。
+    walker.updateRotation();
+    for (int i = 0; i < 20 && !walker.isAttackPossible(); i++)
+    {
+        await Advance(.08f);
+        walker.updateRotation();
+    }
+    int before = endings.Count;
+    var ready = new
+    {
+        attackReady = walker.isAttackPossible(), rotation = walker.current_rotation.z, walker.is_unconscious,
+        location = new[] { walker.current_position.x, walker.current_position.y },
+        water = walker.current_tile.Type.ocean, control = ActiveAbilityService.ResolveControlState(owner, step).BlockReason
+    };
+    bool used = ActiveAbilityService.TryUse(owner, step, target, ActiveAbilityUseOrigin.Script);
+    Check(used, "共同接地步法正式受理 " + stage, ready);
+    float first = walker.current_position.x;
+    await Advance(1.8f);
+    float last = walker.current_position.x;
+    var outcome = new { stage, first, last, plot = walker.current_tile.tile_id, ocean = walker.current_tile.Type.ocean };
+    movements.Add(outcome);
+    File.WriteAllText(Path.Combine(folder, "movements.json"), JsonConvert.SerializeObject(movements, Formatting.Indented));
+    Check(!BodyControlState.IsBusy(walker.id) &&
+          endings.Skip(before).Any(end => end.Fact.AbilityId == stride.Id && !end.Fact.Cancelled),
+        "实际走路结束并归还控制 " + stage, outcome);
+    return last;
+}
+
+async Task Change(string action, TileType expected)
+{
+    int before = receipts.Count;
+    var rule = new AbilityDefinition
+    {
+        Id = stride.Id + "." + action, Name = action, Resource = "none", Cost = 0, Power = 0,
+        TargetRange = 14f, Cooldown = .1f, Lifetime = .4f,
+        Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point, Channels = ActiveAbilityChannel.World },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact
+        {
+            DamageScale = 0f,
+            WorldEffects = new[] { new ConstructionWorldEffect { Action = action, TileCentreOnly = true, MaximumTiles = 1 } }
+        },
+        Root = new ConstructionNode { Id = "bed", Form = "world_domain", Matter = "earth", Scale = .35f, ActiveFrom = .1f }
+    };
+    Place(walker, shore - 1f, row + .5f);
+    var point = new ActiveAbilityTarget(null, new Vector3(shore + .5f, row + .5f, 0));
+    Check(ActiveAbilityService.TryUse(owner, Learn(rule), point, ActiveAbilityUseOrigin.Script), "正式受理地貌改造 " + action);
+    await Advance(.55f);
+    Check(gap.main_type == expected && receipts.Count == before + 1 &&
+          receipts.Last().X == shore && receipts.Last().Y == row && receipts.Last().Action == action &&
+          endings.Any(end => end.Fact.AbilityId == rule.Id && !end.Fact.Cancelled && end.Fact.WorldChanges == 1),
+        "实际地貌在法术结束后继续保留 " + action, gap.main_type.id);
+}
+
+ConstructedAbilityService.WorldContactConfirmed += Changed;
+try
+{
+    float blocked = await Walk("湿水隙");
+    Check(blocked < shore && gap.Type.ocean, "湿水隙阻挡同一陆地步法", blocked);
+    await Change("water.drain", TileLibrary.pit_shallow_waters);
+    float passed = await Walk("干海床");
+    Check(passed > shore + .05f && !gap.Type.ocean && walker.current_tile == gap,
+        "排水后的地块承托实际步法", passed);
+    await Change("water.fill", TileLibrary.shallow_waters);
+    float closed = await Walk("恢复水隙");
+    Check(closed < shore && gap.Type.ocean, "恢复水隙后同一路段重新阻挡", closed);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, source = walker.id,
+        blocked, opened = passed, closed, receipts, movements, checks };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= Changed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

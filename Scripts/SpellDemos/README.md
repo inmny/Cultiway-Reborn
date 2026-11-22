@@ -3087,3 +3087,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 活木修复、枯萎及复生（11.06）
 
 在独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --section ecology --archive 功能术准备目录`。复用 10.13 的正式档和原仓库。检查同一株树的修复、实际枯死、空地正常结束及复生后的木材采集入库。
+
+### 地形改变后的通行（11.07）
+
+在原版独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_terrain_passage.py`。复用原步法，检查同一处浅水经原版排水成为可落脚地面，实际恢复浅水后再次阻挡。原始坐标写入 `movements.json`。
