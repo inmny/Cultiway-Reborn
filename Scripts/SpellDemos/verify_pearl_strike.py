@@ -13,6 +13,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, SCRIPTS, world_helper
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--skip-views', action='store_true', help='只检查正式行为、形体与作用范围')
+    parser.add_argument('--natural', action='store_true', help='从人物自然交战启动原法珠')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')
@@ -26,6 +27,7 @@ def main():
                        + (SCRIPTS / 'weapon_flight_scene.script').read_text()
                        + (SCRIPTS / 'verify_artifact_views.script').read_text()
                        + f'const bool shots = {str(not args.skip_views).lower()};\n'
+                       + f'const bool natural = {str(args.natural).lower()};\n'
                        + Path(__file__).with_suffix('.script').read_text())
     try:
         result = baseline.call('run', str(program), '170000')

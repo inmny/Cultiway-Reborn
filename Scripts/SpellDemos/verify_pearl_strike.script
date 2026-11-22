@@ -2,15 +2,30 @@
 const float centerX = 72f, centerY = 72f;
 Vector3 center = new Vector3(centerX, centerY, 0f);
 PrepareArtifactArena(53, 88, 58, 85);
-Actor source = Make(64.35f), near = Make(72f, "wolf"), far = Make(79f, "wolf");
+Actor source = Make(64.35f), near = Make(72f, "wolf"), far = natural ? null : Make(79f, "wolf");
 var owner = source.GetExtend();
 owner.AddComponent(new Xian { level = 4, wakan = 1200f });
 owner.SetPowerLevel(4f);
-await Setup(source, near);
-CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
-source.updateStats();
-source.addAggro(far);
-far.addAggro(source);
+if (natural)
+{
+    await Advance(.3f);
+    CombatStatusEffects.ApplyStatus(source, boost, 10000f, source);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    Place(source, 64.35f);
+    Place(near, 72f);
+    owner.GetCultisys<Xian>().wakan = 1200f;
+}
+else
+{
+    await Setup(source, near);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+    source.updateStats();
+    source.addAggro(far);
+    far.addAggro(source);
+}
 
 var asset = ArtifactAbilities.FivePhasePearlStrike;
 var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
@@ -22,6 +37,9 @@ var blueprint = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.Compos
 }));
 Check(blueprint.AbilitySet.abilities.Any(row => row.ability_id == asset.id), "正式炼制获得五行连珠",
     blueprint.AbilitySet.abilities.Select(row => row.ability_id).ToArray());
+if (natural)
+    blueprint.AbilitySet = new ArtifactAbilitySet
+        { abilities = blueprint.AbilitySet.abilities.Where(row => row.ability_id == asset.id).ToArray() };
 Entity pearl = ArtifactBlueprintCodec.Materialize(blueprint, source.getName());
 owner.AddSpecialItem(pearl);
 Check(owner.EquipArtifact(pearl, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
@@ -75,6 +93,28 @@ try
     World.world.console.Hide();
     WorldTip.hideNow();
     Tooltip.hideTooltipNow();
+    if (natural)
+    {
+        source.addAggro(near);
+        near.addAggro(source);
+        source.setAttackTarget(near);
+        source.attack_timer = 0f;
+        await WaitFor(() => fees.Count != 0, 3f);
+        Check(!ControllableUnit.isControllingUnit(source) && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .003f,
+            "真实交战自然启动原珠，当次只支付原启动费用", new { cost, paid = fees.ToArray(), remaining = Remaining() });
+        await WaitFor(() => starts.Count >= count && Remaining() == 0, 4f);
+        await Advance(.35f);
+        var targetHits = pearlHits.Where(hit => hit.TargetId == near.id).ToArray();
+        Check(fees.Count == 1 && starts.Count == count && targetHits.Length == count &&
+            starts.Select(cast => cast.CastId).SequenceEqual(targetHits.Select(hit => hit.CastId)) &&
+            targetHits.All(hit => hit.Damage.SettledCount == 1 && hit.Damage.HealthLost > 0) &&
+            pearlHits.Where(hit => hit.TargetId != near.id).All(hit => hit.Damage.SettledCount == 0) &&
+            !Shows() && owner.GetEquippedArtifacts().Contains(pearl),
+            "原珠逐轮推进，每轮只对敌方结算一次，结束后仍装备原物", new { source = source.id, enemy = near.id,
+                starts = starts.Count, remaining = Remaining(),
+                contacts = pearlHits.Select(hit => new { hit.CastId, hit.TargetId, hit.Damage }).ToArray() });
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
     Place(near, centerX + radius - .23f, centerY);
     Place(far, centerX + radius + .20f, centerY);
     int nearHealth = near.data.health, farHealth = far.data.health;

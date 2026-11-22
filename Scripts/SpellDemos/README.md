@@ -3049,3 +3049,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 人物自然出手与实际结算（10.15 A）
 
 在原版独立游戏运行 `dev.py exec --timeout 95 -- python3 Scripts/SpellDemos/verify_natural_cast.py`。同一人物在真实交战中自行选用已学行剑，检查体力不足、蓄势暂停、恢复后的单次实际支付与扣血，以及冷却后的独立出手和自然结束。结果写到本次独立游戏输出目录。
+
+同一原版入口可逐个复验法宝、消耗物和器官的自然出手（10.15 B）。命令依次使用 `verify_pearl_strike.py --natural --skip-views`、`verify_consumable_casts.py --section natural-scroll` 和 `verify_organ_ability.py --section natural-source`。各自使用原来的场景资料，记录实际费用和结算。

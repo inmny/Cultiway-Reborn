@@ -27,7 +27,7 @@ FILM_SECTIONS = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', default='source',
-                        choices=('source', 'horn', 'mouth', 'torso', 'poison', *SURVIVAL_SECTIONS,
+                        choices=('source', 'natural-source', 'horn', 'mouth', 'torso', 'poison', *SURVIVAL_SECTIONS,
                                  *PASSIVE_SECTIONS, *ARCHIVE_SECTIONS, *FILM_SECTIONS))
     parser.add_argument('--archive', type=Path, help='冷读档使用 prepare 的输出目录')
     args = parser.parse_args()
@@ -46,7 +46,7 @@ def main():
             parser.error('冷读档需要原封不动的正式验收档')
     script = output / 'input.script'
     name = 'verify_organ_outlets.script'
-    if args.section == 'source':
+    if args.section in ('source', 'natural-source'):
         name = 'verify_organ_ability.script'
     elif args.section in SURVIVAL_SECTIONS:
         name = 'verify_organ_survival.script'
@@ -65,7 +65,7 @@ def main():
         helpers = helpers.replace('ConstructedAbilityService.ContactConfirmed += Hit;', '')
     script.write_text(IMPORTS + 'using Cultiway.Content.CreatureCompositions.ActiveAbilities;\n'
                       + helpers
-                      + ('' if args.section == 'source' else f'const string section = "{args.section}";\n')
+                      + f'const string section = "{args.section}";\n'
                       + (settings if args.section in ARCHIVE_SECTIONS else '')
                       + body.read_text())
     baseline.connect(False, validate_runtime=False)

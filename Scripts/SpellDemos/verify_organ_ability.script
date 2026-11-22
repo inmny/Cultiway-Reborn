@@ -2,6 +2,7 @@
 const string provider = "content.creature_phenotype";
 const string thunder = "yao.horn.thunder";
 const long cancelled = 100901, fired = 100902;
+bool natural = section == "natural-source";
 Actor source = Make(64f, "wolf"), enemy = Make(69f);
 ActorExtend owner = source.GetExtend();
 Check(YaoAwakeningService.TryAwakenByRain(owner), "对练狼经正式启灵");
@@ -50,13 +51,15 @@ Vector3 Outlet()
 var starts = new List<(ConstructedCastStarted Fact, Vector3 Point, Vector3 Outlet)>();
 var spending = new List<float>();
 var hits = new List<ConstructedContact>();
+string naturalAbility = null;
 void Spend(ActorExtend actor, YaoPowerMutation mutation)
 {
     if (actor == owner && mutation.Kind == YaoPowerMutationKind.Spend) spending.Add(-mutation.Delta);
 }
 void Started(ConstructedCastStarted fact)
 {
-    if (fact.SourceId != source.id || fact.CorrelationId is not (cancelled or fired)) return;
+    if (fact.SourceId != source.id ||
+        (natural ? fact.AbilityId != naturalAbility : fact.CorrelationId is not (cancelled or fired))) return;
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(value => (long)Field(value, "Id") == fact.CastId);
     starts.Add((fact, (Vector3)Field(running, "LastSourceFoot"), Outlet()));
@@ -72,6 +75,29 @@ try
 {
     var former = Entries().Single();
     float cost = SkillCastCost.CalculateStepDemand(former.Source);
+    if (natural)
+    {
+        await Advance(.3f);
+        CombatStatusEffects.RemoveStatus(source, hold);
+        source.setStatsDirty();
+        source.updateStats();
+        Place(source, 64f);
+        Place(enemy, 69f);
+        source.setAttackTarget(enemy);
+        source.attack_timer = 0f;
+        naturalAbility = former.Source.GetComponent<SkillContainer>().Asset.id;
+        for (int frame = 0; frame < 42 && hits.Count == 0; frame++) await Advance(.06f);
+        var emitted = starts.FirstOrDefault();
+        Check(starts.Count > 0 && starts.All(value => value.Fact.Origin == ActiveAbilityUseOrigin.Autonomous &&
+                  Vector3.Distance(value.Point, value.Outlet) < .001f) &&
+              spending.Count == starts.Count && spending.All(value => Mathf.Abs(value - cost) < .002f) &&
+              hits.Count(value => value.CastId == emitted.Fact.CastId && value.TargetId == enemy.id &&
+                  value.Damage.SettledCount == 1 && value.Damage.HealthLost > 0) == 1,
+            "妖兽自行从原雷角实际出手，每次只扣一笔妖力并确认实际伤害",
+            new { cost, spending, starts = starts.Select(value => value.Fact.CastId).ToArray(),
+                hits = hits.Select(value => new { value.CastId, value.TargetId, value.Damage }).ToArray() });
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
     Check(cost > 0f && Use(former, cancelled) && Pending(cancelled) && spending.Count == 0,
         "真实器官入口受理，实际发射前没有扣妖力", new { cost, entry = former.EntryId });
     Check(YaoFormPlanService.TryReplaceOrgan(owner, YaoFormIds.TrueForm, YaoContent.Slots.Head,
