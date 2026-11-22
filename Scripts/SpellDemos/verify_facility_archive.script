@@ -1,0 +1,201 @@
+// 正式世界同时保存已发生的到达、原供奉和节点的剩余过程。
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+long casterId = (long)saved["actor"], sectId = (long)saved["sect"];
+Actor body = World.world.units.get(casterId);
+var owner = body.GetExtend();
+Sect sect = WorldboxGame.I.Sects.get(sectId);
+WorldTile inTile = World.world.GetTileSimple(61, 67), outTile = World.world.GetTileSimple(75, 67);
+WorldTile pavilionTile = World.world.GetTileSimple(76, 75);
+Building hall = World.world.buildings.get((long)saved["start"]);
+const string charge = "Cultiway.Facility.TeleportArray.Charge";
+const string arrival = "Cultiway.Facility.TeleportArray.Arrival";
+PortalDefinition PortalOn(WorldTile point) => PortalRegistry.Instance.Enumerate(Portals.TeleportArray)
+    .Single(portal => portal.Tile == point && TeleportArraySystem.IsTeleportArray(portal.Portal.building));
+bool Held(Actor actor) => BodyControlState.HasControl(actor.id, BodyOccupancy.Stance);
+void Stand(Actor actor, Vector2 point) => Place(actor, point.x, point.y);
+bool Same(Vector2 a, Vector2 b) => Vector2.Distance(a, b) < .1f;
+float Armor() { body.updateStats(); return body.stats[S.armor]; }
+Entity Thought()
+{
+    var handle = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenNodeLockService.TryResolve(handle, out Entity node), "原身份的分念存在");
+    return node;
+}
+YuanshenAnchorHandle Anchor(Building building)
+{
+    Check(YuanshenAnchorNetworkService.TryGetAuthorizedAtPoint(owner, building.current_position, out var handle, out _),
+        "当前点选仍是该宗门的真实锚点");
+    return handle;
+}
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var readIdentity = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity item)
+{
+    object[] args = { null };
+    return (bool)readIdentity.Invoke(item, args) ? (string)Field(args[0], "Id") : null;
+}
+async Task Queue(Actor traveler)
+{
+    Stand(traveler, new Vector2(inTile.x, inTile.y));
+    Check(PortalManager.NewRequest(PortalOn(inTile), PortalOn(outTile), traveler), "实际请求进入原传送阵");
+    await Advance(5.16f);
+    Check(Held(traveler) && traveler.current_tile == inTile, "单人依原等待时间进入真实充能");
+}
+void Freeze(Actor actor)
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+    actor.updateStats();
+    actor.attack_timer = 999f;
+}
+Building BuildForSave(BuildingAsset asset, WorldTile centre)
+{
+    BuildingFundament area = asset.fundament;
+    for (int x = centre.x - area.left; x < centre.x - area.left + area.width; x++)
+    for (int y = centre.y - area.bottom; y < centre.y - area.bottom + area.height; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+    Check(World.world.buildings.canBuildFrom(centre, asset, null, BuildPlacingType.Load),
+        "占地符合原版读档地基要求", asset.id);
+    Building building = World.world.buildings.addBuilding(asset.id, centre, pCheckForBuild: true);
+    Check(building != null, "从原版可建入口建立设施", asset.id);
+    return building;
+}
+
+if (!cold)
+{
+    Check((process == (int)saved["process"]) != recoveredWorld && owner.sect == sect, "承接原世界的宗门与修士");
+    Actor beast = World.world.units.getSimpleList().Single(actor => actor.asset.id == "wolf" && actor.current_position.x > 60f);
+    var boost = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.IndependentCasting.Resource");
+    if (boost != null) CombatStatusEffects.RemoveStatus(body, boost, body);
+    CombatStatusEffects.ApplyStrongestStatus(body, Cultiway.Content.StatusEffects.BattleBlessing, 10000f, 1f, body,
+        new BaseStats { [BaseStatses.MaxWakan.id] = 10000f, [nameof(WorldboxGame.BaseStats.DivineSense)] = 10000f });
+    Freeze(body);
+    Freeze(beast);
+    ControllableUnit.setControllableCreature(body);
+    float beforeRecovery = owner.GetComponent<YuanshenRuntimeState>().injury_locked_share;
+    await Advance(5.15f);
+    if (recoveredWorld)
+    {
+        float afterRecovery = owner.GetComponent<YuanshenRuntimeState>().injury_locked_share;
+        Check(afterRecovery < beforeRecovery && beforeRecovery > 0f,
+            "同一受创修士的锁定份额随世界时间继续恢复",
+            new { beforeRecovery, afterRecovery });
+    }
+    WakanResourceService.Gain(owner, ref owner.GetCultisys<Xian>(), 9600f);
+
+    Building pavilion = BuildForSave(Buildings.SectTreasurePavilion, pavilionTile);
+    pavilion.completeConstruction();
+    pavilion.data.set(BuildingDataKeys.SectID_Long, sectId);
+    World.world.buildings.checkContainer();
+    WorldboxGame.I.Sects.setDirtyBuildings(sect);
+    WorldboxGame.I.Sects.beginChecksBuildings();
+    Stand(body, pavilion.current_position);
+    Check(YuanshenAnchorNetworkService.TryConsecrate(owner, pavilion.current_position, YuanshenAnchorKind.SectPlatform),
+        "在实际重建的藏宝阁另设元神台");
+    Stand(body, hall.current_position);
+    Check(YuanshenAnchorNetworkService.TryConnectSelected(owner, hall.current_position) &&
+        YuanshenThoughtService.TryCreateThought(owner, hall.current_position), "重连原大殿并建立一个实际待迁节点");
+    var focus = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenThoughtService.TryAssignGuard(owner, focus, hall.current_position) &&
+        YuanshenThoughtService.TryFocus(owner, focus), "定点守护并聚焦同一待迁节点");
+
+    var seal = ArtifactBlueprintCodec.Materialize(ArtifactBlueprintCodec.FromComposeResult(
+        ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = ItemShapes.Seal, Atoms = [ArtifactAtoms.HeavySeal, ArtifactAtoms.FortuneVeinCore, ArtifactAtoms.AncestralGuardianVow],
+            Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "设施正式存档原印"
+        })), body.getName());
+    float armorBefore = Armor();
+    sect.Treasures.AddOwnership(seal);
+    sect.AddSpecialItem(seal);
+    Building gateIn = BuildForSave(Buildings.TeleportArray, inTile);
+    Building gateOut = BuildForSave(Buildings.TeleportArray, outTile);
+    TeleportArraySystem.RequestRebuild();
+    await Advance(.33f);
+    Check(ArtifactSectService.ResolveInstallationBuilding(sect) == pavilion && Armor() > armorBefore &&
+        sect.Treasures.IsStored(seal), "原印已在新藏宝阁生效",
+        new { before = armorBefore, after = Armor(), venue = ArtifactSectService.ResolveInstallationBuilding(sect)?.id });
+
+    await Queue(body);
+    await Advance(.51f);
+    Check(body.current_tile == outTile && !Held(body), "原修士真正到达后归还控制");
+    await Queue(beast);
+    Check(YuanshenAdvancedNodeService.TryTransitFocused(owner, pavilion.current_position), "保存前实际受理节点的双端迁移");
+    var transit = Thought().GetComponent<YuanshenAnchorTransitState>();
+    Check(body.current_tile == outTile && Held(beast), "保存时已到达者仍在出口，另一旅客仍在充能");
+    Vector2 landed = body.current_position;
+    float armor = Armor();
+    foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.RemoveStatus(actor, hold, actor);
+    World.world.units.checkContainer();
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")) && Identity(seal) != null, "正式档写出同一实际供奉及在途路径");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process, actor = body.id, beast = beast.id, sect = sectId, start = hall.id, pavilion = pavilion.id,
+        gateIn = gateIn.id, gateOut = gateOut.id, x = landed.x, y = landed.y, seal = Identity(seal), armor,
+        transit.completes_at, balance = owner.GetCultisys<Xian>().wakan
+    }));
+    ControllableUnit.clear(false);
+    return new { passed = true, process, phase = "prepare" };
+}
+
+Check(process != (int)saved["process"], "另一进程恢复同一份正式文件");
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+Check(report.BackupError == null && report.Skipped.Count == 0, "正式读档没有丢弃项目", new { report.BackupError, report.Skipped });
+Actor passenger = World.world.units.get((long)saved["beast"]);
+var newPavilion = World.world.buildings.get((long)saved["pavilion"]);
+var originalSeal = sect.Treasures.GetStoredItems().Single(item => Identity(item) == (string)saved["seal"]);
+Check(sect.Treasures.Owns(originalSeal) && ArtifactSectService.ResolveInstallationBuilding(sect) == newPavilion &&
+    Mathf.Abs(Armor() - (float)saved["armor"]) < .04f, "原配方供奉在同一藏宝阁恢复原收益");
+Check(World.world.buildings.get((long)saved["gateIn"]) == inTile.building &&
+    World.world.buildings.get((long)saved["gateOut"]) == outTile.building &&
+    Same(body.current_position, new Vector2((float)saved["x"], (float)saved["y"])) &&
+    passenger.current_tile == inTile && !Held(passenger) && PortalManager.GetRequest(passenger) == null,
+    "已到达的位置保留，另一旅客在入口且原充能没有重播");
+Freeze(body);
+Freeze(passenger);
+var node = Thought();
+var path = node.GetComponent<YuanshenAnchorTransitState>();
+Check(path.source == Anchor(hall) && path.destination == Anchor(newPavilion) &&
+    Math.Abs(path.completes_at - (double)saved["completes_at"]) < .002d &&
+    Mathf.Abs(owner.GetCultisys<Xian>().wakan - (float)saved["balance"]) < .01f,
+    "原两端锚点、到期时点与单次支付都保留");
+await Advance(1.15f);
+Check(!node.HasComponent<YuanshenAnchorTransitState>() &&
+    node.GetComponent<YuanshenAnchorResidence>().anchor == path.destination &&
+    Same(node.GetComponent<Position>().v2, newPavilion.current_position), "读档后原分念沿同一连接实际抵达");
+
+var starts = new List<ConstructedCastStarted>();
+void StartedCharge(ConstructedCastStarted fact) { if (fact.AbilityId is charge or arrival) starts.Add(fact); }
+ConstructedAbilityService.CastStarted += StartedCharge;
+try
+{
+    await Queue(passenger);
+    await Advance(.51f);
+    Check(passenger.current_tile == outTile && !Held(passenger) &&
+        starts.Count(fact => fact.AbilityId == charge && fact.CorrelationId == passenger.id) == 2 &&
+        starts.Count(fact => fact.AbilityId == arrival && fact.CorrelationId == passenger.id) == 1,
+        "读回后从正常新请求再次通行，只到达一次");
+
+    await Queue(passenger);
+    var oldPath = path.destination;
+    World.world.save_manager.loadWorld(originalFixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    await Advance(.10f);
+    Check(!YuanshenAnchorNetworkService.TryResolve(oldPath, out _) &&
+        PortalManager.GetRequest(passenger) == null &&
+        !BodyControlState.HasControl((long)saved["beast"], BodyOccupancy.Stance) &&
+        !FormVisualScene.Instances.Any(instance => instance.Resource.Description.Id == "space_fold_gate"),
+        "换世界清除当前原锚点、排队、旅客控制及阵门");
+    return new { passed = true, process, phase = "cold", events = starts.ToArray() };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= StartedCharge;
+}

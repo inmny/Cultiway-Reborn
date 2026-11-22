@@ -2985,3 +2985,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 元神台连接与依附护持（10.12）
 
 用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_independent_casting.py --section facility`。在真实宗门场所建立两个元神台，检查断开和重连后的迁移、费用、原节点护持、拆除建筑及肉身恢复施展。
+
+### 设施、供奉与在途节点正式存读（10.12）
+
+在通过元神台验证的同一进程运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_facility_archive.py --nodes-result 节点复验目录/result.json`。脚本用相同世界写出原印、原连接、已完成的传送、在途分念和正在充能的另一旅客。
+
+在另一独立进程运行同一入口并改用 `--archive 保存阶段的输出目录`。脚本先比较正式文件的校验值，再核对冷读、再次通行及换世界的结果。
