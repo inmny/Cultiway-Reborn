@@ -23,7 +23,7 @@ FILMS = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
+    parser.add_argument('--section', choices=('soul', 'travel-stances', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
                                               'natural-summon', 'facility', 'prepare', 'cold', *FILMS), default='soul')
     parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
     args = parser.parse_args()
@@ -61,6 +61,8 @@ def main():
         body = 'record_independent_casting.script'
     elif section == 'natural-summon':
         body = 'verify_natural_summon.script'
+    elif section == 'travel-stances':
+        body = 'verify_yuanshen_travel_stances.script'
     elif section == 'facility':
         body = 'verify_facility_nodes.script'
     else:
