@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -27,7 +28,7 @@ public static class ArtifactSectService
     public static void ContributeMemberStats(ActorExtend member, BaseStats stats)
     {
         Sect sect = member.sect;
-        if (sect == null || sect.isRekt()) return;
+        if (ResolveInstallationBuilding(sect) == null) return;
 
         using ListPool<SectAbilityCandidate> candidates = new();
         int activeCount = CollectActiveAbilities(sect, candidates);
@@ -91,10 +92,13 @@ public static class ArtifactSectService
         return activeCount;
     }
 
+    /// <summary>读取当前真正可用且仍属于该宗门的供奉场所。</summary>
+    /// <param name="sect">原物件所属的宗门。</param>
     public static Building ResolveInstallationBuilding(Sect sect)
     {
-        Building building = FindUsable(sect.GetBuildingListOfID(Buildings.SectTreasurePavilion.id));
-        return building ?? FindUsable(sect.GetBuildingListOfID(Buildings.SectHall.id));
+        if (sect == null || sect.isRekt()) return null;
+        Building building = FindUsable(sect.GetBuildingListOfID(Buildings.SectTreasurePavilion.id), sect.id);
+        return building ?? FindUsable(sect.GetBuildingListOfID(Buildings.SectHall.id), sect.id);
     }
 
     public static void MarkMemberStatsDirty(Sect sect)
@@ -112,13 +116,18 @@ public static class ArtifactSectService
         return false;
     }
 
-    private static Building FindUsable(List<Building> buildings)
+    /// <summary>筛掉已拆除、未完工或已经交给别的宗门的原场所。</summary>
+    /// <param name="buildings">宗门登记的同类场所。</param>
+    /// <param name="sectId">仍应拥有场所的宗门编号。</param>
+    private static Building FindUsable(List<Building> buildings, long sectId)
     {
         if (buildings == null) return null;
         for (int i = 0; i < buildings.Count; i++)
         {
             Building building = buildings[i];
-            if (building.isUsable() && !building.isUnderConstruction()) return building;
+            if (building?.data == null || !building.isUsable() || building.isUnderConstruction()) continue;
+            building.data.get(BuildingDataKeys.SectID_Long, out long owner, -1);
+            if (owner == sectId) return building;
         }
         return null;
     }

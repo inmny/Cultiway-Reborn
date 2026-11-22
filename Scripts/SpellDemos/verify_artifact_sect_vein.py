@@ -13,6 +13,7 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, SCRIPTS, world_helper
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--skip-views', action='store_true', help='只检查正式行为')
+    parser.add_argument('--venue', action='store_true', help='额外检查供奉场所失效、替换及成员离开')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')
@@ -26,6 +27,7 @@ def main():
                        + IMPORTS + world_helpers(output, PROJECT / FIXTURE)
                        + (SCRIPTS / 'verify_artifact_views.script').read_text()
                        + f'const bool shots = {str(not args.skip_views).lower()};\n'
+                       + f'const bool venue = {str(args.venue).lower()};\n'
                        + Path(__file__).with_suffix('.script').read_text())
     try:
         result = baseline.call('run', str(program), '140000')

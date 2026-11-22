@@ -2977,3 +2977,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在原版独立游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_teleport_array.py`。脚本通过原请求管理器排队，核对双端充能、实际到达、撤销旅客、拆去出口和重建后再次通行。
 
 在同一进程用同一入口加 `--travel 上一步的输出目录/result.json`，从刚抵达的出口发起普通走路，确认实际返程落点和到达后继续寻路。
+
+### 宗门护持的实际场所（10.12）
+
+用 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_artifact_sect_vein.py --venue --skip-views`，复用原镇宗宝脉配方和宗门。脚本拆除实际大殿、改用新藏宝阁，再用原宗门入口离开和返回，核对护持和地脉变化、原印物权与库存关系。
