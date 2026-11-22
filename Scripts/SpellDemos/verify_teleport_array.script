@@ -1,0 +1,117 @@
+// 复用原对练场。由原请求管理器排队，由正常世界推进启动和结束。
+const string charge = "Cultiway.Facility.TeleportArray.Charge";
+const string arrival = "Cultiway.Facility.TeleportArray.Arrival";
+var sourceTile = World.world.GetTileSimple(61, 72);
+var targetTile = World.world.GetTileSimple(74, 72);
+Building Build(WorldTile tile) => World.world.buildings.addBuilding(Buildings.TeleportArray.id, tile, pCheckForBuild: false);
+var entry = Build(sourceTile);
+var exit = Build(targetTile);
+Check(entry != null && exit != null && entry.isNormal() && exit.isNormal(), "两座实际建成的传送阵");
+TeleportArraySystem.RequestRebuild();
+await Advance(.08f);
+PortalDefinition Endpoint(Building building, WorldTile tile) =>
+    PortalRegistry.Instance.Enumerate(Portals.TeleportArray).Single(portal => portal.Portal.building == building && portal.Tile == tile);
+PortalDefinition from = Endpoint(entry, sourceTile);
+PortalDefinition to = Endpoint(exit, targetTile);
+Actor walker = Make(61), peer = Make(61), wolf = Make(61, "wolf");
+var passengers = new[] { walker, peer, wolf };
+var starts = new List<ConstructedCastStarted>();
+var finishes = new List<ConstructedCastEnded>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId is charge or arrival) starts.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId is charge or arrival) finishes.Add(fact);
+}
+void Position(Actor actor, WorldTile tile) => Place(actor, tile.x, tile.y);
+bool Occupied(Actor actor) => BodyControlState.HasControl(actor.id, BodyOccupancy.Stance);
+
+async Task<PortalRequest> Begin()
+{
+    foreach (Actor passenger in passengers)
+    {
+        Position(passenger, sourceTile);
+        Check(PortalManager.NewRequest(from, to, passenger), "原寻路需求受理旅客", passenger.id);
+    }
+    var request = PortalManager.GetRequest(walker);
+    Check(request != null && passengers.All(passenger => PortalManager.GetRequest(passenger) == request),
+        "同一对实际端点的三人共用批次");
+    await Advance(.17f);
+    Check(passengers.All(passenger => Occupied(passenger) && passenger.current_tile == sourceTile),
+        "三人按原条件开始充能并留在入口");
+    return request;
+}
+
+bool AtGate(FormVisualInstance instance, WorldTile tile) =>
+    instance.Resource.Description.Id == "space_fold_gate" &&
+    Vector2.Distance((Vector3)instance.Transform.GetColumn(3), (Vector2)tile.posV3) < .1f;
+ConstructedCastStarted[] Events(Actor passenger, string ability, int since) =>
+    starts.Skip(since).Where(fact => fact.CorrelationId == passenger.id && fact.AbilityId == ability).ToArray();
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    int since = starts.Count;
+    var first = await Begin();
+    Check(FormVisualScene.Instances.Any(instance => AtGate(instance, sourceTile)) &&
+        FormVisualScene.Instances.Any(instance => AtGate(instance, targetTile)), "两端实际格上发布共用立体门");
+    var original = Events(walker, charge, since);
+    await Advance(.51f);
+    var landed = Events(walker, arrival, since);
+    Check(first.IsCompleted() && passengers.All(passenger => passenger.current_tile == targetTile && !Occupied(passenger)) &&
+        original.Length == 2 && original.All(cast => cast.SourceId == 0) && landed.Length == 1 &&
+        landed[0].WorldTime >= original[0].WorldTime + .54d,
+        "原充能结束后每人只迁移一次并归还控制",
+        new { charged = original.Select(cast => cast.CastId), arrived = landed.Select(cast => cast.CastId),
+            elapsed = landed.Length == 1 && original.Length == 2 ? landed[0].WorldTime - original[0].WorldTime : 0 });
+
+    since = starts.Count;
+    var cancelled = await Begin();
+    var charges = Events(walker, charge, since).Concat(Events(wolf, charge, since)).ToArray();
+    foreach (var portal in cancelled.Portals) portal.RemovePassenger(walker);
+    var side = World.world.GetTileSimple(64, 74);
+    Position(wolf, side);
+    await Advance(.09f);
+    Check(!Occupied(walker) && !Occupied(wolf) && Occupied(peer) && charges.Length == 4 &&
+        charges.All(cast => finishes.Any(fact => fact.CastId == cast.CastId && fact.Cancelled)),
+        "撤销报名和离开入口分别只撤去各自的两端充能与控制");
+    await Advance(.49f);
+    Check(walker.current_tile == sourceTile && wolf.current_tile == side &&
+        !Events(walker, arrival, since).Any() && !Events(wolf, arrival, since).Any() &&
+        peer.current_tile == targetTile,
+        "离开者无抵达，仍在原请求的同行者可以抵达");
+
+    since = starts.Count;
+    await Begin();
+    var removed = Events(walker, charge, since);
+    typeof(Building).GetMethod("removeBuildingFinal", F).Invoke(exit, null);
+    await Advance(.13f);
+    Check(passengers.All(passenger => !Occupied(passenger) && passenger.current_tile == sourceTile) &&
+        !Events(walker, arrival, since).Any() && removed.Length == 2 &&
+        removed.All(cast => finishes.Any(fact => fact.CastId == cast.CastId && fact.Cancelled)),
+        "实际拆除出口后保留原地，停止充能并归还全部控制");
+
+    exit = Build(targetTile);
+    Check(exit != null && exit.isNormal(), "重建正常出口");
+    TeleportArraySystem.RequestRebuild();
+    await Advance(.08f);
+    to = Endpoint(exit, targetTile);
+    since = starts.Count;
+    await Begin();
+    await Advance(.56f);
+    Check(passengers.All(passenger => passenger.current_tile == targetTile && !Occupied(passenger)) &&
+        Events(walker, arrival, since).Length == 1, "原旅客可再次通过重建的出口");
+    return new { passed = true, entry = entry.id, exit = exit.id, actors = passengers.Select(passenger => passenger.id).ToArray(),
+        process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new { starts, finishes }, Formatting.Indented));
+}

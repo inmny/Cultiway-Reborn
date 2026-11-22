@@ -190,6 +190,13 @@ namespace Cultiway.Core.Pathfinding
                     continue;
                 }
 
+                // 直达行程的另一座建筑不能替换原入口或出口。
+                if (PortalType?.RequiresDirectJourney == true)
+                {
+                    Cancel();
+                    return;
+                }
+
                 // 被摧毁则将上下客需求并入下一节点，避免数据丢失
                 if (i + 1 < Portals.Count)
                 {

@@ -127,6 +127,12 @@ namespace Cultiway.Core.Pathfinding
                 return false;
             }
 
+            if (portal_type.RequiresDirectJourney && (startBuilding == targetBuilding ||
+                    startBuilding.isRekt() || targetBuilding.isRekt() || !startBuilding.isNormal() || !targetBuilding.isNormal()))
+            {
+                return false;
+            }
+
             PortalRequest request = null;
 
             int startIdx = -1;
@@ -151,6 +157,10 @@ namespace Cultiway.Core.Pathfinding
                 }
 
                 targetIdx = r.Portals.FindIndex(p => p.PortalBuilding == targetBuilding);
+                if (portal_type.RequiresDirectJourney && (startIdx != 0 || targetIdx != 1 || r.Portals.Count != 2))
+                {
+                    continue;
+                }
                 if (targetIdx >= startIdx)
                 {
                     request = r;
@@ -190,7 +200,7 @@ namespace Cultiway.Core.Pathfinding
             if (request == null)
             {
                 var path = FindPortalPath(start_portal, target_portal, null);
-                if (path == null || path.Count == 0)
+                if (path == null || path.Count == 0 || portal_type.RequiresDirectJourney && path.Count != 2)
                 {
                     return false;
                 }

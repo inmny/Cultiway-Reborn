@@ -21,6 +21,7 @@ namespace Cultiway.Content
         {
             TrainStation.Buildings.Add(Buildings.TrainStation);
             TeleportArray.Buildings.Add(Buildings.TeleportArray);
+            TeleportArray.RequiresDirectJourney = true;
             TeleportArray.RequestRebuildGraph = _ => TeleportArraySystem.RequestRebuild();
         }
     }

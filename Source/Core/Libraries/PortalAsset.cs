@@ -10,5 +10,8 @@ namespace Cultiway.Core.Libraries
     {
         public Action<Portal> RequestRebuildGraph;
         public HashSet<BuildingAsset> Buildings = new();
+
+        /// <summary>直接通行只使用原入口与出口，端点失效时重新寻路。</summary>
+        public bool RequiresDirectJourney;
     }
 }

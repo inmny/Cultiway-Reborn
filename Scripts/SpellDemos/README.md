@@ -2971,3 +2971,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 保持上一步的世界，在同一进程用 `dev.py exec --timeout 137 -- python3 Scripts/SpellDemos/verify_environment_archive.py --environment-result 环境验证输出目录/result.json` 写入正式世界。用另一个新启动的独立游戏运行同一入口，将参数改为 `--archive 保存阶段的输出目录`。它会比对原正式档，确认已完成的启灵和抬地、新旧劫风边界、状态周期、独立天气及换世界清理。
 
 原版与 Worldfall 各用自己的独立游戏运行 `dev.py exec --timeout 200 -- python3 Scripts/SpellDemos/record_tribulation_environment.py --case yao`。将 `--case` 改为 `wind`、`status`、`rain` 或 `weather` 可分别录制煞风、周期伤害和回春、启灵雨或持续天气。每次运行输出原帧、实际世界时间、结算记录和单段录像。
+
+### 传送阵的真实入口和旅客（10.12）
+
+在原版独立游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_teleport_array.py`。脚本通过原请求管理器排队，核对双端充能、实际到达、撤销旅客、拆去出口和重建后再次通行。
+
+在同一进程用同一入口加 `--travel 上一步的输出目录/result.json`，从刚抵达的出口发起普通走路，确认实际返程落点和到达后继续寻路。

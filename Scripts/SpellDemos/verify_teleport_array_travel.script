@@ -1,0 +1,48 @@
+// 在已经重建出口的同一场地，用普通走路请求反向通行。
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check((bool)scene["passed"] && (int)scene["process"] == process, "复用同一进程的原阵与旅客");
+Building start = World.world.buildings.get((long)scene["exit"]);
+Building end = World.world.buildings.get((long)scene["entry"]);
+Actor walker = scene["actors"].Values<long>().Select(World.world.units.get)
+    .First(actor => start.tiles.Contains(actor.current_tile));
+WorldTile routeGoal = World.world.GetTileSimple(50, 70);
+var departures = new List<ConstructedCastStarted>();
+var arrivals = new List<ConstructedCastStarted>();
+void Through(ConstructedCastStarted fact)
+{
+    if (fact.CorrelationId != walker.id) return;
+    if (fact.AbilityId == "Cultiway.Facility.TeleportArray.Charge") departures.Add(fact);
+    if (fact.AbilityId == "Cultiway.Facility.TeleportArray.Arrival") arrivals.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Through;
+try
+{
+    Check(start.tiles.Contains(walker.current_tile), "从上轮实际抵达的出口步行返程");
+    var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold");
+    CombatStatusEffects.RemoveStatus(walker, hold, walker);
+    walker.setStatsDirty();
+    walker.updateStats();
+    walker.cancelAllBeh();
+    walker.goTo(routeGoal);
+    Config.paused = false;
+    double deadline = World.world.getCurWorldTime() + 11d;
+    await Game.WaitUntil(() => arrivals.Count > 0 || World.world.getCurWorldTime() >= deadline, 2100);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(departures.Count == 2 && arrivals.Count == 1 && !BodyControlState.HasControl(walker.id, BodyOccupancy.Stance) &&
+        (walker.current_tile == end.current_tile || end.tiles.Contains(walker.current_tile)),
+        "普通寻路实际等待、充能后落在登记的返程出口",
+        new { position = walker.current_position.ToString(), charged = departures.Count, arrived = arrivals.Count });
+    float exitDistance = Vector2.Distance(walker.current_position, (Vector2)routeGoal.posV3);
+    await Advance(1.0f);
+    float nextDistance = Vector2.Distance(walker.current_position, (Vector2)routeGoal.posV3);
+    Check(nextDistance < exitDistance - .5f && arrivals.Count == 1, "传送后消耗原路径步骤，继续走向原目标",
+        new { exitDistance, nextDistance });
+    return new { passed = true, process, actor = walker.id };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Through;
+    File.WriteAllText(Path.Combine(folder, "travel.json"), JsonConvert.SerializeObject(new { departures, arrivals }, Formatting.Indented));
+}
