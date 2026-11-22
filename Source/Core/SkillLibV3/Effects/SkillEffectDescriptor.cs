@@ -93,6 +93,9 @@ public enum SkillEffectOutcomeFlags : ulong
 
     /// <summary>废墟原址的有效地块实际留下沙地。</summary>
     WeatheredSand = 1UL << 18,
+
+    /// <summary>落点内的角色实际取得妖修体系。</summary>
+    CreatureAwakened = 1UL << 19,
 }
 
 /// <summary>一次结构化效果的不可变结算结果。</summary>

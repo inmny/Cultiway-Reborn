@@ -2965,3 +2965,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 用另一个新启动的独立游戏运行同一入口并改为 `--section cold --archive 保存阶段的输出目录`。它核对存读前的同一份正式文件，确认劫心和承伤延续、超时退劫、化形入口和换世界后清理。
 
 `dev.py exec --timeout 125 -- python3 Scripts/SpellDemos/verify_periodic_statuses.py` 在同一对练场核对灼烧、中毒、诅咒和回春的实际周期。记录同源刷新、实际恢复、解除及到期，以及原施放者消失后的诅咒结算。
+
+`dev.py exec --timeout 125 -- python3 Scripts/SpellDemos/verify_environment_sources.py` 通过启灵雨的实际点按与笔刷回调发出原版雨滴。复验落地前、实际落空和启灵三种结果，并核对同一地块入口的正常人物抬地。

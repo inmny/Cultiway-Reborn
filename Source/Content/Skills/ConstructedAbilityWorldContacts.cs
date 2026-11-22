@@ -12,13 +12,13 @@ namespace Cultiway.Content.Skills;
 /// <summary>真实地块接触提交世界操作或触发构造分支后的事实。</summary>
 public readonly struct ConstructedWorldContact
 {
-    /// <summary>施放、原来源及当前归属。</summary>
+    /// <summary>施放、原来源及当前归属。原版环境落地没有人物或构造实例，这三项为零。</summary>
     public readonly long CastId, SourceId, OwnerId;
 
     /// <summary>构造与实际操作编号；只触发接触分支时没有世界操作编号。</summary>
     public readonly string AbilityId, Action;
 
-    /// <summary>实际部位及地块坐标。</summary>
+    /// <summary>实际部位及地块坐标。原版环境落地没有部位，编号为负一。</summary>
     public readonly int Node, X, Y;
 
     /// <summary>实际接触点与从作用面指向地块的方向；初始重叠可没有明确方向。</summary>
@@ -84,8 +84,24 @@ public sealed partial class ConstructedAbilityService
     /// <summary>预估的剩余地块查询预算；负一表示正式运行，不限制正式结果。</summary>
     private int worldQueryBudget = -1;
 
-    /// <summary>已经提交的实际世界接触，供玩法和验证观察。</summary>
+    /// <summary>已经提交的实际世界接触，包括原版环境直接确认的落地。</summary>
     public static event Action<ConstructedWorldContact> WorldContactConfirmed;
+
+    /// <summary>在原版已确认环境落地时提交共用世界结果，保持原版的落地时点。</summary>
+    /// <param name="tile">原版回调给出的实际落点。</param>
+    /// <param name="ability">环境入口的稳定编号。</param>
+    /// <param name="action">该入口绑定的实际地块操作。</param>
+    internal static void ConfirmEnvironmentContact(WorldTile tile, string ability, ConstructionWorldAction action)
+    {
+        if (tile == null) return;
+        double time = World.world.getCurWorldTime();
+        SkillEffectResult result = SkillEffectResult.None;
+        if (action.CanApply(tile) &&
+            !TryCommitWorldAction(action, new ConstructionWorldContext(tile, 0, ability, 0f, time), out result)) return;
+
+        WorldContactConfirmed?.Invoke(new ConstructedWorldContact(0, 0, 0, ability, action.Id,
+            -1, tile.pos.x, tile.pos.y, tile.posV3, Vector3.zero, time, 0f, result, 1));
+    }
 
     /// <summary>本部位一项操作的独立目标数量及总次数，不与人物接触混用编号。</summary>
     private sealed class WorldContactTotals
@@ -282,20 +298,13 @@ public sealed partial class ConstructedAbilityService
         if (!rule.Action.CanApply(hit.Tile) || !WorldOperationAllowed(running, node, hit.Left.To.Shape, rule, hit.Tile)) return;
         long owner = running.Owner(node).Id;
         ContactMemory memory = RecordWorldAttempt(running, node, effect, hit.Tile);
-        long generation = worldGeneration;
-        TileType previousMain = hit.Tile.main_type;
-        TopTileType previousTop = hit.Tile.top_type;
-        int previousHeight = hit.Tile.Height;
-        SkillEffectResult result =
-            rule.Action.Apply(new ConstructionWorldContext(hit.Tile, owner, running.Cast.Plan.Id, rule.Duration,
-                LogicTime));
-        if (generation != worldGeneration) return;
+        if (!TryCommitWorldAction(rule.Action,
+                new ConstructionWorldContext(hit.Tile, owner, running.Cast.Plan.Id, rule.Duration, LogicTime),
+                out SkillEffectResult result)) return;
         double materialVolume = 0, materialResource = 0;
         if (result.Changed)
             materialVolume = running.Cast.UseWorldMaterial(node, hit.Left.To.Shape, rule.MaterialVolume,
                 hit.Point, out materialResource);
-        if (previousMain != hit.Tile.main_type || previousTop != hit.Tile.top_type || previousHeight != hit.Tile.Height)
-            simulation.RefreshTerrainAt(hit.Tile);
         if (rule.MaterialVolume == 0) running.Cast.ConfirmWorldEffect(node, result.Changed);
         running.Cast.RecordActionContact(node, hit.Point, AbilityActionContactKind.World);
         if (result.Changed)
@@ -310,6 +319,25 @@ public sealed partial class ConstructedAbilityService
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y, hit.Point, hit.Normal,
             LogicTime, running.Cast.Age, result, memory.Count, materialVolume, materialResource));
+    }
+
+    /// <summary>共用实际地块提交。只有地表确实改变才更新共同地形，旧世界结束时不再交付结果。</summary>
+    /// <param name="action">已经确认适用的实际地块操作。</param>
+    /// <param name="context">本次原落点、来源与结算时点。</param>
+    /// <param name="result">实际完成的变化。</param>
+    private static bool TryCommitWorldAction(ConstructionWorldAction action, in ConstructionWorldContext context,
+        out SkillEffectResult result)
+    {
+        long generation = worldGeneration;
+        WorldTile tile = context.Tile;
+        TileType previousMain = tile.main_type;
+        TopTileType previousTop = tile.top_type;
+        int previousHeight = tile.Height;
+        result = action.Apply(context);
+        if (generation != worldGeneration) return false;
+        if (previousMain != tile.main_type || previousTop != tile.top_type || previousHeight != tile.Height)
+            simulation.RefreshTerrainAt(tile);
+        return true;
     }
 
     /// <summary>从实际改变的地块取材质和位置；纯触发与空结果不出粒子。</summary>

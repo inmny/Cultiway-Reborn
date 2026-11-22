@@ -1,0 +1,89 @@
+var power = Cultiway.WorldboxGame.GodPowers.YaoAwakeningRain;
+var rainTile = World.world.GetTileSimple(64, 72);
+var emptyTile = World.world.GetTileSimple(72, 75);
+Actor beast = Make(64.35f, "wolf");
+Actor cultivator = Make(64.68f);
+var owner = cultivator.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+var animal = beast.GetExtend();
+bool Awakened() => animal.HasCultisys<Yao>();
+var rain = new List<ConstructedWorldContact>();
+var surface = new List<ConstructedWorldContact>();
+const string terrainId = "test.environment-sources.raise";
+void Landed(ConstructedWorldContact contact)
+{
+    if (contact.AbilityId == power.id) rain.Add(contact);
+    if (contact.AbilityId == terrainId) surface.Add(contact);
+}
+async Task UntilLanded(int expected)
+{
+    double deadline = World.world.getCurWorldTime() + 6d;
+    Config.paused = false;
+    await Game.WaitUntil(() => rain.Count >= expected || World.world.getCurWorldTime() >= deadline, 1600);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1200);
+}
+
+ConstructedAbilityService.WorldContactConfirmed += Landed;
+try
+{
+    await Advance(.22f);
+    Check(!Awakened() && owner.HasCultisys<Xian>() &&
+        !power.click_action(emptyTile, power.id) && rain.Count == 0, "正式神力忽略没有候选的空格");
+    Check(power.click_action(rainTile, power.id) && !Awakened() && rain.Count == 0,
+        "格内有候选时原点按发出真实雨滴，落地前没有变化");
+
+    Place(beast, 67.5f);
+    await UntilLanded(1);
+    Check(rain.Count == 1 && rain[0].X == 64 && rain[0].Y == 72 && !rain[0].Result.Changed &&
+        !Awakened() && owner.HasCultisys<Xian>() && !owner.HasCultisys<Yao>(),
+        "原雨滴实际落地时重查当前资格，走开的凡兽和原修士都没有取得妖修", rain);
+
+    Place(beast, 64.35f);
+    await Advance(.20f);
+    Check(power.click_brush_action(rainTile, power.id) && !Awakened() && rain.Count == 1,
+        "同一格可通过原笔刷再次下雨，结算仍等待真实落地");
+    await UntilLanded(2);
+    Check(rain.Count == 2 && rain.All(hit => hit.CastId == 0 && hit.SourceId == 0 && hit.OwnerId == 0 &&
+            hit.Attempts == 1 && hit.X == 64 && hit.Y == 72 && hit.Action == "nature.awaken_by_rain") &&
+        rain[1].Result.Flags == SkillEffectOutcomeFlags.CreatureAwakened && rain[1].Result.Count == 1 &&
+        Awakened() && animal.E.HasComponent<YaoBody>() && !owner.HasCultisys<Yao>(),
+        "实际雨滴只为一名合格角色建立妖修和身体，结果没有人物来源或构造实例", rain);
+    Check(!power.click_action(rainTile, power.id), "全格已有修炼体系后正式入口拒绝再生雨滴");
+
+    WorldTile ground = World.world.GetTileSimple(73, 74);
+    ground.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    var raise = new AbilityDefinition
+    {
+        Id = terrainId, Name = "正式抬地复验", Resource = "none", Cost = 0f, Cooldown = 0f,
+        Power = 1f, TargetRange = 30f, Lifetime = .35f,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact
+        {
+            DamageScale = 0f,
+            WorldEffects = new[] { new ConstructionWorldEffect { Action = "terrain.raise", TileCentreOnly = true, MaximumTiles = 1 } }
+        },
+        Root = new ConstructionNode { Id = "ground", Form = "world_domain", Scale = .12f, Volume = 0f }
+    };
+    await Fire(raise, cultivator, cultivator, aim: new Vector3(73.5f, 74.5f, 0f), aggro: false);
+    await Advance(.50f);
+    Check(surface.Count == 1 && surface[0].CastId > 0 && surface[0].SourceId == cultivator.id &&
+        surface[0].X == 73 && surface[0].Y == 74 && surface[0].Result.Flags == SkillEffectOutcomeFlags.TerrainRaised &&
+        ground.main_type == TileLibrary.soil_high && endings.Any(item => item.Fact.CastId == surface[0].CastId &&
+            !item.Fact.Cancelled && item.Fact.WorldChanges == 1) && rain.Count == 2,
+        "原人物地点施法仍提交一次真实抬地并正常结束，没有追加雨滴结果", surface);
+    return new
+    {
+        passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        rain = rain.Select(hit => new { hit.X, hit.Y, hit.SourceId, hit.Result.Count }).ToArray(),
+        surface = surface.Select(hit => new { hit.X, hit.Y, hit.SourceId, hit.CastId }).ToArray()
+    };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.WorldContactConfirmed -= Landed;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+}
