@@ -1,0 +1,122 @@
+var caster = Make(62);
+var manaStats = new BaseStats();
+manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ObservedSignal.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ObservedSignal.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(caster, mana, 10000, caster);
+caster.updateStats();
+Ready(caster);
+var sample = new List<object>();
+var ends = new List<ConstructedCastEnded>();
+var world = new List<ConstructedWorldContact>();
+void WorldHit(ConstructedWorldContact value)
+{
+    if (value.AbilityId.StartsWith("test.world-commit.", StringComparison.Ordinal)) world.Add(value);
+}
+void End(ConstructedCastEnded value)
+{
+    if (value.AbilityId.StartsWith("test.world-commit.", StringComparison.Ordinal)) ends.Add(value);
+}
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+ConstructedAbilityService.CastEnded += End;
+
+AbilityDefinition Definition(string tag, float radius) => new AbilityDefinition
+{
+    Id = "test.world-commit." + tag, Name = "地形共同提交", Cost = 4,
+    Resource = "mana", TargetRange = 15f, Power = 0f, Lifetime = .65f, Cooldown = .45f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Impact = new ConstructionImpact { DamageScale = 0, WorldEffects = new[]
+        { new ConstructionWorldEffect { Action = "terrain.raise", TileCentreOnly = true, MaximumTiles = 240 } } },
+    Root = new ConstructionNode { Id = "terrain", Form = "world_domain", Matter = "wood", ActiveFrom = .15f,
+        ActiveUntil = .29f, Scale = radius, Volume = 0 }
+};
+
+async Task Observe(string tag, int x, int y, float radius)
+{
+    var input = Definition(tag, radius);
+    int bounds = Mathf.CeilToInt(radius) + 2;
+    var tiles = new Dictionary<int, (WorldTile Tile, int Height, TileType Type)>();
+    for (int dx = -bounds; dx <= bounds; dx++)
+    for (int dy = -bounds; dy <= bounds; dy++)
+    {
+        var tile = World.world.GetTileSimple(x + dx, y + dy);
+        tile.building?.removeBuildingFinal();
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.Height = 140;
+        tile.heat = 0;
+        tile.burned_stages = 0;
+        tiles.Add(tile.tile_id, (tile, tile.Height, tile.main_type));
+    }
+    Place(caster, x - 4f, y + .5f);
+    var anchor = new Vector3(x + .5f, y + .5f, 0f);
+    caster.setMana(80);
+    await Fire(input, caster, null, aim: anchor, aggro: false);
+    Check(80f - caster.getMana() == input.Cost, "正式施放一次扣费", tag);
+    caster.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.8f);
+    var block = world.Where(receipt => receipt.AbilityId == input.Id).ToArray();
+    var reads = WorldCommitProbe.Rows.Where(row => row.Id == input.Id).ToArray();
+    var changed = new HashSet<int>(tiles.Values
+        .Where(value => value.Tile.Height != value.Height || value.Tile.main_type != value.Type)
+        .Select(value => value.Tile.tile_id));
+    var confirmed = block.Where(value => value.Result.Changed)
+        .Select(value => World.world.GetTileSimple(value.X, value.Y).tile_id).ToArray();
+    Check(confirmed.Length > 0 && changed.SetEquals(confirmed) && confirmed.Length == changed.Count &&
+        changed.Contains(World.world.GetTileSimple(x, y).tile_id) &&
+        !changed.Contains(World.world.GetTileSimple(x + bounds, y).tile_id) &&
+        ends.Count(value => value.AbilityId == input.Id && !value.Cancelled && value.WorldChanges == changed.Count) == 1,
+        "实际地块、唯一提交、圈外与自然结束相符", new { tag, confirmed = confirmed.Length, actual = changed.Count });
+    Check(reads.Length == block.Length && reads.Count(value => value.Changed) == changed.Count &&
+        reads.All(value => value.Ticks >= 0) && reads.Any(value => value.Ticks > 0),
+        "计时器覆盖实际世界提交", new { tag, receipts = block.Length, samples = reads.Length });
+    double ms = 1000d / Stopwatch.Frequency;
+    var frames = reads.GroupBy(value => value.Frame).Select(frame => new
+    {
+        frame = frame.Key, commits = frame.Count(), milliseconds = frame.Sum(value => value.Ticks) * ms,
+    }).ToArray();
+    sample.Add(new
+    {
+        tag, radius, tilesChanged = changed.Count, totalMilliseconds = reads.Sum(value => value.Ticks) * ms,
+        peakCommitFrameMilliseconds = frames.Max(frame => frame.milliseconds), frames
+    });
+}
+
+var h = new Harmony("cultiway.verify.world-commit");
+var method = service.GetMethod("TryCommitWorldAction", F);
+h.Patch(method, new HarmonyMethod(typeof(WorldCommitProbe).GetMethod("Before")),
+    new HarmonyMethod(typeof(WorldCommitProbe).GetMethod("After")));
+try
+{
+    await Observe("local", 68, 72, 2.8f);
+    await Observe("area", 86, 74, 6.8f);
+    var scales = JArray.FromObject(sample);
+    Check((int)scales[1]["tilesChanged"] > (int)scales[0]["tilesChanged"], "广一些的足迹确实提交更多地块", scales);
+    return new { passed = true, sample, softwareOnly = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    h.Unpatch(method, HarmonyPatchType.All, "cultiway.verify.world-commit");
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}
+
+static class WorldCommitProbe
+{
+    public static readonly List<(string Id, int Frame, long Ticks, bool Changed)> Rows = new(512);
+
+    public static void Before(ref ConstructionWorldContext context, out long __state) =>
+        __state = context.AbilityId.StartsWith("test.world-commit.", StringComparison.Ordinal) ? Stopwatch.GetTimestamp() : 0L;
+
+    public static void After(ref ConstructionWorldContext context, ref SkillEffectResult result, long __state)
+    {
+        if (__state == 0) return;
+        long elapsed = Stopwatch.GetTimestamp() - __state;
+        Rows.Add((context.AbilityId, Time.frameCount, elapsed, result.Changed));
+    }
+}

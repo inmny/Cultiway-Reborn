@@ -3123,3 +3123,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ## 城市分区净化工程（11.14）
 
 在独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_city_district_cleanup.py --archive <11.03城市用术准备目录>`。沿用原城、真实篝火和原工人，只准备两个有污染的分区。复验原任务的两次付费、断开与重新接通、源点移除、原档读回和完成历史。见[城市分区净化工程](../../Doc/技能系统全面重构/城市分区净化工程.md)。
+
+### 世界过程与地形提交开销（11.15）
+
+在独立游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/measure_world_commit.py`。用同一角色通过正式入口执行两种大小的抬升操作。逐格核对世界变化和提交收据，并输出实际提交总耗时及最忙一帧内的提交耗时。见[世界过程调度与提交开销](../../Doc/技能系统全面重构/世界过程调度与提交开销.md)。
