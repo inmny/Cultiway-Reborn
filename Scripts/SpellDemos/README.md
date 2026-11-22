@@ -3111,3 +3111,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_shared_soul_pact.py --section cast`。由正式编辑器启用共同替负，再核对各人实际支付、单人排斥、对同一笔来伤的分账、承受者免伤或死亡时的接续，以及自然结束后旧单人术仍可使用。脚本同时保存正式世界。
 
 退出游戏并启动新进程后，用 `--section cold --archive <cast输出目录>` 复验两人正式学会的规则、保存时的生命和临时联系的清理。可编辑构造见 [同袍替负](../../Doc/技能系统全面重构/构造输入/同袍替负.json)。
+
+## 麦田局部生长节奏（11.12）
+
+在独立游戏运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_crop_growth_time.py --archive <11.03城市用术准备目录>`。用原城和原版风车准备两块合法麦田，经正式编辑保存后实际施放 [借时育禾](../../Doc/技能系统全面重构/构造输入/借时育禾.json)。脚本检查原生长秒数和成熟阶段、另一块田的对照进度、真实费用、移除和清空，以及正式世界读回。

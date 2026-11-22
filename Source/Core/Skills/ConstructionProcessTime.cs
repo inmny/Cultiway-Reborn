@@ -41,6 +41,9 @@ internal sealed class CompiledProcessTime
         }
     }
 
+    /// <summary>离开最后一段之后恢复常速。</summary>
+    internal double LastWindowEnd => windows.Length == 0 ? 0d : windows[^1].End;
+
     /// <summary>同一份安排完成指定剩余进度所需的世界秒数。</summary>
     internal double CompletionFor(double remaining)
     {

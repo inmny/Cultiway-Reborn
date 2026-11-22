@@ -18,10 +18,30 @@ public sealed partial class WindowWanfaConstructionEditor
 
     private void ProcessTimeRows(ConstructionNode node, ConstructionOperation operation)
     {
-        var windows = Windows(operation);
         bool local = operation.Kind == ConstructionOperationKind.Erode && operation.WorldMatter == null;
         float limit = local ? session.Draft.Lifetime : 1000000000f;
-        Row("ProcessTimeRules", T(operation.Kind == ConstructionOperationKind.RetimeErosion ? "RetimeWindowsHint" : "ProcessTimeHint"));
+        string hint = operation.Kind == ConstructionOperationKind.RetimeErosion ? "RetimeWindowsHint" : "ProcessTimeHint";
+        int step = Array.FindIndex(session.Draft.Steps, item => item.Operation == operation);
+        string path = step < 0 ? NodePath(node) : null;
+        int index = step < 0 ? Array.IndexOf(node.Operations, operation) : -1;
+        ProcessTimeRows(operation, limit, hint, candidate => step >= 0 ? candidate.Steps[step].Operation :
+            ConstructionContactEdits.Parts(candidate.Root).Single(item => item.Path == path).Node.Operations[index],
+            Windows, (target, list) =>
+            {
+                if (target.Kind == ConstructionOperationKind.RetimeErosion) target.TimeWindows = list;
+                else
+                {
+                    var erosion = target.Kind == ConstructionOperationKind.Leave ? target.Residue.Erosion : target.Erosion ??= new ConstructionErosion();
+                    erosion.TimeWindows = list.Length == 0 ? null : list;
+                }
+            });
+    }
+
+    private void ProcessTimeRows<TValue>(TValue current, float limit, string hint, Func<AbilityDefinition, TValue> resolve,
+        Func<TValue, ConstructionProcessWindow[]> read, Action<TValue, ConstructionProcessWindow[]> write)
+    {
+        var windows = read(current) ?? Array.Empty<ConstructionProcessWindow>();
+        Row("ProcessTimeRules", T(hint));
         if (windows.Length < ConstructionProcessWindow.Maximum && NewWindow(windows, limit) is { } window)
             ActionRow("AddProcessWindow", T("AddProcessWindowHint"), () => Edit(list => list.Append(window).ToArray(), window));
         if (windows.Length == 0) return;
@@ -54,18 +74,11 @@ public sealed partial class WindowWanfaConstructionEditor
             ApplyConstructionEdit(() =>
             {
                 var candidate = ConstructionEditing.Copy(session.Draft);
-                int step = Array.FindIndex(session.Draft.Steps, item => item.Operation == operation);
-                var target = step >= 0 ? candidate.Steps[step].Operation :
-                    ConstructionContactEdits.Parts(candidate.Root).Single(item => item.Path == NodePath(node)).Node.Operations[Array.IndexOf(node.Operations, operation)];
-                var list = Windows(target);
+                TValue target = resolve(candidate);
+                var list = read(target) ?? Array.Empty<ConstructionProcessWindow>();
                 var focus = touched ?? (touchedIndex >= 0 ? list[touchedIndex] : null);
                 list = edit(list).OrderBy(item => item.At).ToArray();
-                if (target.Kind == ConstructionOperationKind.RetimeErosion) target.TimeWindows = list;
-                else
-                {
-                    var erosion = target.Kind == ConstructionOperationKind.Leave ? target.Residue.Erosion : target.Erosion ??= new ConstructionErosion();
-                    erosion.TimeWindows = list.Length == 0 ? null : list;
-                }
+                write(target, list);
                 access.Validate(candidate);
                 if (focus != null) timeWindowChoice = Array.IndexOf(list, focus);
                 return candidate;

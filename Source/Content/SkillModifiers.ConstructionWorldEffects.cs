@@ -22,6 +22,8 @@ public partial class SkillModifiers
             Skills.TerrainWeathering.CanWeatherStone, Skills.TerrainWeathering.WeatherStone, 0f));
         ConstructionWorldActions.Register(new ConstructionWorldAction("land.cleanse",
             tile => CanCleanLand(default, tile), tile => ApplyCleanLand(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction(Skills.CropGrowthPacing.ActionId,
+            Skills.CropGrowthPacing.CanApply, Skills.CropGrowthPacing.Apply, 0f, acceptsProcessTime: true));
         ConstructionWorldActions.Register(new ConstructionWorldAction("crop.mature",
             tile => CanFertilizeCrop(default, tile), tile => ApplyFertilizeCrop(default, tile)));
         ConstructionWorldActions.Register(new ConstructionWorldAction("terrain.raise",

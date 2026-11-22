@@ -301,7 +301,8 @@ public sealed partial class ConstructedAbilityService
         long owner = running.Owner(node).Id;
         ContactMemory memory = RecordWorldAttempt(running, node, effect, hit.Tile);
         if (!TryCommitWorldAction(rule.Action,
-                new ConstructionWorldContext(hit.Tile, owner, running.Cast.Plan.Id, rule.Duration, LogicTime),
+                new ConstructionWorldContext(hit.Tile, owner, running.Cast.Plan.Id, rule.Duration, LogicTime,
+                    rule.ProcessTime),
                 out SkillEffectResult result)) return;
         double materialVolume = 0, materialResource = 0;
         if (result.Changed)
