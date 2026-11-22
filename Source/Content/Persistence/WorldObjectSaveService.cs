@@ -257,6 +257,7 @@ internal static partial class WorldObjectSaveService
             if (entity.TryGetComponent(out ActorBinder actor)) actor.AE.MarkCultiwayStatsDirty();
             if (entity.HasComponent<YuanshenNodeState>()) YuanshenNodeLockService.RegisterNode(entity);
         }
+        RemoveUnsupportedSpiritAvatars();
         MagicWebManager.Instance.RestoreWorldSave(pendingLoad.MagicWeb, Resolve, Report);
         RestoreRuntimeIndexes();
         RestoreCraftTasks();
