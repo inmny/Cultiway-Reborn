@@ -5,6 +5,7 @@ using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -78,7 +79,7 @@ public static class YuanshenAdvancedNodeService
             default,
             false);
         if (node.IsNull) return false;
-        if (combatTarget != null && !combatTarget.isRekt() && actor.Base.canAttackTarget(combatTarget))
+        if (SkillTargetRelationResolver.IsHostile(actor.Base, combatTarget))
             AssignEngage(node, combatTarget);
         payment.Commit();
         FocusNode(actor, node);
@@ -202,7 +203,7 @@ public static class YuanshenAdvancedNodeService
     public static bool TryAssignRoleEngage(ActorExtend actor, YuanshenNodeRole role, Actor target)
     {
         if (actor == null || target == null || target.isRekt() || !target.isAlive() ||
-            !actor.Base.canAttackTarget(target) ||
+            !SkillTargetRelationResolver.IsHostile(actor.Base, target) ||
             !actor.TryGetComponent(out YuanshenRuntimeState runtime) || runtime.advanced_nodes == null)
             return false;
         for (var i = 0; i < runtime.advanced_nodes.Count; i++)
@@ -224,7 +225,7 @@ public static class YuanshenAdvancedNodeService
     public static bool TryAssignFocusedEngage(ActorExtend actor, Actor target)
     {
         if (actor == null || target == null || target.isRekt() || !target.isAlive() ||
-            !actor.Base.canAttackTarget(target) ||
+            !SkillTargetRelationResolver.IsHostile(actor.Base, target) ||
             !YuanshenThoughtService.TryGetFocused(actor, out YuanshenNodeHandle handle, out _) ||
             !YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
             !node.TryGetComponent(out YuanshenNodeState identity) ||

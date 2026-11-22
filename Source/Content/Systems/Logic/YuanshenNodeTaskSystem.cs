@@ -162,7 +162,7 @@ public sealed class YuanshenNodeTaskSystem
         Vector2 position)
     {
         Actor target = World.world?.units?.get(task.target_object_id);
-        if (target == null || target.isRekt() || !target.isAlive() || !owner.Base.canAttackTarget(target) ||
+        if (!SkillTargetRelationResolver.IsHostile(owner.Base, target) ||
             !YuanshenAnchorNetworkService.IsNodeWithinTether(owner, node, target.current_position))
         {
             task = new YuanshenNodeTask

@@ -25,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('soul', 'travel-stances', 'thought-orders', 'thought-artifact',
                                               'body-consent', 'body-hostile', 'body-consent-finish', 'body-anchor',
-                                              'body-anchor-finish', 'soul-force', 'node', 'avatar', 'summon',
+                                              'body-anchor-finish', 'advanced-engage', 'advanced-returns', 'soul-force', 'node', 'avatar', 'summon',
                                               'artifact-spirit', 'natural-summon', 'facility', 'prepare', 'cold', *FILMS),
                         default='soul')
     parser.add_argument('--archive', type=Path, help='cold 使用 prepare 输出目录，body-anchor-finish 使用实际塑体存档目录')
@@ -80,6 +80,8 @@ def main():
         body = 'verify_yuanshen_body_anchor.script'
     elif anchor_finish:
         body = 'verify_yuanshen_reconstruction_finish.script'
+    elif section == 'advanced-engage':
+        body = 'verify_yuanshen_advanced_engage.script'
     elif section == 'facility':
         body = 'verify_facility_nodes.script'
     else:
@@ -88,7 +90,7 @@ def main():
                       + f'const string section = "{section}";\n' + scene + Path(__file__).with_name(body).read_text())
     baseline.connect(False, validate_runtime=False)
     try:
-        result = baseline.call('run', str(script), '145000' if section in ('avatar', 'body-anchor-finish') or section in FILMS else '90000')
+        result = baseline.call('run', str(script), '145000' if section in ('avatar', 'body-anchor-finish', 'advanced-returns') or section in FILMS else '90000')
     except RuntimeError as error:
         write_json(output / 'result.json', dict(passed=False, error=str(error)))
         raise RuntimeError(f'独立施法复验见 {output}') from error
