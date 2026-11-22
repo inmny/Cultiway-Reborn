@@ -2945,3 +2945,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section prepare` 通过正式世界保存入口写入已经扣除机会的等待涅槃、已领取的精华及组合器官。新启动的另一个独立游戏运行 `--section cold --archive 保存阶段的输出目录`，使用同一正式文件核对涅槃继续、恢复后器官仍能实际出手以及精华唯一性。
 
 `--section film-active|film-shell|film-phoenix` 分别摄录同一现有对练场的雷角与狐火、玄甲受击、涅槃和恢复。原版独立游戏读取实际相机，启用 Worldfall 的环境读取三维画面。输出包含录像、实际世界时间、出手和伤害记录。每次可单独录制一段。
+
+### 命魂代施（10.10）
+
+独立游戏中运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_independent_casting.py`。通过实际神游把命魂移出肉身射程，核对命魂从当前位置出手、原修士支付与归属、共享冷却、自护目标和归返后结束。测试复用同一对练场和人物。

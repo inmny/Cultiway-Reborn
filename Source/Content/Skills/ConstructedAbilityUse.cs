@@ -19,8 +19,10 @@ public sealed partial class ConstructedAbilityService
     /// <param name="point">共同地图坐标及离地高度。</param>
     /// <param name="height">人物实际体高，地点为零。</param>
     /// <param name="explicitReactionTarget">原反应已由事件点名，只校验这一个人物的生命和身份。</param>
+    /// <param name="self">直接施放时「本人」实际指向的人物。旧来源沿其原有目标。</param>
     private static bool TryResolveUseTarget(ActorExtend caster, CompiledAbility plan,
-        in ActiveAbilityTarget target, out Actor actor, out Vector3 point, out float height, bool explicitReactionTarget = false)
+        in ActiveAbilityTarget target, out Actor actor, out Vector3 point, out float height,
+        bool explicitReactionTarget = false, Actor self = null)
     {
         actor = null;
         point = target.Position;
@@ -29,7 +31,7 @@ public sealed partial class ConstructedAbilityService
         if (mode == ActiveAbilityTargetMode.Self)
         {
             if (caster == null) return false;
-            actor = caster.Base;
+            actor = self ?? caster.Base;
         }
         else if (mode == ActiveAbilityTargetMode.Object ||
                  mode == ActiveAbilityTargetMode.ObjectOrPoint && target.Object != null)

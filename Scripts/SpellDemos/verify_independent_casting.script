@@ -1,0 +1,157 @@
+// 复用正式神游、真实人物和共同能力入口。
+Actor body = Make(64.5f), enemy = Make(72f, "wolf");
+ActorExtend owner = body.GetExtend();
+owner.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Huashen, wakan = 10000 });
+owner.AddComponent(new Yuanshen
+{
+    formation = new CoreFormationSnapshot
+    {
+        version = CoreFormationSnapshot.CurrentVersion, signature = "verify.independent.casting",
+        canonical_name = "代施复验", finalized = true, realm = CoreFormationRealm.Yuanshen, strength = 4f,
+        refinement = 5, composition = ElementComposition.Static.Earth,
+        atoms = new[] { new CoreFormationAtomState { atom_id = CoreFormationAtoms.ManifestSpiritPlatform.id, weight = 1f } },
+        stats = Array.Empty<CoreFormationStatValue>(),
+        semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
+    },
+    original_body = new PhysicalBodySnapshot { actor_asset_id = "human" }
+});
+var boost = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.IndependentCasting.Resource")
+    .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000, [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 })
+    .SetDuration(10000).Build();
+var guard = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.IndependentCasting.Guard")
+    .SetStats(new BaseStats { ["armor"] = 1 }).SetDuration(1f).Build();
+CombatStatusEffects.ApplyStatus(body, boost, 10000, body);
+owner.MarkCultiwayStatsDirty();
+body.setStatsDirty();
+body.updateStats();
+await Advance(.18f);
+ref Xian Cultivation() => ref owner.GetCultisys<Xian>();
+float Balance() => Cultivation().wakan;
+
+AbilityDefinition NewAbility(string name, AbilityAnchor anchor, float lifetime) => new()
+{
+    Id = "test.independent-casting." + name, Name = name, Resource = "wakan", Cost = 6f,
+    TargetRange = 3f, Power = 2f, Lifetime = lifetime, Cooldown = .4f,
+    Binding = new ConstructionBinding { Anchor = anchor },
+    Root = new ConstructionNode { Id = "root", Form = "spirit_bolt", Matter = "spirit", Scale = .6f }
+};
+var shot = NewAbility("hit", AbilityAnchor.Target, .32f);
+shot.Root.OnContact = ConstructionContactResponse.End;
+shot.Root.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = 1f, SelectedTargetOnly = true };
+var follow = NewAbility("guard", AbilityAnchor.Source, 12f);
+follow.Binding.Follow = true;
+follow.Root.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0f };
+follow.Use = new ConstructionUse
+{
+    Target = ActiveAbilityTargetMode.Self,
+    SelfStatus = new ConstructionStatus { Id = guard.id, Duration = 3f, Potency = 1f, Application = ConstructionStatusApplication.Refresh }
+};
+var palm = BodyActionCatalog.Create("test.independent-casting.palm", "掌击",
+    new BodyActionRequest { Kind = BodyActionKind.Slap, Effector = "hand.right", Seconds = 1f });
+palm.Resource = "wakan";
+palm.Cost = 6f;
+var expectedFee = SkillCastPayment.Quote(owner, SkillCastResources.Wakan, shot.Cost);
+
+ActiveAbilityHandle Learn(AbilityDefinition definition)
+{
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    return new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+}
+bool Use(Actor caster, ActiveAbilityHandle handle, Actor target, long correlation) =>
+    ActiveAbilityService.TryUse(caster.GetExtend(), handle, new ActiveAbilityTarget(target, target.GetSimPos(),
+        runtimeData: new SkillCastRuntimeData { CorrelationId = correlation }), ActiveAbilityUseOrigin.Script);
+var unit = new Dictionary<long, (ConstructedCastStarted Fact, object Run)>();
+var hits = new List<ConstructedContact>();
+var exits = new List<ConstructedCastEnded>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.CorrelationId is < 10101 or > 10104) return;
+    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    unit.Add(fact.CorrelationId, (fact, run));
+}
+void Contact(ConstructedContact fact)
+{
+    if (unit.Values.Any(value => value.Fact.CastId == fact.CastId)) hits.Add(fact);
+}
+void Exited(ConstructedCastEnded fact)
+{
+    if (unit.Values.Any(value => value.Fact.CastId == fact.CastId)) exits.Add(fact);
+}
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += Exited;
+try
+{
+    Cultivation().wakan = 9000f;
+    Actor spirit = null;
+    Check(YuanshenTravelService.TryTravelTo(owner, new Vector3(70.5f, 72f, 0f),
+        YuanshenTravelStance.Balanced) && YuanshenTravelService.TryGetSoulCarrier(owner, out spirit),
+        "实际神游创建临时命魂");
+    await Advance(1.4f);
+    long spiritId = spirit.id;
+    var context = SkillCasterContextService.Resolve(spirit.GetExtend());
+    float spiritDistance = Vector2.Distance(spirit.current_position, enemy.current_position);
+    float bodyDistance = Vector2.Distance(body.current_position, enemy.current_position);
+    Check(context.Owner == owner && context.Carrier.Base == spirit && context.EffectScale > 0f &&
+        spiritDistance < 3f && bodyDistance > 3f,
+        "实际命魂已进入可施法距离，肉身仍在射程外", new { bodyDistance, spiritDistance, context.EffectScale });
+    body.attack_timer = spirit.attack_timer = enemy.attack_timer = 999f;
+    body.addAggro(enemy);
+    enemy.addAggro(body);
+    var strike = Learn(shot);
+    var shield = Learn(follow);
+    var slap = Learn(palm);
+    float before = Balance();
+    Check(!Use(body, strike, enemy, 10101) && !Use(spirit, slap, enemy, 10101) && unit.Count == 0 && Balance() == before,
+        "肉身距远及命魂使用实体掌击均无出手、无扣费");
+    int health = enemy.getHealth();
+    Check(Use(spirit, strike, enemy, 10101) && Mathf.Abs(before - Balance() - expectedFee) < .003f,
+        "命魂代施只从修士扣除一次原价", new { paid = before - Balance(), expectedFee });
+    var fire = unit[10101];
+    var outlet = (Vector3)Field(fire.Run, "LastSourceFoot");
+    Check(fire.Fact.SourceId == body.id && (long)Field(fire.Run, "SpatialSourceId") == spiritId &&
+        Vector2.Distance(outlet, spirit.current_position) < .001f &&
+        Mathf.Abs((float)Field(fire.Run, "Power") - 2f * context.EffectScale) < .0001f,
+        "真实出生位置和效果倍率来自命魂，施放归属仍是修士", new { outlet = outlet.ToString(), fire.Fact.SourceId, spiritId });
+    Place(enemy, 66f);
+    var control = ActiveAbilityService.ResolveControlState(body.GetExtend(), strike);
+    Check(control.BlockReason == ActiveAbilityControlBlockReason.Cooldown,
+        "命魂与肉身共用同一次能力冷却");
+    Place(enemy, 72f);
+    await Advance(.35f);
+    Check(enemy.getHealth() < health && hits.Any(value => value.CastId == fire.Fact.CastId &&
+        value.SourceId == body.id && value.TargetId == enemy.id), "目标中招扣血并记录原修士归属",
+        new { before = health, after = enemy.getHealth(), confirmed = hits.Count });
+
+    before = Balance();
+    Check(Use(spirit, shield, body, 10102) && Mathf.Abs(before - Balance() - expectedFee) < .003f &&
+        CombatStatusEffects.HasStatus(spirit, guard, body) && !CombatStatusEffects.HasStatus(body, guard, body),
+        "通用本人状态实际护持命魂，由原修士付费和授予");
+    var guarded = unit[10102];
+    Check((long)Field(guarded.Run, "TargetId") == spiritId, "跟随的本人挂在实际载体");
+    Check(YuanshenTravelService.RequestReturn(owner), "通过正式神游入口归返");
+    await Advance(3f);
+    Check(!YuanshenTravelService.TryGetSoulCarrier(owner, out _) &&
+        exits.Any(value => value.CastId == guarded.Fact.CastId && value.Cancelled && value.Age < 12f),
+        "归返真正回收载体，提前结束仍依附其位置的部位",
+        exits.Select(value => new { value.CastId, value.Cancelled, value.Age }).ToArray());
+    Place(enemy, 66f);
+    before = Balance();
+    Check(Use(body, strike, enemy, 10103) && Mathf.Abs(before - Balance() - expectedFee) < .003f &&
+        (long)Field(unit[10103].Run, "SpatialSourceId") == body.id &&
+        Mathf.Abs((float)Field(unit[10103].Run, "Power") - 2f) < .0001f,
+        "回到肉身后同一能力按原位置、强度和费用重新出手");
+    await Advance(.45f);
+    Check(exits.Any(value => value.CastId == unit[10103].Fact.CastId && !value.Cancelled),
+        "归返后的普通施放实际结束");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= Exited;
+    Config.paused = true;
+}

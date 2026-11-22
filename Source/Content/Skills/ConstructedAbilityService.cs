@@ -305,6 +305,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
         CompiledAbility plan = PlanFor(handle.EntryId);
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || context.EffectScale <= 0f || caster.HasComponent<YuanshenBodilessTransitState>() ||
+            !context.Carrier.Base.isAlive() || !context.Carrier.Base.hasHealth() ||
+            plan.Body != null && (context.Kind != SkillCarrierKind.Physical || !context.HasPhysicalBody))
+            return new(ActiveAbilityControlBlockReason.Unavailable);
         if (plan.Binding?.Anchor == AbilityAnchor.Carrier &&
             !ConstructedArtifactCarrier.CanBorrow(caster, handle.Source))
             return new(ActiveAbilityControlBlockReason.Unavailable);
@@ -332,12 +337,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
-    public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
-        CanPrepare(caster, handle, target.Object) &&
-        (target.WorldScope == null || target.WorldScope.IsValid()) &&
-        TryResolveUseTarget(caster, PlanFor(handle.EntryId), target, out Actor actor, out Vector3 point, out _) &&
-        (PlanFor(handle.EntryId).SoulPact == null || CanBeginSoulPact(caster.Base, actor)) &&
-        StartingDistance(caster.Base, point) <= Range(caster, PlanFor(handle.EntryId), actor, handle.Source);
+    public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
+    {
+        if (!CanPrepare(caster, handle, target.Object) || target.WorldScope != null && !target.WorldScope.IsValid())
+            return false;
+        CompiledAbility plan = PlanFor(handle.EntryId);
+        Actor carrier = SkillCasterContextService.Resolve(caster).Carrier.Base;
+        return TryResolveUseTarget(caster, plan, target, out Actor actor, out Vector3 point, out _, self: carrier) &&
+               (plan.SoulPact == null || CanBeginSoulPact(caster.Base, actor)) &&
+               StartingDistance(carrier, point) <= Range(caster, plan, actor, handle.Source);
+    }
 
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
     /// <param name="caster">持有者。</param>
@@ -389,8 +398,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
         return Start(caster, PlanFor(handle.EntryId), target, origin, out _,
-            carrierSource: handle.Source);
+            carrierSource: handle.Source, spatialSource: context.Carrier.Base, effectScale: context.EffectScale);
     }
 
     /// <summary>原有身体能力的入口沿用统一执行，不要求每个人预先学会一份临时容器。</summary>
@@ -513,6 +523,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="selectionAlreadyChecked">已从正式来源核对选择距离，仍要求实际形体接触。</param>
     /// <param name="artifactArea">原法宝圆面确认接触时兑现的状态、伤害或净化。</param>
     /// <param name="commitEffect">共同施放发布前在主线程确认来源动作。</param>
+    /// <param name="effectScale">直接施放时当前载体的心神效果倍率。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
@@ -522,7 +533,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         LegacyBuildingContact buildingContact = null, string formationFamily = null,
         FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
-        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null)
+        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, float effectScale = 1f)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -530,11 +541,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             buildingContact ??= LegacyBuildingContact.ForWeapon(null, sweep: true);
         spatialSource ??= sourceActor;
         if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
+        long spatialSourceId = spatialSource?.id ?? 0;
         string id = plan.Id;
         Actor targetActor = null;
         Vector3 point = target.Position;
         float targetHeight = 0f;
-        if (!practice && !TryResolveUseTarget(caster, plan, target, out targetActor, out point, out targetHeight, explicitReactionTarget))
+        if (!practice && !TryResolveUseTarget(caster, plan, target, out targetActor, out point, out targetHeight,
+                explicitReactionTarget, self: prepaid ? null : spatialSource))
             return false;
         if (plan.SoulPact != null && (practice || !CanBeginSoulPact(sourceActor, targetActor))) return false;
         if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
@@ -587,8 +600,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
+        // 原版肉身武技已经在伤害入口按残留心神结算。
+        float power = plan.Body == null ? plan.Power * effectScale : plan.Power;
         GetHitEvent damage = sourceDamage ?? CombatDamageEffects.PrepareDamage(caster.Base,
-            caster.Base.stats["damage"] * plan.Power, ElementComposition.Static.empty);
+            caster.Base.stats["damage"] * power, ElementComposition.Static.empty);
         if (!sourceDamage.HasValue) damage.DamageOrigin = target.RuntimeData.DamageOrigin;
         long sourceId = sourceActor?.id ?? 0, generation = worldGeneration;
         BodyControlLease bodyLease =
@@ -617,6 +632,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, plan);
             SkillCastPayment payment = sourcePayment ?? ownPayment;
             if (!prepaid && payment == null || sourceActor != null && (sourceActor.isRekt() || sourceActor.id != sourceId) ||
+                spatialSource != null && (spatialSource.isRekt() || spatialSource.id != spatialSourceId ||
+                                          !spatialSource.isAlive() || !spatialSource.hasHealth()) ||
                 generation != worldGeneration || inventory != null && !inventory.IsValid) return false;
             if (plan.Body?.Construction.HasControlRelations == true)
             {
@@ -691,11 +708,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Source = sourceActor,
                 SourceId = sourceId,
                 SpatialSource = spatialSource,
-                SpatialSourceId = spatialSource?.id ?? 0,
+                SpatialSourceId = spatialSourceId,
                 Target = targetActor,
                 TargetId = targetActor?.id ?? 0,
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
-                Power = plan.Power,
+                Power = power,
                 Body = body,
                 Movement = movement,
                 BodyControlled = body != null,
@@ -740,7 +757,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             castId = running.Id;
             if (!practice && plan.Use.SelfStatus is { } stance)
             {
-                Entity status = ApplyStatus(sourceActor, running.InitialOwner, stance, 1f, plan.Power);
+                Entity status = ApplyStatus(targetActor, running.InitialOwner, stance, 1f, power);
                 KnightTechniqueAsset technique = KnightTechniqueStatuses.RequiredTechnique(stance.Asset);
                 if (!status.IsNull && technique != null)
                     KnightTechniqueStatuses.BindStance(status, technique, body.Weapon, running.Id);
