@@ -65,11 +65,8 @@ internal static class ArtifactSpatialVisualRuntime
         position = context.position;
         if (anchor.use_body_anchor)
         {
-            ArtifactBodyAnchorRef body = anchor.body_anchor;
-            if (body.UsesAppearanceAnchor && ArtifactAppearanceRenderer.TryResolveSpatialAnchor(context.artifact, body.slot, body.anchor, out position))
-            { position += offset * Scale(context, matchScale); return true; }
-            if (!ArtifactAppearanceRenderer.TryGetSpatialPose(context.artifact, out SpatialVisualMeshInstance pose)) return false;
-            position = body.fallback == ArtifactBodyAnchorKind.ForwardTip ? pose.TransformPoint(new Vector3(0f, pose.Model.Bounds.max.y, 0f)) : pose.Position;
+            if (!ArtifactManifestationTools.TryResolveSpatialBodyAnchor(context.artifact, anchor.body_anchor, out position))
+                return false;
         }
         else switch (anchor.kind)
         {

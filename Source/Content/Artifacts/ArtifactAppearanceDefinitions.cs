@@ -72,6 +72,8 @@ public sealed class ArtifactAppearanceTemplateDef
     [JsonProperty("spatial_rotation")] public float[] SpatialRotation = [0f, 0f, 0f];
     /// <summary>将旋转后的模型底部放在空间原点高度，适用于立钟等竖立器形。</summary>
     [JsonProperty("spatial_origin_at_base")] public bool SpatialOriginAtBase;
+    /// <summary>把既有的部件落点名称绑定到本模板的真实部件和锚点。</summary>
+    [JsonProperty("anchor_bindings")] public Dictionary<string, ArtifactAppearanceAnchorBindingDef> AnchorBindings = new();
     [JsonProperty("camera")] public JObject Camera = new();
     [JsonProperty("light")] public JObject Light = new();
     [JsonProperty("views")] public ArtifactAppearanceViewDef[] Views = [];
@@ -85,6 +87,15 @@ public sealed class ArtifactAppearanceTemplateDef
         }
         return null;
     }
+}
+
+/// <summary>模板中实际提供某个能力落点的部件位置。</summary>
+public sealed class ArtifactAppearanceAnchorBindingDef
+{
+    /// <summary>模型组件的实际槽位，保留原部件的存档名称。</summary>
+    [JsonProperty("slot")] public string Slot;
+    /// <summary>组件模型中标出的实际位置。</summary>
+    [JsonProperty("anchor")] public string Anchor;
 }
 
 /// <summary>模板针对图标、常态实体或激活实体定义的相机与光照。</summary>

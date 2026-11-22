@@ -161,6 +161,13 @@ internal static class ArtifactAppearanceGeometry
         out Vector3 point)
     {
         point = default;
+        if (template.AnchorBindings.Count > 0 &&
+            template.AnchorBindings.TryGetValue($"{slotKey}.{anchorKey}", out var binding))
+        {
+            slotKey = binding.Slot;
+            anchorKey = binding.Anchor;
+        }
+
         ArtifactAppearancePlacementDef placement = null;
         for (int i = 0; i < template.Placements.Length; i++)
         {

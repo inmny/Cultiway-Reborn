@@ -27,6 +27,7 @@ def main():
     program.write_text(IMPORTS + world_helpers(output, PROJECT / FIXTURE)
                        + (SCRIPTS / 'weapon_flight_scene.script').read_text()
                        + (SCRIPTS / 'verify_artifact_views.script').read_text()
+                       + (SCRIPTS / 'verify_artifact_model_anchor.script').read_text()
                        + (SCRIPTS / 'verify_gourd_scene.script').read_text()
                        + f'const bool shots = {str(not args.skip_views).lower()};\n'
                        + f'const bool viewsOnly = {str(args.views_only).lower()};\n'

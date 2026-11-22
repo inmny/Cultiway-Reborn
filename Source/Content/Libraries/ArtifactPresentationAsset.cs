@@ -15,6 +15,9 @@ public class ArtifactPresentationAsset : Asset
     /// </summary>
     public float body_radius = 0.12f;
 
+    /// <summary>让原版俯视也使用能力读取的三维器身和部件位置。</summary>
+    public bool spatial_body;
+
     /// <summary>
     /// 根据驾驭者、调度状态和布局位置计算当前世界姿态。
     /// </summary>

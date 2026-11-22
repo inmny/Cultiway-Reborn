@@ -89,12 +89,17 @@ try
                   form.Transform.MultiplyVector(Vector3.right).magnitude;
     Vector2 mouth = ArtifactManifestationTools.ResolveWorldAnchor(gourd,
         gourd.GetComponent<ArtifactDeployment>().ResolveBodyAnchor());
+    Vector3 actualMouth = ModelAnchor(gourd, "mouth", "focus");
     Check(Vector2.Distance(mouth, center) < .015f &&
+          Vector3.Distance(actualMouth, center) < .015f &&
+          Vector3.Distance(ModelRelativeFormOrigin(form), actualMouth) < .015f &&
           Vector2.Distance((Vector3)form.Transform.GetColumn(3), mouth) < .015f && Close(reach, radius),
-        "真实葫芦口、可见漩涡和接触半径一致", new { reach, radius, mouth = mouth.ToString() });
+        "真实葫芦口、可见漩涡和接触半径一致",
+        new { reach, radius, x = actualMouth.x, y = actualMouth.y, z = actualMouth.z });
     if (shots)
         await CaptureArtifactViews("gourd-swallowing", center, radius + 2f, () => HasForm() &&
-            Vector2.Distance((Vector3)Form().Transform.GetColumn(3), center) < .015f, nativeZoom: radius + 1.8f);
+            Vector2.Distance((Vector3)Form().Transform.GetColumn(3), center) < .015f,
+            nativeZoom: radius + 1.8f);
     Vector3 impactVelocity = near.velocity;
     await Advance(.10f);
     Check(swallowHits[0].ForceApplied && near.current_position.x < initialX - .005f,

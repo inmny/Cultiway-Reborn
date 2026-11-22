@@ -80,6 +80,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
         Configure(Mirror, 0.14f,
             SideHover(0.43f, 0.62f, 0.5f, 0.07f, 4f, 0.65f),
             SideHover(0.43f, 0.62f, 0.5f, 0.19f, 14f, 0.65f, 0.45f));
+        Mirror.spatial_body = true;
 
         Configure(Ding, 0.22f,
             HoverLine(new Vector2(0f, 0.38f), 0.2f, 0.62f, 0.04f, 1f, 0.8f),
@@ -107,6 +108,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 speed = 0.85f,
                 speed_activity = 1.1f,
             });
+        Gourd.spatial_body = true;
 
         Configure(Fan, 0.16f,
             new ArtifactMotionProfile

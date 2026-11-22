@@ -106,6 +106,13 @@ public static class ArtifactManifestationTools
     /// <summary>取得组合模型锚点相对于 Position 的世界空间偏移。</summary>
     public static Vector3 ResolveWorldAnchorOffset(Entity artifact, ArtifactBodyAnchorRef anchor)
     {
+        if (anchor.UsesAppearanceAnchor && ArtifactAppearanceRenderer.UsesModelBody(artifact) &&
+            TryResolveSpatialBodyAnchor(artifact, anchor, out Vector3 point))
+        {
+            // Position 保留原显化坐标，纵轴包含离地高度。
+            return new Vector3(point.x, point.y + point.z, point.z) - artifact.GetComponent<Position>().value;
+        }
+
         if (anchor.UsesAppearanceAnchor &&
             ArtifactAppearanceRenderer.TryResolveWorldAnchorOffset(
                 artifact,
@@ -128,6 +135,22 @@ public static class ArtifactManifestationTools
         float forwardDistance = sprite.bounds.max.y * spriteScale;
         float rotation = artifact.GetComponent<Rotation>().z;
         return Quaternion.Euler(0f, 0f, rotation) * (Vector3.up * forwardDistance);
+    }
+
+    /// <summary>在实际器身上解析部件位置，缺省位置沿用同一模型的中心或前缘。</summary>
+    /// <param name="artifact">当前显化的法宝。</param>
+    /// <param name="anchor">指定部件及缺省位置。</param>
+    /// <param name="position">地图位置和独立离地高度。</param>
+    internal static bool TryResolveSpatialBodyAnchor(Entity artifact, ArtifactBodyAnchorRef anchor, out Vector3 position)
+    {
+        if (anchor.UsesAppearanceAnchor &&
+            ArtifactAppearanceRenderer.TryResolveSpatialAnchor(artifact, anchor.slot, anchor.anchor, out position)) return true;
+        position = default;
+        if (!ArtifactAppearanceRenderer.TryGetSpatialPose(artifact, out var pose)) return false;
+        position = anchor.fallback == ArtifactBodyAnchorKind.ForwardTip
+            ? pose.TransformPoint(new Vector3(0f, pose.Model.Bounds.max.y, 0f))
+            : pose.Position;
+        return true;
     }
 
     /// <summary>取得法器本体锚点的世界坐标。</summary>

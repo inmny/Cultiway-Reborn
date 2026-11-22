@@ -1,0 +1,32 @@
+// 核对正式模型、原版绘制和空间落点来自同一件原物。
+Vector3 ModelAnchor(Entity artifact, string slot, string key)
+{
+    var renderer = typeof(ArtifactAppearanceRenderer);
+    object[] body = { artifact, null };
+    object[] anchor = { artifact, slot, key, null };
+    bool resolved = (bool)renderer.GetMethod("TryGetSpatialPose", F).Invoke(null, body) &&
+        (bool)renderer.GetMethod("TryResolveSpatialAnchor", F).Invoke(null, anchor);
+    var meshes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+        .GetField("Meshes", F).GetValue(null);
+    bool rendered = resolved && meshes.Cast<object>().Any(value => (bool)Field(value, "DrawNative") &&
+        ReferenceEquals(Field(value, "Model"), Field(body[1], "Model")) &&
+        Vector3.Distance((Vector3)Field(value, "Position"), (Vector3)Field(body[1], "Position")) < .02f);
+    Check(resolved && rendered, "俯视和三维都读取当前原件的实际组合模型");
+    return (Vector3)anchor[3];
+}
+
+void CheckMissingModelAnchor(Entity artifact, Vector3 expected)
+{
+    var method = typeof(ArtifactManifestationTools).GetMethod("TryResolveSpatialBodyAnchor", F);
+    object[] arguments = { artifact, ArtifactBodyAnchorRef.Appearance("unknown", "center"), null };
+    Check((bool)method.Invoke(null, arguments) && Vector3.Distance((Vector3)arguments[2], expected) < .015f,
+        "缺少锚点时使用实际模型中心");
+}
+
+// 共同形体发布绝对高度，器身姿态沿用相对地表的高度，比较前先换算。
+Vector3 ModelRelativeFormOrigin(FormVisualInstance view)
+{
+    Vector3 position = view.Transform.GetColumn(3);
+    if (view.Terrain != null) position.z -= view.Terrain.Sample(position.x, position.y);
+    return position;
+}

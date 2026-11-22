@@ -20,7 +20,6 @@ var releaseHits = new List<ConstructedContact>();
 var releaseStarts = new List<ConstructedCastStarted>();
 var payments = typeof(WakanResourceService).GetField("mutationCommitted", F);
 object previous = payments.GetValue(null);
-var anchorMethod = typeof(ArtifactAppearanceRenderer).GetMethod("TryResolveSpatialAnchor", F);
 var meshField = typeof(FormVisualInstance).GetField("Geometry", F);
 const string surface = "outpouring_fire";
 
@@ -29,14 +28,7 @@ float Stored() => ArtifactStorageOperations.GetAmount(gourd.GetComponent<Artifac
 bool Close(float a, float b) => Mathf.Abs(a - b) < .003f;
 bool HasWave() => FormVisualScene.Instances.Any(view => view.Surface == surface);
 FormVisualInstance Wave() => FormVisualScene.Instances.Single(view => view.Surface == surface);
-Vector3 Mouth()
-{
-    object[] args = { gourd, "mouth", "focus", null };
-    bool resolved = (bool)anchorMethod.Invoke(null, args);
-    Check(resolved, "正式葫芦能解析实际器口的出射点",
-        new { visible = gourd.HasComponent<ArtifactManifestation>(), source = source.GetSimPos().ToString() });
-    return (Vector3)args[3];
-}
+Vector3 Mouth() => ModelAnchor(gourd, "mouth", "focus");
 bool Activate(ActiveAbilityHandle handle, Vector3 aim)
 {
     source.attack_timer = 0f;
@@ -74,7 +66,7 @@ void PlacePair(Vector2 mouth, bool testDistance)
     Place(near, a.x, a.y);
     Place(far, b.x, b.y);
 }
-void VerifyMesh(Vector2 mouth)
+void VerifyMesh(Vector3 mouth)
 {
     var wave = Wave();
     var mesh = (Mesh)meshField.GetValue(wave);
@@ -90,7 +82,7 @@ void VerifyMesh(Vector2 mouth)
         minAngle = Mathf.Min(minAngle, degrees);
         maxAngle = Mathf.Max(maxAngle, degrees);
     }
-    Check(Vector2.Distance(origin, mouth) < .03f && Mathf.Abs(reach - maxRadius) < .04f &&
+    Check(Vector3.Distance(ModelRelativeFormOrigin(wave), mouth) < .03f && Mathf.Abs(reach - maxRadius) < .04f &&
           Mathf.Abs(minAngle + angle * .5f) < .12f && Mathf.Abs(maxAngle - angle * .5f) < .12f,
         "实体外缘、左右边界和原器口位置与实际扇形一致",
         new { origin = origin.ToString(), mouth = mouth.ToString(), reach, maxRadius, angle, minAngle, maxAngle });
@@ -115,8 +107,9 @@ try
         await WaitFor(() => Stored() > 0f, .9f);
         stored = Stored();
         Check(stored > 0f && stored < storageCost, "真实吞摄取得不足单次上限的储量", new { stored, storageCost });
-        owner.GetCultisys<Xian>().wakan = 0f;
-        await Advance(.55f);
+        Check(ArtifactAbilityLifecycle.Recall(gourd, swallowAbility.instance_id), "从原入口收回已储灵的葫芦");
+        await WaitFor(() => !gourd.HasComponent<ArtifactDeployment>(), .55f);
+        await Game.NextFrame();
         Check(!gourd.HasComponent<ArtifactDeployment>() && Close(Stored(), stored), "收回同一原件并保留吞摄得到的储量");
     }
 
@@ -158,14 +151,20 @@ try
     float cooldown = (float)(Entry(gourd, release.id).cooldown_until - World.world.getCurWorldTime());
     await Advance(Mathf.Max(.62f, cooldown + .12f));
     Check(!HasWave() && releaseHits.Count == 1 && HeldItem(), "扇面收束只结算一次，原件仍可用");
-    Place(source, 64.35f, centerY);
+    Vector3 previousMouth = mouth;
+    Place(source, 66.1f, centerY - .6f);
+    await Advance(.13f);
+    await Game.NextFrame();
     mouth = Mouth();
+    Check(Vector2.Distance(mouth, previousMouth) > .75f, "原件随驾驭者移位，保留新的器口位置");
     PlacePair(mouth, testDistance: true);
     farHealth = far.data.health;
     Check(Activate(releaseHandle, mouth + (Vector3)direction * 2.5f) && releaseStarts.Count == 2 &&
           fees.Count == beforeFees + 2 && Close(fees.Last(), fee) && Close(Stored(), 0f),
         "冷却后无储量也可按原费用施放");
     await WaitFor(() => releaseHits.Count > 1, .55f);
+    await Game.NextFrame();
+    VerifyMesh(mouth);
     int baseDamage = releaseHits.LastOrDefault().Damage.HealthLost;
     Check(releaseHits.Count == 2 && releaseHits[1].TargetId == near.id && baseDamage > 0 &&
           chargedDamage > baseDamage && far.data.health == farHealth &&

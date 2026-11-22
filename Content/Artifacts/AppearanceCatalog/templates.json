@@ -93,6 +93,7 @@
       "key": "mirror_tilt_left",
       "shape": "mirror",
       "artifact": "ArtifactMirror",
+      "anchor_bindings": { "surface.center": { "slot": "mirror", "anchor": "focus" } },
       "camera": { "yaw": -42, "pitch": 18, "roll": -28, "scale": 12.2, "target": [0, -0.32, 0] },
       "views": [
         { "key": "world_idle", "camera": { "yaw": -42, "pitch": 18, "roll": 0 }, "margin": 2 },
@@ -107,6 +108,7 @@
       "key": "mirror_tilt_right",
       "shape": "mirror",
       "artifact": "ArtifactMirror",
+      "anchor_bindings": { "surface.center": { "slot": "mirror", "anchor": "focus" } },
       "camera": { "yaw": 42, "pitch": 18, "roll": 26, "scale": 12.2, "target": [0, -0.32, 0] },
       "views": [
         { "key": "world_idle", "camera": { "yaw": 42, "pitch": 18, "roll": 0 }, "margin": 2 },

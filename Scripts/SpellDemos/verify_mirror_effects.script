@@ -149,6 +149,14 @@ try
                       form.Transform.MultiplyVector(Vector3.right).magnitude;
         Check(mirror.HasComponent<ArtifactDeployment>() && Vector2.Distance(Pose("truth_mirror"), center) < .01f &&
               Mathf.Abs(reach - radius) < .025f, "照影的实体面与实际部署点、原半径一致", new { reach, radius });
+        Vector3 surface = ModelAnchor(mirror, "surface", "center");
+        Check(Vector3.Distance(surface, center) < .015f &&
+              Vector3.Distance(ModelRelativeFormOrigin(form), surface) < .015f,
+            "实际镜面中心落在照影的作用圆心",
+            new { x = surface.x, y = surface.y, z = surface.z });
+        object[] poseArgs = { mirror, null };
+        typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F).Invoke(null, poseArgs);
+        CheckMissingModelAnchor(mirror, (Vector3)Field(poseArgs[1], "Position"));
         if (shots)
             await CaptureArtifactViews("truth", center, Mathf.Max(10f, radius + 1.2f),
                 () => HasForm("truth_mirror") && Vector2.Distance(Pose("truth_mirror"), center) < .01f,

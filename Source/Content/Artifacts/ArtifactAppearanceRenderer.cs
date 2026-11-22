@@ -216,9 +216,18 @@ public static class ArtifactAppearanceRenderer
     /// <summary>实际在飞的组合模型直接使用未投影的空间位置。</summary>
     internal static bool UsesSpatialFlight(Entity item) => TryGetFlightGeometry(item, out _);
 
-    /// <summary>活动中的俯冲法宝使用两种视角共用的空间模型。</summary>
+    /// <summary>具有真实部件落点的器身，以及活动中的飞行或俯冲器身，使用共用模型。</summary>
     internal static bool UsesSpatialPresentation(Entity item) =>
-        UsesSpatialFlight(item) || ArtifactAbilities.IsMountainSealDeployment(item);
+        UsesSpatialFlight(item) || ArtifactAbilities.IsMountainSealDeployment(item) || UsesModelBody(item);
+
+    /// <summary>有可用组合模型的器形才切换到真实器身。</summary>
+    /// <param name="item">当前显化的法宝。</param>
+    internal static bool UsesModelBody(Entity item) => PrefersModelBody(item) && TryGetMesh(item, out _);
+
+    /// <summary>读取器形的共用显化决定，不依赖镜头和技能是否可用。</summary>
+    /// <param name="item">当前显化的法宝。</param>
+    private static bool PrefersModelBody(Entity item) => item.TryGetComponent(out ItemShape shape) &&
+        shape.Type is ArtifactShapeAsset asset && asset.presentation.spatial_body;
 
     private static bool TryGetFlightGeometry(Entity item, out ArtifactFlightGeometry geometry)
     {
@@ -317,7 +326,7 @@ public static class ArtifactAppearanceRenderer
         rotation = Skills.ConstructedArtifactCarrier.Heading(item, rotation);
         if (template.SpatialOriginAtBase) position.z -= Bottom(model.Bounds, rotation, scale);
         pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint,
-            drawNative: flying || fallingSeal,
+            drawNative: flying || fallingSeal || PrefersModelBody(item),
             groundAnchor: groundAnchor);
         if (body != null) pose = pose.WithBodyAnchor(body);
         return true;

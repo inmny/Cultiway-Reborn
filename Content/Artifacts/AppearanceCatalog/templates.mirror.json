@@ -5,6 +5,7 @@
       "key": "mirror_full_moon",
       "shape": "mirror",
       "artifact": "ArtifactMirror",
+      "anchor_bindings": { "surface.center": { "slot": "surface", "anchor": "focus" } },
       "camera": {
         "yaw": -8,
         "pitch": 12,
@@ -86,6 +87,7 @@
       "key": "mirror_celestial_water",
       "shape": "mirror",
       "artifact": "ArtifactMirror",
+      "anchor_bindings": { "surface.center": { "slot": "surface", "anchor": "focus" } },
       "camera": {
         "yaw": -36,
         "pitch": 22,
