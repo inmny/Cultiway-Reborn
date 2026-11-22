@@ -1,0 +1,235 @@
+var caster = World.world.units.get(sourceId);
+var owner = caster.GetExtend();
+var xian = Cultisyses.Xian;
+if (!owner.HasElementRoot())
+{
+    var roots = new float[ElementIndex.Count];
+    roots[ElementIndex.Earth] = 2f;
+    owner.GetOrAddComponent<ElementRoot>() = new ElementRoot(roots);
+}
+owner.MarkCultiwayStatsDirty();
+owner.E.RemoveComponent<Xian>();
+int highest = xian.GetHighestGrantableRealm(xian.DefaultComponent.CurrLevel);
+xian.GrantToRealm(owner, highest);
+caster.setStatsDirty();
+caster.updateStats();
+float maximum = caster.stats[BaseStatses.MaxWakan.id];
+Check(owner.GetCultisys<Xian>().CurrLevel == highest && highest >= 4 && maximum >= 100,
+    "原角色通过实际进阶达到可达最高境界", new { sourceId, highest, realm = xian.GetLevelName(highest), maximum });
+var access = ConstructionEditing.Access;
+var ended = new List<ConstructedCastEnded>();
+var hits = new List<ConstructedContact>();
+var changes = new List<ConstructedWorldContact>();
+void End(ConstructedCastEnded value) { if (value.SourceId == sourceId) ended.Add(value); }
+void HitSmall(ConstructedContact value) { if (value.SourceId == sourceId) hits.Add(value); }
+void Change(ConstructedWorldContact value)
+{
+    if (value.SourceId == sourceId && value.Result.Changed) changes.Add(value);
+}
+WorldTile Ground(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.stopFire();
+    tile.heat = 0;
+    tile.burned_stages = 0;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    return tile;
+}
+Vector3 Center(WorldTile tile) => new Vector3(tile.x + .5f, tile.y + .5f, 0f);
+AbilityDefinition Learn(string key, string basis, Action<AbilityDefinition> change)
+{
+    var edit = new ConstructionEditSession(access.Read(basis));
+    change(edit.Draft);
+    var learned = access.Apply(owner, edit, false);
+    File.WriteAllText(Path.Combine(folder, key + "-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return learned;
+}
+void Use(AbilityDefinition ability, Vector3 aim)
+{
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, ability.Id);
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), maximum);
+    float before = owner.GetCultisys<Xian>().wakan;
+    caster.attack_timer = 0;
+    Check(ConstructedAbilityService.Knows(owner, ability.Id) &&
+        ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Player) &&
+        before - owner.GetCultisys<Xian>().wakan == ability.Cost, "正式可编辑小术按本次费用单独出手",
+        new { ability.Id, ability.Cost, aim = new[] { aim.x, aim.y } });
+}
+async Task<ConstructedCastEnded> Finish(AbilityDefinition ability)
+{
+    int already = ended.Count(value => value.AbilityId == ability.Id);
+    Config.paused = false;
+    await Game.WaitUntil(() => ended.Count(value => value.AbilityId == ability.Id) > already, 3000);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var finish = ended.Last(value => value.AbilityId == ability.Id);
+    Check(!finish.Cancelled, "实际施放自然结束", new { ability.Id, finish.Age });
+    return finish;
+}
+
+async Task RunCombat()
+{
+    var aSite = Ground(101, 72);
+    var bSite = Ground(104, 72);
+    var left = Make(101, "wolf");
+    var right = Make(104, "wolf");
+    caster.addAggro(left);
+    caster.addAggro(right);
+    AbilityDefinition Art(string key, float power, float extent) => Learn(key, "Cultiway.WorldUtility.CityCleanse", draft =>
+    {
+        draft.Name = "寸域试锋 " + key;
+        draft.Power = power;
+        draft.Cost = 3f;
+        draft.Cooldown = .1f;
+        draft.Lifetime = .56f;
+        draft.TargetRange = 14f;
+        draft.Impact = new ConstructionImpact { DamageScale = .01f };
+        draft.Root.Scale = extent;
+    });
+    var fine = Art("fine", 12f, .65f);
+    var strong = Art("strong", 36f, .65f);
+    var wide = Art("wide", 12f, 3.3f);
+    async Task<(int Left, int Right, long[] Targets)> CheckHit(AbilityDefinition art, WorldTile point)
+    {
+        left.restoreHealth(left.getMaxHealth());
+        right.restoreHealth(right.getMaxHealth());
+        var a = Center(aSite);
+        var b = Center(bSite);
+        Place(left, a.x, a.y);
+        Place(right, b.x, b.y);
+        int before = hits.Count;
+        int hpA = left.data.health, hpB = right.data.health;
+        Use(art, Center(point));
+        await Finish(art);
+        return (hpA - left.data.health, hpB - right.data.health,
+            hits.Skip(before).Where(hit => hit.AbilityId == art.Id).Select(hit => hit.TargetId).ToArray());
+    }
+
+    var first = await CheckHit(fine, aSite);
+    var greater = await CheckHit(strong, aSite);
+    Check(first.Left > 0 && greater.Left > first.Left && first.Right == 0 && greater.Right == 0 &&
+        first.Targets.SequenceEqual(new[] { left.id }) && greater.Targets.SequenceEqual(new[] { left.id }),
+        "同形体同范围保持单点命中，调强度提高实际伤害", new { first.Left, enhanced = greater.Left });
+    var spread = await CheckHit(wide, aSite);
+    Check(spread.Left == first.Left && spread.Right > 0 &&
+        spread.Targets.OrderBy(id => id).SequenceEqual(new[] { left.id, right.id }.OrderBy(id => id)),
+        "固定强度扩大覆盖，原对象保持伤害并实际新增邻近对象", new { spread.Left, spread.Right });
+    var aim = await CheckHit(fine, bSite);
+    Check(aim.Left == 0 && aim.Right > 0 && aim.Targets.SequenceEqual(new[] { right.id }),
+        "不改强度或覆盖，只重新瞄准便只命中另一个对象", new { aim.Left, aim.Right });
+    File.WriteAllText(Path.Combine(folder, "combat.json"), JsonConvert.SerializeObject(new
+    { passed = true, sourceId, left = left.id, right = right.id, first, greater, spread, aim }, Formatting.Indented));
+}
+
+async Task RunWorld()
+{
+    var center = Ground(101, 75);
+    var neighbor = Ground(102, 75);
+    var aim = Center(center);
+    bool CanLight(WorldTile tile) => tile.startFire(pForce: false) && tile.isOnFire();
+    AbilityDefinition LocalFire(string key, float seconds) => Learn(key, "Cultiway.WorldUtility.FireEdict", draft =>
+    {
+        draft.Name = "局部火禁 " + key;
+        draft.Cost = 3f;
+        draft.Cooldown = .1f;
+        draft.Lifetime = seconds;
+        draft.TargetRange = 14f;
+        draft.Use.Target = ActiveAbilityTargetMode.Point;
+        draft.Binding.Anchor = AbilityAnchor.Target;
+        draft.WorldCondition.EntireWorld = false;
+        draft.WorldCondition.Radius = .65f;
+    });
+    var shortFire = LocalFire("short", .45f);
+    var longFire = LocalFire("long", 1.3f);
+    async Task<ConstructedCastEnded> Fire(AbilityDefinition art)
+    {
+        center = Ground(101, 75);
+        neighbor = Ground(102, 75);
+        Check(CanLight(center), "原版正常可点火");
+        center.stopFire();
+        Use(art, aim);
+        Check(!center.startFire(pForce: true) && !center.isOnFire() && CanLight(neighbor),
+            "临时防火只影响同一小范围，旁边原版点火照常", art.Lifetime);
+        neighbor.stopFire();
+        var end = await Finish(art);
+        Check(CanLight(center), "到期后所选格恢复点火", end.Age);
+        center.stopFire();
+        return end;
+    }
+    var brief = await Fire(shortFire);
+    var extended = await Fire(longFire);
+    Check(Mathf.Abs(brief.Age - .45f) < .001f && Mathf.Abs(extended.Age - 1.3f) < .001f,
+        "两档持续均按各自实际时点结束，范围一致", new { brief.Age, longAge = extended.Age });
+
+    center = Ground(101, 75);
+    neighbor = Ground(102, 75);
+    var oldCenter = center.main_type;
+    var expected = oldCenter.increase_to;
+    var oldNeighbor = neighbor.main_type;
+    int oldHeight = neighbor.Height;
+    var terrain = Learn("terrain", "Cultiway.WorldUtility.CityCleanse", draft =>
+    {
+        draft.Name = "一格抬升";
+        draft.Cost = 3f;
+        draft.TargetRange = 14f;
+        draft.Root.Scale = .4f;
+        draft.Impact.WorldEffects[0].Action = "terrain.raise";
+        draft.Impact.WorldEffects[0].MaximumTiles = 1;
+    });
+    Use(terrain, aim);
+    var raised = await Finish(terrain);
+    Check(expected != oldCenter && center.main_type == expected && neighbor.main_type == oldNeighbor &&
+        neighbor.Height == oldHeight && raised.WorldChanges == 1 &&
+        changes.Count(value => value.AbilityId == terrain.Id && value.X == center.x && value.Y == center.y) == 1,
+        "临时形体退出后只留下选中的一格真实地貌改变",
+        new { tile = center.tile_id, old = oldCenter.id, current = center.main_type.id });
+    var archive = Path.Combine(folder, "official");
+    SaveManager.saveWorldToDirectory(archive);
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(archive);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var original = World.world.units.get(sourceId);
+    center = World.world.GetTileSimple(101, 75);
+    neighbor = World.world.GetTileSimple(102, 75);
+    Check(center.main_type == expected && neighbor.main_type == oldNeighbor &&
+        ConstructedAbilityService.Knows(original.GetExtend(), terrain.Id) && CanLight(center),
+        "正式读回保留原修士学会的术和一格地貌，旧火禁没有复活");
+    center.stopFire();
+    File.WriteAllText(Path.Combine(folder, "world.json"), JsonConvert.SerializeObject(new
+    { passed = true, sourceId, brief, extended, raised, tile = center.tile_id, final = center.main_type.id }, Formatting.Indented));
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+ConstructedAbilityService.CastEnded += End;
+ConstructedAbilityService.ContactConfirmed += HitSmall;
+ConstructedAbilityService.WorldContactConfirmed += Change;
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var init = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler").GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)init.Invoke(null, null), 3600);
+    Ready(caster);
+    await Advance(.15f);
+    var safe = Center(Ground(96, 72));
+    Place(caster, safe.x, safe.y);
+    if (testCombat) await RunCombat();
+    if (testWorld) await RunWorld();
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.ContactConfirmed -= HitSmall;
+    ConstructedAbilityService.WorldContactConfirmed -= Change;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+}

@@ -3155,3 +3155,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 同城及远端传讯与魂契（11.18 第五批）
 
 在独立原版游戏运行 `dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_contact_relations_scales.py --archive <11.03城市用术准备目录>`。复用原修士与原读者，核对真实交战方位的送达与到期，以及实际分担伤害与结束后的恢复。支持 `--case city` 或 `--case world` 与 `--phase signal` 或 `--phase pact` 的限定复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第五批补验同城及远端传讯与魂契)。
+
+### 顶尖修士的精细小术（11.19）
+
+在独立原版游戏运行 `dev.py exec --timeout 200 -- python3 Scripts/SpellDemos/verify_small_art_control.py --archive <11.03城市用术准备目录>`。复用原城与同一名化神，核对实际伤害、覆盖、瞄准、两档火禁时长及一格地貌的正式读回。可用 `--case combat` 或 `--case world` 单独复验。见[精细小术](../../Doc/技能系统全面重构/顶尖修士的精细小术.md)。
