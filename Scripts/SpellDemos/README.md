@@ -3179,3 +3179,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 构造编号和资料版本（12.01）
 
 在独立原版游戏运行 `dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_identity.py --archive <11.23 筑路阶段输出目录>`。沿原登记、编辑、派生和正式读回入口核对实际编号、修订和分别学习关系。见[构造编号与资料版本](../../Doc/技能系统全面重构/构造编号与资料版本.md)。
+
+### 器官来源重复读档（12.06）
+
+运行 `dev.py exec --timeout 135 -- python3 Scripts/SpellDemos/verify_organ_source_reload.py`。从第一版正式样板重复读回，核对器官授予仅重建一份，另存后仍指向原来源。见[专属能力授予与恢复](../../Doc/技能系统全面重构/专属能力授予与恢复.md)。
