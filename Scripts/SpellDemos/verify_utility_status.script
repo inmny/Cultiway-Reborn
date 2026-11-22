@@ -31,7 +31,7 @@ var ended = new List<ConstructedCastEnded>();
 var legacy = new List<long>();
 var payment = new List<object>();
 var owned = new List<Entity>();
-bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101323;
+bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101327;
 int Count(Actor actor) => effects.Count(effect => CombatStatusEffects.HasStatus(actor, effect, source));
 void Started(ConstructedCastStarted cast)
 {
@@ -53,7 +53,7 @@ void Legacy(Entity execution)
     if (IsTest(correlation)) legacy.Add(correlation);
 }
 
-Entity Learn(SkillEntityAsset asset, bool field)
+Entity Learn(SkillEntityAsset asset, bool field, bool damage = false)
 {
     var baseSkill = new SkillContainerBuilder(asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
     var exported = new SkillBlueprintExporter().Export(baseSkill);
@@ -61,17 +61,28 @@ Entity Learn(SkillEntityAsset asset, bool field)
     Check(exported.Success, "原容器可从正式入口导出蓝图", new { asset.id });
     SkillBlueprint blueprint = exported.Blueprint;
     if (!field) blueprint.TrajectoryAssetId = SkillTrajectories.GroundEruptAtTarget.id;
-    foreach (SkillModifierAsset modifier in affixes)
+    if (damage)
     {
-        SkillModifierSpec spec = modifier.CreateDefaultSpec();
-        spec.Parameters["Duration"] = "2";
-        blueprint.Modifiers.Add(spec);
+        blueprint.PowerMultiplier = 1.6f;
+        Add(SkillModifiers.Burn, ("Duration", "4"), ("DamageRatio", "0.24"));
+        Add(SkillModifiers.Poison, ("Duration", "4"), ("DamageRatio", "0.32"), ("MaxStacks", "2"));
+        Add(SkillModifiers.EternalCurse, ("Duration", "4"), ("DamageRatio", "0.24"), ("DebuffRatio", "0.2"));
+        Add(SkillModifiers.Burnout, ("DamageRatio", "0.12"), ("BurnDuration", "4"), ("BurnDamageRatio", "0.36"));
+        Add(SkillModifiers.Empower, ("SetupBonus", "0.25"));
     }
+    else foreach (SkillModifierAsset modifier in affixes) Add(modifier, ("Duration", "2"));
     var compiled = new SkillBlueprintCompiler().Compile(blueprint, SkillBlueprintCompileMode.Runtime);
     Check(compiled.Success && SkillOwnershipService.Learn(owner, compiled.Container) == SkillOwnershipResult.Added,
-        "六个词条和原兼容轨迹可由正式蓝图编译、学习", compiled.Validation.Issues.Select(issue => issue.Message).ToArray());
+        "本批词条和原兼容轨迹可由正式蓝图编译、学习", compiled.Validation.Issues.Select(issue => issue.Message).ToArray());
     owned.Add(compiled.Container);
     return compiled.Container;
+
+    void Add(SkillModifierAsset modifier, params (string key, string value)[] parameters)
+    {
+        SkillModifierSpec spec = modifier.CreateDefaultSpec();
+        foreach (var parameter in parameters) spec.Parameters[parameter.key] = parameter.value;
+        blueprint.Modifiers.Add(spec);
+    }
 }
 
 bool Use(Entity skill, long correlation)
@@ -100,7 +111,7 @@ Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
 try
 {
     WorldTile tile = World.world.GetTileSimple(68, 72);
-    if (section != "field")
+    if (section is "landing" or "all")
     {
         Entity spell = Learn(SkillEntities.RaiseTerrain, field: false);
         float radius = SkillEffectRadius.ResolveForCaster(owner, spell, 2f);
@@ -132,10 +143,10 @@ try
         var second = starts.Single(cast => cast.CorrelationId == 101322);
         Check(second.CastId != first.CastId && Count(enemy) == effects.Length &&
             results.Any(hit => hit.CastId == second.CastId && hit.Result.Changed), "再次落地独立施加状态和地块效果");
-        await Advance(2.15f);
+        if (section == "all") await Advance(2.15f);
     }
 
-    if (section != "landing")
+    if (section is "field" or "all")
     {
         Entity field = Learn(SkillEntities.CleanLandField, field: true);
         tile.heat = 50;
@@ -145,6 +156,67 @@ try
         var fieldCast = starts.Single(cast => cast.CorrelationId == 101323);
         Check(results.Any(hit => hit.CastId == fieldCast.CastId && hit.Action == "land.cleanse" && hit.Result.Changed) &&
             Count(enemy) == 0 && Count(ally) == 0, "持续区域保留真实净土周期和原对象状态条件");
+    }
+
+    if (section is "damage" or "all")
+    {
+        Entity spell = Learn(SkillEntities.RaiseTerrain, field: false, damage: true);
+        var damageEffects = new[] { StatusEffects.Burn, StatusEffects.Poison, StatusEffects.EternalCurse };
+        float radius = SkillEffectRadius.ResolveForCaster(owner, spell, 2f);
+        Place(outside, point.x + radius + .05f);
+        Building building = World.world.GetTileSimple(68, 73).building;
+        Check(building != null && building.isAlive(), "复用世界里的原建筑检查燃尽对象");
+        building.setKingdom(enemy.kingdom);
+        int buildingHealth = building.getHealth();
+        int enemyHealth = enemy.getHealth(), allyHealth = ally.getHealth(), outsideHealth = outside.getHealth();
+        await CastDamage(101324);
+        var first = starts.Single(cast => cast.CorrelationId == 101324);
+        Check(results.Any(hit => hit.CastId == first.CastId && hit.Action == "terrain.raise" && hit.Result.Changed),
+            "附加伤害不替代本次真实抬地");
+        Check(results.All(hit => hit.CastId != first.CastId || hit.X != 68 || hit.Y != 73),
+            "同次燃尽受击不会让原建筑占位的地块补做抬地");
+        Check(enemy.getHealth() < enemyHealth && (building.isRekt() || building.getHealth() < buildingHealth),
+            "燃尽首发即伤到真实敌人与建筑", new { enemyHealth, current = enemy.getHealth(), buildingHealth, destroyed = building.isRekt() });
+        Check(allyHealth == ally.getHealth() && outsideHealth == outside.getHealth() &&
+            damageEffects.All(effect => !CombatStatusEffects.HasStatus(ally, effect, source) && !CombatStatusEffects.HasStatus(outside, effect, source)),
+            "同阵营和原范围外不受附加伤害或状态");
+        float force = SkillContext.DefaultStrength * 1.6f * 1.25f * .75f;
+        float burn = Tick(StatusEffects.Burn), poison = Tick(StatusEffects.Poison), curse = Tick(StatusEffects.EternalCurse);
+        var types = spell.GetComponentTypes().ToList();
+        float burnRatio = types.IndexOf(typeof(BurnModifier)) > types.IndexOf(typeof(BurnoutModifier)) ? .24f : .36f;
+        Check(Near(burn, force * burnRatio / 4f) && Near(poison, force * .32f / 4f) && Near(curse, force * .24f / 4f),
+            "三种每秒量保留原强度和刷新顺序", new { force, burn, poison, curse, burnRatio });
+        int afterDirect = enemy.getHealth();
+        await Advance(.75f);
+        Check(enemy.getHealth() < afterDirect, "抬地结束后周期伤害实际继续扣血", new { afterDirect, afterTick = enemy.getHealth() });
+
+        await CastDamage(101325);
+        int[] layers = States(StatusEffects.Poison).Select(state => state.Id).OrderBy(id => id).ToArray();
+        Check(layers.Length == 2, "第二发建立同源第二层中毒");
+        await CastDamage(101326);
+        Check(layers.SequenceEqual(States(StatusEffects.Poison).Select(state => state.Id).OrderBy(id => id)) &&
+            States(StatusEffects.Burn).Length == 1 && States(StatusEffects.EternalCurse).Length == 1,
+            "达到上限后刷新原毒层，燃烧及诅咒保持单份");
+        await Advance(4.2f);
+        Check(damageEffects.All(effect => States(effect).Length == 0), "所有附加伤害状态实际到期");
+        await CastDamage(101327);
+        var retry = starts.Single(cast => cast.CorrelationId == 101327);
+        Check(retry.CastId != first.CastId && damageEffects.All(effect => States(effect).Length == 1) &&
+            results.Any(hit => hit.CastId == retry.CastId && hit.Result.Changed), "结束后再次正式施放重新产生地块与状态结果");
+
+        async Task CastDamage(long correlation)
+        {
+            tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+            Check(Use(spell, correlation), "带伤害词条的抬地从已学入口受理", correlation);
+            await Advance(.58f);
+        }
+
+        Entity[] States(Cultiway.Core.Libraries.StatusEffectAsset effect) => enemy.GetExtend().GetStatuses()
+            .Where(state => state.GetComponent<StatusComponent>().Type == effect && state.GetComponent<StatusComponent>().Source == source)
+            .ToArray();
+
+        float Tick(Cultiway.Core.Libraries.StatusEffectAsset effect) => States(effect).Single().GetComponent<StatusTickState>().Value;
+        bool Near(float value, float expected) => Mathf.Abs(value - expected) < .001f;
     }
 
     Check(legacy.Count == 0 && payment.Count == starts.Count, "实际发射全部走共同执行且没有旧实体");

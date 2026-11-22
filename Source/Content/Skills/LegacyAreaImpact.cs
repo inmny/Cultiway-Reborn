@@ -14,21 +14,21 @@ internal sealed class LegacyAreaImpact
     internal readonly float Radius;
     internal readonly bool DealsBaseDamage;
     internal readonly SkillVfxElementAsset Element;
-    /// <summary>在落地中心使用原人物选取的状态范围。</summary>
-    internal readonly bool ActorStatuses;
+    /// <summary>功能术的附加强度，存在时用原范围选人及建筑，作用面本身不带攻击量。</summary>
+    internal readonly float? UtilityForce;
 
-    private LegacyAreaImpact(string path, float radius, bool dealsBaseDamage, SkillVfxElementAsset element, bool actorStatuses = false)
+    private LegacyAreaImpact(string path, float radius, bool dealsBaseDamage, SkillVfxElementAsset element, float? utilityForce = null)
     {
         Path = path;
         Radius = radius;
         DealsBaseDamage = dealsBaseDamage;
         Element = element;
-        ActorStatuses = actorStatuses;
+        UtilityForce = utilityForce;
     }
 
-    /// <summary>功能术没有基础伤害，原对象状态仍使用落地中心和地面半径。</summary>
-    /// <param name="radius">原单位中心范围。</param>
-    internal static LegacyAreaImpact ForUtility(float radius) => new("root", radius, false, null, actorStatuses: true);
+    /// <summary>按同一次原落地的对象范围和逐发强度结算附加词条。</summary>
+    /// <param name="radius">原单位中心范围。</param><param name="force">已计入原强度及倍率的附加作用量。</param>
+    internal static LegacyAreaImpact ForUtility(float radius, float force) => new("root", radius, false, null, force);
 
     /// <summary>保留原范围与实际元素选择。构造的尺寸、强度和画面各自继续使用已有规则。</summary>
     internal static LegacyAreaImpact From(in SkillEmission emission, string path)

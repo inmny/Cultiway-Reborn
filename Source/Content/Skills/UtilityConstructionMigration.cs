@@ -39,6 +39,9 @@ internal static class UtilityConstructionMigration
         typeof(ProficiencyModifier), typeof(ComboModifier), typeof(VolleyModifier), typeof(EmpowerModifier)
     };
 
+    /// <summary>保留同次落地的地块结果处理窗口。</summary>
+    private const float TerrainPulseWindow = .004f;
+
     /// <summary>只接管能够完整转换的功能步骤；没有新旧两个执行体，也不重复收费。</summary>
     /// <param name="emission">到达实际发射时点的步骤，若有费用仍由原入口负责。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
@@ -58,8 +61,9 @@ internal static class UtilityConstructionMigration
         GetHitEvent? source = null;
         if (landing != null)
         {
-            var statusSource = new GetHitEvent { AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
-            if (caster != null) statusSource.BindAttacker(caster.Base);
+            var statusSource = new GetHitEvent { AttackerPowerLevel = emission.PowerLevel, AttackType = AttackType.Other };
+            if (!emission.Sourceless)
+                statusSource.BindAttacker(!emission.SpatialSource.isRekt() ? emission.SpatialSource : caster.Base);
             source = statusSource;
         }
         bool accepted = emission.Sourceless
@@ -73,14 +77,14 @@ internal static class UtilityConstructionMigration
 
     /// <summary>从当前真实容器读取数值，转换结果不保存旧实体或委托。</summary>
     /// <param name="emission">当前实际步骤。</param><param name="caster">实际范围成长的归属，世界发射为空。</param>
-    /// <param name="landing">落地状态使用的原中心和范围规则。</param>
+    /// <param name="landing">落地词条使用的原中心、范围和强度。</param>
     private static unsafe AbilityDefinition Convert(SkillEmission emission, Core.ActorExtend caster, out LegacyAreaImpact landing)
     {
         landing = null;
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
         foreach (Type type in skill.GetComponentTypes())
-            if (typeof(IModifier).IsAssignableFrom(type) && !modifiers.Contains(type) && !ContactEffectMigration.IsControlStatus(type))
+            if (typeof(IModifier).IsAssignableFrom(type) && !modifiers.Contains(type) && !ContactEffectMigration.SupportsUtilityLanding(type))
                 return null;
         if (container.OnEffectObj != null && !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
@@ -98,7 +102,8 @@ internal static class UtilityConstructionMigration
         if (radius > 1000f) return null;
         float lifetime =
             asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
-        if (skill.TryGetComponent(out SkillSettings settings) && settings.Duration > 0f) lifetime = settings.Duration;
+        bool configured = skill.TryGetComponent(out SkillSettings settings);
+        if (configured && settings.Duration > 0f) lifetime = settings.Duration;
         bool field = asset == SkillEntities.NatureGrowthField || asset == SkillEntities.CleanLandField;
         bool instantPulse = !field && (trajectory == SkillTrajectories.AppearAtTarget.id ||
             trajectory == SkillTrajectories.GroundEruptAtTarget.id);
@@ -184,7 +189,7 @@ internal static class UtilityConstructionMigration
         foreach (ConstructionWorldEffect effect in effects)
         {
             float first = effect.Contact == null ? formation : effect.Contact.Interval + effect.Contact.PulseOffset;
-            float until = instantPulse ? Mathf.Min(first + .004f, lifetime) : field ? activeEnd : lifetime;
+            float until = instantPulse ? Mathf.Min(first + TerrainPulseWindow, lifetime) : field ? activeEnd : lifetime;
             if (first > until) continue;
             domains.Add(new ConstructionNode
             {
@@ -205,13 +210,27 @@ internal static class UtilityConstructionMigration
 
         // 原落地冲击会单独挑选敌人。持续地块的周期不调用旧命中词条，也不借用地块碰撞面来选人。
         ConstructionImpact landingImpact = null;
+        float landingAt = 0f;
         if (instantPulse && container.OnEffectObj != null)
         {
-            List<ConstructionStatus> statuses = ContactEffectMigration.ControlStatuses(skill, emission.RuntimeData.ResolveEffectScale());
-            if (statuses.Count > 0)
+            float effectScale = emission.RuntimeData.ResolveEffectScale();
+            landingImpact = ContactEffectMigration.UtilityLanding(skill, effectScale);
+            if (landingImpact != null)
             {
-                landing = LegacyAreaImpact.ForUtility(radius);
-                landingImpact = new ConstructionImpact { DamageScale = 0f, Statuses = statuses.ToArray() };
+                landingAt = formation;
+                if (landingImpact.AdditionalDamage.Length > 0)
+                {
+                    // 地形按落地时的原建筑占位结算，不能因为同发燃尽摧毁了建筑就补改地形。
+                    landingAt += TerrainPulseWindow + .001f;
+                    lifetime = Mathf.Max(lifetime, landingAt + .001f);
+                }
+                // 原逐发强度只给附加词条使用。地块范围不携带这份攻击强度，也不参与法术相撞。
+                float strength = emission.Strength;
+                if (configured) strength *= settings.PowerMultiplier;
+                if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
+                if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
+                if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
+                landing = LegacyAreaImpact.ForUtility(radius, strength * effectScale);
             }
         }
 
@@ -248,7 +267,7 @@ internal static class UtilityConstructionMigration
             {
                 Id = "origin",
                 Form = "pivot",
-                ActiveFrom = landingImpact == null ? 0f : formation,
+                ActiveFrom = landingAt,
                 ContactRole = landingImpact == null ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Impact = landingImpact,
                 Children = domains.ToArray(),

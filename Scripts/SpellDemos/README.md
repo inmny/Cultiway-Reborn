@@ -3003,3 +3003,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 功能法术的落地状态（10.13 A2a）
 
 在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_status.py`。可用 `--section landing` 只检查正式蓝图学习、六种状态、地块、阵营与范围、逐发扣费及再次施放，也可用 `--section field` 只检查持续净土的地块周期与对象条件。
+
+`--section damage` 检查燃烧、中毒、长时诅咒和燃尽。使用同一世界和人物，核对逐发强度、真实受击、原建筑保护、周期扣血、有限毒层和结束后再用。

@@ -16,14 +16,15 @@ internal static partial class ContactEffectMigration
 {
     /// <summary>已经完整接管的原接触附加词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
-    internal static bool Supports(Type type) => IsControlStatus(type) ||
-        type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier) || type == typeof(RandomAffixModifier) || type == typeof(BurnoutModifier) || type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
+    internal static bool Supports(Type type) => SupportsUtilityLanding(type) ||
+        type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier) || type == typeof(RandomAffixModifier) || type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
 
-    /// <summary>只在原对象结算时改变状态、无需基础伤害或行进回调的词条。</summary>
+    /// <summary>可在原地面冲击中使用同一份状态与伤害资料的词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
-    internal static bool IsControlStatus(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) ||
+    internal static bool SupportsUtilityLanding(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) ||
         type == typeof(DazeModifier) || type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) ||
-        type == typeof(SilenceModifier);
+        type == typeof(SilenceModifier) || type == typeof(BurnModifier) || type == typeof(PoisonModifier) ||
+        type == typeof(EternalCurseModifier) || type == typeof(BurnoutModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -80,7 +81,7 @@ internal static partial class ContactEffectMigration
 
     /// <summary>展开原落地或接触附带的状态，时机和受影响的人物由实际落点或接触确定。</summary>
     /// <param name="skill">原容器。</param><param name="effectScale">本次固定效果倍率。</param>
-    internal static List<ConstructionStatus> ControlStatuses(Entity skill, float effectScale)
+    private static List<ConstructionStatus> ControlStatuses(Entity skill, float effectScale)
     {
         var statuses = new List<ConstructionStatus>();
         if (skill.TryGetComponent(out SlowModifier slow))
@@ -117,6 +118,25 @@ internal static partial class ContactEffectMigration
         return statuses;
     }
 
+    /// <summary>功能术只提交明确的落地词条，燃烧与燃尽按原容器顺序刷新。</summary>
+    /// <param name="skill">原容器。</param><param name="effectScale">本次固定效果倍率。</param>
+    internal static ConstructionImpact UtilityLanding(Entity skill, float effectScale)
+    {
+        List<ConstructionStatus> statuses = ControlStatuses(skill, effectScale);
+        var damage = new List<ConstructionContactDamage>();
+        foreach (Type type in skill.GetComponentTypes())
+        {
+            if (type == typeof(BurnoutModifier)) AddBurnout(skill, 1f, statuses, damage);
+            else AddDamageStatus(skill, type, effectScale, 1f, statuses);
+        }
+        return statuses.Count == 0 && damage.Count == 0 ? null : new ConstructionImpact
+        {
+            DamageScale = 0f,
+            Statuses = statuses.ToArray(),
+            AdditionalDamage = damage.ToArray()
+        };
+    }
+
     /// <summary>在真实攻击面附加状态和恢复；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
     /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
     /// <param name="effectScale">本次固定效果倍率。</param>
@@ -128,30 +148,9 @@ internal static partial class ContactEffectMigration
     {
         List<ConstructionStatus> statuses = ControlStatuses(skill, effectScale);
         var additionalDamage = new List<ConstructionContactDamage>();
-        if (skill.TryGetComponent(out BurnModifier burn))
-            AddTick(statuses, StatusEffects.Burn.id, burn.Duration, Mathf.Clamp01(burn.DamageRatio) * contactForceScale, Core.ElementComposition.Static.Fire);
-        if (skill.TryGetComponent(out PoisonModifier poison))
-            AddTick(statuses, StatusEffects.Poison.id, poison.Duration, Mathf.Clamp01(poison.DamageRatio) * contactForceScale,
-                Core.ElementComposition.Static.Poison, Mathf.Clamp(poison.MaxStacks, 1, 99));
-        if (skill.TryGetComponent(out EternalCurseModifier curse))
-        {
-            float duration = Mathf.Clamp(curse.Duration, 0f, 999f);
-            if (duration > 0f)
-            {
-                float reduction = Mathf.Clamp01(curse.DebuffRatio * effectScale);
-                float damageRatio = Mathf.Clamp(curse.DamageRatio, 0f, 20f) * contactForceScale;
-                statuses.Add(new ConstructionStatus
-                {
-                    Id = StatusEffects.EternalCurse.id, Duration = duration, Application = ConstructionStatusApplication.Refresh,
-                    TargetStatRatios = reduction > 0f ? new Dictionary<string, float> { [S.damage] = -reduction, [S.armor] = -reduction } : null,
-                    Tick = damageRatio > 0f ? new ConstructionStatusTick
-                    {
-                        ForcePerSecond = damageRatio / duration,
-                        Element = new Core.ElementComposition(neg: .5f, entropy: .5f)
-                    } : null
-                });
-            }
-        }
+        AddDamageStatus(skill, typeof(BurnModifier), effectScale, contactForceScale, statuses);
+        AddDamageStatus(skill, typeof(PoisonModifier), effectScale, contactForceScale, statuses);
+        AddDamageStatus(skill, typeof(EternalCurseModifier), effectScale, contactForceScale, statuses);
         float healing = skill.TryGetComponent(out MercyModifier mercy)
             ? Mathf.Clamp(mercy.HealRatio, 0f, 5f) * contactForceScale : 0f;
         ConstructionKnockback knockback = null;
@@ -186,6 +185,36 @@ internal static partial class ContactEffectMigration
             };
         }
         return NatureConstructionMigration.Bind(MediumContactMigration.Bind(definition, skill, contactForceScale, includeRoot, runtimeData), skill, runtimeData);
+    }
+
+    /// <summary>两种旧接触入口共用周期数值、元素和叠层规则。</summary>
+    /// <param name="skill">原容器。</param><param name="type">正在展开的词条。</param>
+    /// <param name="effectScale">本次效果倍率。</param><param name="forceScale">换回原单位强度的比例。</param>
+    /// <param name="statuses">本次声明。</param>
+    private static void AddDamageStatus(Entity skill, Type type, float effectScale, float forceScale, List<ConstructionStatus> statuses)
+    {
+        if (type == typeof(BurnModifier) && skill.TryGetComponent(out BurnModifier burn))
+            AddTick(statuses, StatusEffects.Burn.id, burn.Duration, Mathf.Clamp01(burn.DamageRatio) * forceScale, Core.ElementComposition.Static.Fire);
+        else if (type == typeof(PoisonModifier) && skill.TryGetComponent(out PoisonModifier poison))
+            AddTick(statuses, StatusEffects.Poison.id, poison.Duration, Mathf.Clamp01(poison.DamageRatio) * forceScale,
+                Core.ElementComposition.Static.Poison, Mathf.Clamp(poison.MaxStacks, 1, 99));
+        else if (type == typeof(EternalCurseModifier) && skill.TryGetComponent(out EternalCurseModifier curse))
+        {
+            float duration = Mathf.Clamp(curse.Duration, 0f, 999f);
+            if (duration <= 0f) return;
+            float reduction = Mathf.Clamp01(curse.DebuffRatio * effectScale);
+            float damageRatio = Mathf.Clamp(curse.DamageRatio, 0f, 20f) * forceScale;
+            statuses.Add(new ConstructionStatus
+            {
+                Id = StatusEffects.EternalCurse.id, Duration = duration, Application = ConstructionStatusApplication.Refresh,
+                TargetStatRatios = reduction > 0f ? new Dictionary<string, float> { [S.damage] = -reduction, [S.armor] = -reduction } : null,
+                Tick = damageRatio > 0f ? new ConstructionStatusTick
+                {
+                    ForcePerSecond = damageRatio / duration,
+                    Element = new Core.ElementComposition(neg: .5f, entropy: .5f)
+                } : null
+            });
+        }
     }
 
     /// <summary>持续伤害沿用原共享状态，真实接触时才按余力写入每秒量。</summary>
