@@ -151,7 +151,7 @@ void QuietBody()
 }
 Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
 object mod = external?.GetProperty("Instance", F).GetValue(null);
-float? originalGodZoom = null;
+float? originalGodZoom = null, originalFogRange = null, originalLens = null;
 Camera camera = World.world.camera;
 RenderTexture nativeTarget = null;
 Texture2D read = null;
@@ -160,6 +160,7 @@ Texture2D read = null;
 async Task Shot(string name, bool close = false)
 {
     Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    bool middleView = name == "view-mid";
     World.world.console.Hide(); Tooltip.hideTooltipNow();
     foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
     RenderTexture target = nativeTarget;
@@ -167,8 +168,6 @@ async Task Shot(string name, bool close = false)
     if (mod != null)
     {
         void Set(string field, object value) => mod.GetType().GetField(field, F).SetValue(mod, value);
-        mod.GetType().GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
-        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
         object settings = Field(mod, "Settings");
         var zoomField = settings.GetType().GetField("GodViewZoom", F);
         originalGodZoom ??= (float)zoomField.GetValue(settings);
@@ -179,21 +178,46 @@ async Task Shot(string name, bool close = false)
             MoveCamera.clearFocusUnitOnly();
             camera.transform.position = new Vector3(source.current_position.x, source.current_position.y, camera.transform.position.z);
             typeof(MoveCamera).GetMethod("forceZoom", F).Invoke(Field(World.world, "<move_camera>k__BackingField"),
-                new object[] { close ? 10f : cityCase ? 55f : MapBox.height * .65f });
+                new object[] { close ? 10f : middleView ? 25f : cityCase ? 55f : MapBox.height * .65f });
             Set("_godCamWas", camera.transform.position); Set("_godCamSet", true);
             Set("_godLock", close ? source : null); Set("_godFollow", source.current_position); Set("_godFollowVel", Vector2.zero);
-            Set("_godClose", close ? 2f : 10f); Set("_godCloseTarget", close ? 2f : 10f);
-            Set("_godPull", close ? 1f : 0f); Set("_godTurn", -.25f); Set("_godTurnRate", 0f); Set("_godTip", close ? .2f : cityCase ? .35f : 0f); Set("_godTipRate", 0f);
+            float distance = close ? 2f : middleView ? 5.8f : 10f;
+            Set("_godClose", distance); Set("_godCloseTarget", distance);
+            Set("_godPull", close ? 1f : middleView ? .43f : 0f); Set("_godTurn", -.25f); Set("_godTurnRate", 0f); Set("_godTip", close ? .2f : cityCase ? .35f : 0f); Set("_godTipRate", 0f);
             Set("_godHoming", false);
         }
-        FrameView();
-        await Game.WaitUntil(() => (bool)external.GetProperty("GodShown", F).GetValue(mod) &&
-            (float)external.GetProperty("GodAlpha", F).GetValue(mod) >= .999f, 1800);
-        FrameView();
-        for (int i = 0; i < 12; i++) await Game.NextFrame();
+        bool worldFlight = useWorldCatalog && !cityCase &&
+            (name == "view-world" || name == "ended" && originalFogRange.HasValue);
+        if (worldFlight)
+        {
+            if (!originalFogRange.HasValue)
+            {
+                // 正常远景的远端雾线会遮住前沿，改用 Worldfall 自带自由飞行的宽角机位。
+                var range = settings.GetType().GetField("DrawDistance", F);
+                var lens = settings.GetType().GetField("FieldOfView", F);
+                originalFogRange = (float)range.GetValue(settings);
+                originalLens = (float)lens.GetValue(settings);
+                range.SetValue(settings, (float)settings.GetType().GetField("WholeMap", F).GetRawConstantValue());
+                lens.SetValue(settings, 110f);
+                external.GetMethod("StartFlyForTest", F).Invoke(mod, null);
+                var overview = new Vector3(MapBox.width * .5f, -8f, MapBox.height * (145f / 256f));
+                external.GetMethod("PlaceFlyForTest", F).Invoke(mod, new object[] { overview, Mathf.PI * .5f, -54f });
+            }
+        }
+        else
+        {
+            mod.GetType().GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+            mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+            FrameView();
+            await Game.WaitUntil(() => (bool)external.GetProperty("GodShown", F).GetValue(mod) &&
+                (float)external.GetProperty("GodAlpha", F).GetValue(mod) >= .999f, 1800);
+            FrameView();
+            for (int i = 0; i < 12; i++) await Game.NextFrame();
+        }
         int prior = (int)Field(mod, "_godGpuApplied");
-        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= prior + 3 &&
-            (!close || (float)Field(Field(mod, "_godShown"), "Z") < 20f), 1800);
+        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= prior + (worldFlight ? 5 : 3) &&
+            (!close || (float)Field(Field(mod, "_godShown"), "Z") < 20f) &&
+            (!worldFlight || (bool)Field(mod, "_fly")), 1800);
         object gpu = mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod);
         target = (RenderTexture)Field(gpu, "Output");
     }
@@ -205,9 +229,9 @@ async Task Shot(string name, bool close = false)
         var position = camera.transform.position; float zoom = camera.orthographicSize; var oldTarget = camera.targetTexture;
         try
         {
-            camera.transform.position = close ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
+            camera.transform.position = close || middleView ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
                 cityCase ? new Vector3(64, 64, 0f) : new Vector3(MapBox.width * .5f, MapBox.height * .5f, 0f);
-            camera.orthographicSize = close ? 4f : cityCase ? 50f : MapBox.height * .61f;
+            camera.orthographicSize = close ? 4f : middleView ? 22f : cityCase ? 50f : MapBox.height * .61f;
             camera.targetTexture = target; camera.Render();
         }
         finally { camera.transform.position = position; camera.orthographicSize = zoom; camera.targetTexture = oldTarget; }
@@ -284,6 +308,11 @@ try
     Ready(source);
     if (useWorldCatalog)
     {
+        if (mod != null && !cityCase)
+        {
+            await Game.NextFrame();
+            await Game.WaitUntil(Boundary, 1800);
+        }
         var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
         var choice = new ActiveAbilityTarget(null, aim);
         if (!cityCase)
@@ -439,6 +468,12 @@ finally
     {
         object settings = Field(mod, "Settings");
         settings.GetType().GetField("GodViewZoom", F).SetValue(settings, originalGodZoom.Value);
+        if (originalFogRange.HasValue)
+        {
+            external.GetMethod("EndFly", F).Invoke(mod, null);
+            settings.GetType().GetField("DrawDistance", F).SetValue(settings, originalFogRange.Value);
+            settings.GetType().GetField("FieldOfView", F).SetValue(settings, originalLens.Value);
+        }
     }
     if (nativeTarget != null) { nativeTarget.Release(); UnityEngine.Object.Destroy(nativeTarget); }
     if (read != null) UnityEngine.Object.Destroy(read);

@@ -134,9 +134,27 @@ public sealed partial class AbilityCast
             if (!propagationVisuals.TryGetValue(key, out object owner)) propagationVisuals.Add(key, owner = new object());
             var origin = new Vector2(pair.Key.X * size, pair.Key.Y * size);
             var bed = new float[size * size];
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++) bed[x + y * size] = propagationGround.Height((int)origin.x + x, (int)origin.y + y);
-            var frame = new FormLayerFrame(owner, origin, size, pair.Value, bed);
+            int stride = size + 2;
+            var border = new Vector3[stride * stride];
+            var borderBed = new float[border.Length];
+            for (int y = -1; y <= size; y++)
+            for (int x = -1; x <= size; x++)
+            {
+                int worldX = (int)origin.x + x, worldY = (int)origin.y + y;
+                int at = x + 1 + (y + 1) * stride;
+                borderBed[at] = propagationGround.Height(worldX, worldY);
+                if (x >= 0 && y >= 0 && x < size && y < size)
+                {
+                    int cell = x + y * size;
+                    bed[cell] = borderBed[at];
+                    border[at].x = pair.Value[cell];
+                }
+                else if (worldX >= 0 && worldY >= 0 &&
+                         regions.TryGetValue((worldX / size, worldY / size), out var neighbour))
+                    border[at].x = neighbour[worldX % size + worldY % size * size];
+            }
+
+            var frame = new FormLayerFrame(owner, origin, size, pair.Value, bed, border, borderBed);
             output.Add(new FormVisualInstance(Plan.Nodes[node].Resource, Matrix4x4.identity,
                 surface: appearance.Surface, matterSurface: appearance.MatterSurface, matter: nodes[node].Matter,
                 dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame, followMatter: Plan.Nodes[node].FollowMatter));

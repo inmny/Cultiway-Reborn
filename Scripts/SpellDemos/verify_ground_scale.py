@@ -10,12 +10,59 @@ from pathlib import Path
 from common import PROJECT, version_stamp, write_json
 
 
-def verify_catalog(world, cases):
+def catalog_film(fragment, folder, case):
+    """把现有的实际帧录制接到正式目录的两种尺度。"""
+    (folder / 'frames').mkdir()
+    film = (Path(__file__).with_name('record_ground_scale.script').read_text()
+            .replace('GROUND_SCALE_CASE', case)
+            .replace('GROUND_SCALE_VIEWPOINTS', 'yes'))
+    fragment = fragment.replace('ConstructedAbilityService.CastStarted += Started;',
+                                film + '\nConstructedAbilityService.CastStarted += Started;', 1)
+    fragment = fragment.replace('        await Shot("source", true);\n        Config.paused = false;',
+                                '        await Shot("source", true);\n'
+                                '        CaptureGroundFrame(); filmRecording = RecordGroundFrames();\n'
+                                '        Config.paused = false;', 1)
+    fragment = fragment.replace('() => finishes.Count > 0, 3600',
+                                '() => finishes.Count > 0 && !filmCapturing, 10000', 1)
+    fragment = fragment.replace('        Check(healthAtGroundContact != null',
+                                '        filmStop = true; if (filmRecording != null) await filmRecording;\n'
+                                '        if (World.world.getCurWorldTime() > filmTimes.Last()) CaptureGroundFrame();\n'
+                                '        Check(filmFrames.Count >= 24 && verifiedViewpoints.ContainsKey("near") &&\n'
+                                '              verifiedViewpoints.ContainsKey("mid") && verifiedViewpoints.ContainsKey(cityCase ? "city" : "world"),\n'
+                                '              "连续画面覆盖要求的各取景及实际波面", verifiedViewpoints);\n'
+                                '        Check(!FormVisualScene.Instances.Any(form => form.Layer != null && form.Resource.Description.Id == definition.Root.Form),\n'
+                                '              "实际结束后已确认的波面不再绘制");\n'
+                                '        Check(healthAtGroundContact != null', 1)
+    fragment = fragment.replace('finally\n{\n    ConstructedAbilityService.CastStarted -= Started;',
+                                'finally\n{\n    filmStop = true; Config.paused = true;\n'
+                                '    try { if (filmRecording != null) await filmRecording; }\n'
+                                '    finally\n    {\n        SaveGroundFilm();\n'
+                                '        if (filmTimeMode.HasValue) filmSettings.GetType().GetField("TimeMode", F).SetValue(filmSettings, filmTimeMode.Value);\n'
+                                '    ConstructedAbilityService.CastStarted -= Started;', 1)
+    return fragment + '\n}\n'
+
+
+def encode_catalog_film(folder, case, mode):
+    """重用连续帧编码，保留结束时同一世界时点的原始双帧。"""
+    from record_body_connections import encode
+
+    recording = folder / 'recording.json'
+    data = json.loads(recording.read_text())
+    frames = data['frames']
+    if len(frames) >= 2 and frames[-2]['time'] == frames[-1]['time']:
+        (folder / 'recording-raw.json').write_bytes(recording.read_bytes())
+        frames.pop(-2)
+        write_json(recording, data)
+    name = '城域地脉传力' if case == 'city' else '全域地脉传力'
+    return encode(case, folder, folder, mode == 'native', name, '11.20 实际传播取景', crop_worldfall=False)
+
+
+def verify_catalog(world, cases, mode, film=False):
     """通过万法阁所用的正式目录与玩家施放入口复用两种规模。"""
     from verify_weapon_flight_archive import world_helpers
     import baseline_scenarios as baseline
 
-    baseline.connect(False, validate_runtime=False)
+    connected = baseline.connect(False, validate_runtime=False)
     for case in cases:
         folder = Path(tempfile.mkdtemp(prefix=f'ground-catalog-{case}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
         helpers = world_helpers(folder, world)
@@ -26,15 +73,21 @@ def verify_catalog(world, cases):
                                   'contacts.Add(contact);')
         fragment = (Path(__file__).with_suffix('.script').read_text()
                     .replace('GROUND_SCALE_CASE', case).replace('GROUND_SCALE_CATALOG', 'yes'))
+        if film:
+            fragment = catalog_film(fragment, folder, case)
         script = folder / 'input.script'
         script.write_text(helpers + '\n' + fragment)
+        write_json(folder / 'metadata.json', dict(connection=connected, view=mode, case=case,
+                                                   save=str(world), version=version_stamp()[0]))
         try:
-            result = baseline.call('run', str(script), '360000')
+            result = baseline.call('run', str(script), '600000' if film else '360000')
         except RuntimeError as error:
             write_json(folder / 'failure.json', {'passed': False, 'error': str(error)})
             raise RuntimeError(f'正式地脉传力复验未通过，见 {folder}') from None
-        if not result.get('passed') or not result.get('catalog') or result['view'] != 'native':
-            raise RuntimeError(f'正式地脉传力复验结果与原版入口不符，见 {folder}')
+        if not result.get('passed') or not result.get('catalog') or result['view'] != mode:
+            raise RuntimeError(f'正式地脉传力复验结果与指定视角不符，见 {folder}')
+        if film:
+            encode_catalog_film(folder, case, mode)
         print(folder, flush=True)
 
 
@@ -44,16 +97,16 @@ def main():
     parser.add_argument('--worldfall', action='store_true')
     parser.add_argument('--film', action='store_true', help='只附加本项连续画面，不重跑已通过的额外交锋回归')
     parser.add_argument('--case', nargs='+', choices=['city', 'world'])
-    parser.add_argument('--catalog', action='store_true', help='在独立原版游戏中实测正式目录和玩家施放')
+    parser.add_argument('--catalog', action='store_true', help='在独立游戏中实测正式目录和玩家施放')
     parser.add_argument('--archive', type=Path, help='正式目录复验所用的既有世界目录')
     args = parser.parse_args()
     if args.catalog:
-        if args.worldfall or args.film or not args.archive or not os.environ.get('CULTIWAY_DEV_ACTIVE'):
-            parser.error('在原版独立游戏内运行 --catalog --archive <已有世界目录>')
+        if not args.archive or not os.environ.get('CULTIWAY_DEV_ACTIVE'):
+            parser.error('在独立游戏内运行 --catalog --archive <已有世界目录>')
         world = args.archive.resolve()
         if not (world / 'map.wbox').is_file():
             parser.error(f'找不到已有世界：{world}')
-        verify_catalog(world, args.case or ('city', 'world'))
+        verify_catalog(world, args.case or ('city', 'world'), 'worldfall' if args.worldfall else 'native', args.film)
         return
     if args.archive:
         parser.error('--archive 供正式目录复验使用')

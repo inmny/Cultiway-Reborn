@@ -1,5 +1,8 @@
 // 4.32C2：附着在B2同一实际场景，连续读取正式发布后的画面。
 bool filmCapturing = false, filmStop = false, filmClose = true;
+bool multiScaleFilm = "GROUND_SCALE_VIEWPOINTS" == "yes";
+string filmViewpoint = "near";
+var verifiedViewpoints = new Dictionary<string, int>();
 Task filmRecording = null;
 var filmFrames = new List<object>();
 var filmTimes = new List<double>();
@@ -11,6 +14,7 @@ void CaptureGroundFrame()
 {
     var previous = RenderTexture.active;
     RenderTexture target = nativeTarget;
+    float captureZoom;
     if (mod == null)
     {
         var oldTarget = camera.targetTexture; var oldPosition = camera.transform.position;
@@ -21,9 +25,11 @@ void CaptureGroundFrame()
         foreach (var picture in muted) picture.enabled = false;
         try
         {
-            camera.transform.position = filmClose ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
+            bool middle = multiScaleFilm && filmViewpoint == "mid";
+            camera.transform.position = filmClose || middle ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
                 cityCase ? new Vector3(64, 64, 0f) : new Vector3(MapBox.width * .5f, MapBox.height * .5f, 0f);
-            camera.orthographicSize = filmClose ? 4f : cityCase ? 50f : MapBox.height * .61f;
+            camera.orthographicSize = filmClose ? 4f : middle ? 22f : cityCase ? 50f : MapBox.height * .61f;
+            captureZoom = camera.orthographicSize;
             camera.targetTexture = target; camera.Render();
         }
         finally
@@ -36,6 +42,7 @@ void CaptureGroundFrame()
     {
         object gpu = mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod);
         target = (RenderTexture)Field(gpu, "Output");
+        captureZoom = (float)Field(Field(mod, "_godShown"), "Z");
     }
     if (read == null || read.width != target.width || read.height != target.height)
     {
@@ -50,12 +57,45 @@ void CaptureGroundFrame()
     }
     finally { RenderTexture.active = previous; }
     var live = Live(); double time = World.world.getCurWorldTime();
+    if (multiScaleFilm && !verifiedViewpoints.ContainsKey(filmViewpoint))
+    {
+        var contactsNow = new List<AbilityCapsule>();
+        live?.AppendContacts(contactsNow);
+        int Key(float x, float y) => Mathf.FloorToInt(x) + Mathf.FloorToInt(y) * MapBox.width;
+        var affected = contactsNow.Where(shape => shape.Node >= 0 && shape.HalfExtents.z > .000001f)
+            .ToDictionary(shape => Key(shape.A.x, shape.A.y), shape => shape.A.z + shape.HalfExtents.z);
+        var published = new HashSet<int>();
+        var renderedCenters = new Dictionary<int, float>();
+        var layerMeshes = typeof(FormVisualInstance).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormLayerMeshes");
+        var meshFor = layerMeshes.GetMethod("Get", F);
+        foreach (var instance in FormVisualScene.Instances.Where(shape => shape.Layer != null &&
+                     shape.Resource.Description.Id == definition.Root.Form))
+        {
+            for (int y = 0; y < instance.Layer.Cells; y++)
+            for (int x = 0; x < instance.Layer.Cells; x++)
+                if (instance.Layer.Depth(x, y) > .000001f)
+                    published.Add(Key(instance.Layer.Origin.x + x, instance.Layer.Origin.y + y));
+            var mesh = (Mesh)meshFor.Invoke(null, new object[] { instance.Layer });
+            foreach (var vertex in mesh.vertices)
+                if (Mathf.Abs(vertex.x - Mathf.Floor(vertex.x) - .5f) < .00001f &&
+                    Mathf.Abs(vertex.y - Mathf.Floor(vertex.y) - .5f) < .00001f)
+                    renderedCenters[Key(vertex.x, vertex.y)] = vertex.z;
+        }
+        if (filmViewpoint == "near" || affected.Count > 0)
+        {
+            Check(published.SetEquals(affected.Keys) && renderedCenters.Count == affected.Count &&
+                affected.All(pair => renderedCenters.TryGetValue(pair.Key, out float height) && Mathf.Abs(height - pair.Value) < .0001f),
+                "当前取景的显示格与中心高度均等于已完成接触",
+                new { filmViewpoint, time, visible = published.Count, actual = affected.Count, rendered = renderedCenters.Count });
+            verifiedViewpoints.Add(filmViewpoint, published.Count);
+        }
+    }
     filmFrames.Add(new
     {
         frame = filmFrames.Count, time, confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
         stage = started < 0d || time - started < .45d ? "真实足底蓄势" :
             finishes.Count > 0 ? "传播结束与身体归还" : filmClose ? "实际触地启动" : "沿真实地面传播与到达",
-        close = filmClose, age = live?.Age, bodyBusy = BodyControlState.IsBusy(source.id),
+        viewpoint = filmViewpoint, zoom = captureZoom, close = filmClose, age = live?.Age, bodyBusy = BodyControlState.IsBusy(source.id),
         health = targets.Select(t => new { t.id, t.data.health }).ToArray(), contacts = contacts.Count
     });
     filmTimes.Add(time);
@@ -67,12 +107,20 @@ async Task RecordGroundFrames()
     while (!filmStop)
     {
         await Game.NextFrame();
-        if (World.world.getCurWorldTime() < last + 1d / 60d) continue;
+        if (World.world.getCurWorldTime() < last + (multiScaleFilm ? 1d / 22d : 1d / 60d)) continue;
         bool resume = !Config.paused; filmCapturing = true;
         try
         {
             Config.paused = true; await Game.WaitUntil(Boundary, 1800);
-            if (filmClose && started >= 0d && World.world.getCurWorldTime() >= started + .5d)
+            double age = started < 0d ? 0d : World.world.getCurWorldTime() - started;
+            string wanted = age < .58d ? "near" : age < (cityCase ? 1.35d : 1.02d) ? "mid" : cityCase ? "city" : "world";
+            if (multiScaleFilm && wanted != filmViewpoint)
+            {
+                filmViewpoint = wanted;
+                filmClose = wanted == "near";
+                await Shot("view-" + wanted, filmClose);
+            }
+            else if (!multiScaleFilm && filmClose && started >= 0d && age >= .5d)
             {
                 filmClose = false; await Shot("overview");
             }
@@ -95,5 +143,5 @@ void SaveGroundFilm()
             c.Age, c.TargetId, c.DamageAttempted, point = new[] { c.Position.x, c.Position.y, c.Position.z } })).Concat(
         finishes.Select(f => (object)new { kind = "end", f.WorldTime, f.Age, f.Cancelled })).ToArray();
     File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new
-    { view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", started, frames = filmFrames, events }, Formatting.Indented));
+    { view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", started, viewpoints = verifiedViewpoints, frames = filmFrames, events }, Formatting.Indented));
 }

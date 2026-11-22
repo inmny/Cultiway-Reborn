@@ -63,10 +63,14 @@ public sealed class FormLayerFrame
     /// <summary>发布已完成传播的局部波面，不创建水量或运行中的工作数组。</summary>
     /// <param name="owner">稳定区域身份。</param><param name="origin">真实地块边缘。</param>
     /// <param name="cells">区域边长。</param><param name="height">独占波厚数组。</param><param name="bed">独占地表数组。</param>
-    internal FormLayerFrame(object owner, Vector2 origin, int cells, float[] height, float[] bed)
+    /// <param name="border">同次发布相邻一格的波厚。</param><param name="borderBed">同次发布的相邻地表。</param>
+    internal FormLayerFrame(object owner, Vector2 origin, int cells, float[] height, float[] bed,
+        Vector3[] border = null, float[] borderBed = null)
     {
         Owner = owner; Origin = origin; Cells = cells; Cell = 1f; Columns = true;
         Ground = bed; Water = new Vector3[height.Length]; AppearanceIndex = -1;
+        borderWater = border;
+        borderGround = borderBed;
         float min = float.PositiveInfinity, max = float.NegativeInfinity;
         for (int i = 0; i < height.Length; i++)
         {
@@ -74,6 +78,14 @@ public sealed class FormLayerFrame
             min = Mathf.Min(min, bed[i]); max = Mathf.Max(max, bed[i] + height[i]);
             Volume += height[i];
         }
+
+        if (border != null)
+            for (int i = 0; i < border.Length; i++)
+            {
+                min = Mathf.Min(min, borderBed[i]);
+                max = Mathf.Max(max, borderBed[i] + border[i].x);
+            }
+
         Bounds = new Bounds(new Vector3(origin.x + cells * .5f, origin.y + cells * .5f, (min + max) * .5f),
             new Vector3(cells, cells, Mathf.Max(.00001f, max - min)));
     }
