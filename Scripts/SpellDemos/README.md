@@ -2991,3 +2991,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在通过元神台验证的同一进程运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_facility_archive.py --nodes-result 节点复验目录/result.json`。脚本用相同世界写出原印、原连接、已完成的传送、在途分念和正在充能的另一旅客。
 
 在另一独立进程运行同一入口并改用 `--archive 保存阶段的输出目录`。脚本先比较正式文件的校验值，再核对冷读、再次通行及换世界的结果。
+
+### 设施来源连续实录（10.12）
+
+在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/record_facility_sources.py --archive 保存阶段的输出目录 --case array`。参数 `--case` 也可选 `sect` 或 `node`。每段从同一正式文件进入，输出原帧、实际时间、结算和单段录像。

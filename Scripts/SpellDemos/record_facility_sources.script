@@ -1,0 +1,289 @@
+// 正式档保留真实建筑、人物与供奉。每段只推进要展示的实际行为。
+const string charge = "Cultiway.Facility.TeleportArray.Charge";
+const string arrival = "Cultiway.Facility.TeleportArray.Arrival";
+const string ward = "test.independent-casting.facility-retry";
+Actor body = World.world.units.get((long)saved["actor"]);
+Actor beast = World.world.units.get((long)saved["beast"]);
+var owner = body.GetExtend();
+Sect sect = WorldboxGame.I.Sects.get((long)saved["sect"]);
+Building hall = World.world.buildings.get((long)saved["start"]);
+Building pavilion = World.world.buildings.get((long)saved["pavilion"]);
+WorldTile entry = World.world.GetTileSimple(61, 67), exit = World.world.GetTileSimple(75, 67);
+Vector2 home = hall.current_position, aim = pavilion.current_position;
+var frames = new List<object>();
+var events = new List<object>();
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var veins = (IList)typeof(Cultiway.Content.Systems.Render.ArtifactSectManifestationSystem).GetField("Veins", F).GetValue(null);
+double Now() => World.world.getCurWorldTime();
+bool Near(Vector2 point, Vector2 goal) => Vector2.Distance(point, goal) < 1.5f;
+float Armor() { body.updateStats(); return body.stats[S.armor]; }
+void Event(string kind, object data = null) => events.Add(new { kind, time = Now(), data });
+void Demolish(Building building) => typeof(Building).GetMethod("removeBuildingFinal", F).Invoke(building, null);
+void Stand(Actor actor, WorldTile tile) => Place(actor, tile.x, tile.y);
+bool Held(Actor actor) => BodyControlState.HasControl(actor.id, BodyOccupancy.Stance);
+void Cast(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId is not (charge or arrival or ward)) return;
+    starts.Add(fact);
+    Event("cast", new { fact.AbilityId, fact.CastId, fact.CorrelationId, fact.SourceId });
+}
+void End(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId is not (charge or arrival or ward)) return;
+    ends.Add(fact);
+    Event("end", new { fact.AbilityId, fact.CastId, fact.Cancelled });
+}
+bool FormAt(string form, Vector2 point) => FormVisualScene.Instances.Any(value =>
+    value.Resource.Description.Id == form && Near((Vector3)value.Transform.GetColumn(3), point));
+bool VeinAt(Vector2 point) => veins.Cast<object>().Any(vein => Near((Vector3)Field(vein, "Position"), point));
+
+foreach (Actor actor in new[] { body, beast })
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    actor.updateStats();
+    actor.attack_timer = 999f;
+}
+ControllableUnit.setControllableCreature(body);
+PortalRequest request = null;
+Entity thought = default;
+YuanshenAnchorHandle destination = default;
+long projectedCast = 0;
+int action = 0;
+bool bothGates = false, originalVein = false, hallVein = false, noVein = false, restoredVein = false;
+bool reached = false, wardShown = false;
+float oldArmor = 0f, withoutArmor = 0f;
+double lastChange = 0d;
+Vector2 centre = scene switch
+{
+    "array" => ((Vector2)entry.posV3 + (Vector2)exit.posV3) * .5f + Vector2.up * .4f,
+    "sect" => (home + aim) * .5f + Vector2.up * .15f,
+    _ => aim + Vector2.down * .55f
+};
+string stage = scene switch
+{
+    "array" => "原请求正在等候充能", "sect" => "新藏宝阁承担供奉", _ => "档内原分念正沿连接迁移"
+};
+
+ConstructedAbilityService.CastStarted += Cast;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    object sampler = worldfall == null ? null : Field(worldfall, "_sampler");
+    if (sampler != null)
+    {
+        // 宗门和元神台两段使用同一世界的北侧场地，拆除遮挡镜头的两座无关传送阵。
+        if (scene != "array")
+        {
+            Demolish(World.world.buildings.get((long)saved["gateIn"]));
+            Demolish(World.world.buildings.get((long)saved["gateOut"]));
+        }
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+    if (scene == "array")
+    {
+        await Advance(.15f);
+        PortalDefinition Endpoint(WorldTile tile) => PortalRegistry.Instance.Enumerate(Portals.TeleportArray)
+            .Single(portal => portal.Tile == tile);
+        var from = Endpoint(entry);
+        var to = Endpoint(exit);
+        Stand(body, entry);
+        Stand(beast, entry);
+        Check(PortalManager.NewRequest(from, to, body) && PortalManager.NewRequest(from, to, beast),
+            "两位原旅客通过请求管理器报名");
+        request = PortalManager.GetRequest(body);
+        Check(request != null && request == PortalManager.GetRequest(beast), "同一实际入口的原批次");
+        await Advance(4.38f);
+    }
+    else if (scene == "sect")
+    {
+        await Advance(1.10f);
+        Place(body, centre.x, centre.y - 3f);
+        oldArmor = Armor();
+    }
+    else
+    {
+        Vector2 bodyPlace = aim + Vector2.down * 3.7f;
+        Place(body, bodyPlace.x, bodyPlace.y);
+        var handle = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+        Check(YuanshenNodeLockService.TryResolve(handle, out thought) &&
+            thought.TryGetComponent(out YuanshenAnchorTransitState transit), "复用档内正在迁移的原分念");
+        destination = thought.GetComponent<YuanshenAnchorTransitState>().destination;
+    }
+    float zoom = scene == "node" ? 3.8f : 6.3f;
+    float distance = scene == "node" ? 4.7f : 8.4f;
+    await OpenView(body, centre, distance);
+    if (worldfall != null) MoveCamera.clearFocusUnitOnly();
+    object terrain = sampler == null ? null : Field(sampler, "Cache");
+    var height = terrain?.GetType().GetMethod("SampleHeight", F, null, new[] { typeof(float), typeof(float) }, null);
+
+    void SetFilm(string name, object value) => worldfallType.GetField(name, F).SetValue(worldfall, value);
+    void FrameWorldfall()
+    {
+        // 在原入口和实际出口间换景，读取同一世界时间中的实际建筑和形体。
+        Vector2 point = scene switch
+        {
+            "array" => (Vector2)(action == 0 ? entry.posV3 : exit.posV3),
+            "sect" when action is 1 or 2 => home,
+            _ => aim
+        };
+        float ground = (float)height.Invoke(terrain, new object[] { point.x, point.y });
+        Vector3 focus = new(point.x, point.y, ground + (scene == "array" ? .8f : .50f));
+        Vector3 offset = scene == "array"
+            ? new Vector3(action == 0 ? 3.5f : -3.5f, 4.7f, 1.4f)
+            : new Vector3(0f, 5f, 1f);
+        SetFilm("_fly", true);
+        SetFilm("_flyPos", focus + offset);
+        SetFilm("_flyYaw", Mathf.Atan2(-offset.y, -offset.x));
+        SetFilm("_flyPitch", Mathf.Atan2(-offset.z, ((Vector2)offset).magnitude) * Mathf.Rad2Deg);
+        SetFilm("_flyVel", Vector3.zero);
+        SetFilm("_flyEase", 1f);
+        SetFilm("_flyAlpha", 1f);
+        SetFilm("_flyCursor", true);
+        SetFilm("_flyLeaving", false);
+    }
+
+    double start = Now(), next = start, duration = scene == "array" ? 2.68d : 3.55d;
+    Config.paused = false;
+    while (Now() - start < duration)
+    {
+        double age = Now() - start;
+        if (Now() >= next)
+        {
+            if (worldfall != null)
+            {
+                Config.paused = true;
+                FrameWorldfall();
+                await WaitForView();
+            }
+            if (scene == "array")
+            {
+                bool inView = FormAt("space_fold_gate", entry.posV3), outView = FormAt("space_fold_gate", exit.posV3);
+                if (action == 0 && inView && outView && Held(body) && Held(beast))
+                {
+                    bothGates = true;
+                    stage = "两端阵门同时充能";
+                    if (lastChange == 0d)
+                    {
+                        lastChange = Now();
+                        Event("two-gates");
+                    }
+                    if (Now() >= lastChange + .15d)
+                    {
+                        foreach (var portal in request.Portals) portal.RemovePassenger(body);
+                        action = 1;
+                        Event("withdraw", body.id);
+                    }
+                }
+                if (action == 1 && !Held(body))
+                    stage = beast.current_tile == exit ? "原兽真正抵达出口，控制归还" : "撤销一位旅客，其余继续充能";
+            }
+            else if (scene == "sect")
+            {
+                originalVein |= action == 0 && VeinAt(aim);
+                hallVein |= action == 1 && VeinAt(home);
+                if (action == 2 && veins.Count == 0 && ArtifactSectService.ResolveInstallationBuilding(sect) == null)
+                {
+                    noVein = true;
+                    withoutArmor = Armor();
+                    stage = "场所已空，护持和地脉停用";
+                }
+                restoredVein |= action == 3 && VeinAt(aim);
+                if (action == 0 && age >= .65d)
+                {
+                    Demolish(pavilion);
+                    action = 1;
+                    stage = "大殿接替原供奉";
+                    Event("fallback", hall.id);
+                }
+                else if (action == 1 && age >= 1.36d)
+                {
+                    Demolish(hall);
+                    action = 2;
+                    Event("no-venue");
+                }
+                else if (action == 2 && age >= 2.24d)
+                {
+                    var site = World.world.buildings.addBuilding(Buildings.SectTreasurePavilion.id,
+                        World.world.GetTileSimple((int)aim.x, (int)aim.y), pCheckForBuild: true);
+                    Check(site != null, "合法重建藏宝阁");
+                    site.completeConstruction();
+                    site.data.set(BuildingDataKeys.SectID_Long, sect.getID());
+                    World.world.buildings.checkContainer();
+                    WorldboxGame.I.Sects.setDirtyBuildings(sect);
+                    WorldboxGame.I.Sects.beginChecksBuildings();
+                    action = 3;
+                    stage = "新藏宝阁恢复同一份护持";
+                    Event("restored", site.id);
+                }
+            }
+            else
+            {
+                if (!reached && !thought.IsNull && thought.TryGetComponent(out YuanshenAnchorResidence residence) &&
+                    residence.anchor == destination && Near(thought.GetComponent<Position>().v2, aim))
+                {
+                    reached = true;
+                    stage = "原分念实际抵达元神台";
+                    lastChange = Now();
+                    Event("node-arrived");
+                }
+                if (action == 0 && reached && Now() >= lastChange + .24d)
+                {
+                    Check(YuanshenAdvancedNodeService.TryCreateManifestation(owner, aim) &&
+                        ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, ward),
+                            new ActiveAbilityTarget(null, aim), ActiveAbilityUseOrigin.Script),
+                        "正式显圣在原元神台启动护持");
+                    projectedCast = starts.Last(fact => fact.AbilityId == ward).CastId;
+                    stage = "原修士支付，护持从实体设施出手";
+                    action = 1;
+                    lastChange = Now();
+                }
+                if (action == 1) wardShown |= FormAt("guard_seal", aim);
+                if (action == 1 && Now() >= lastChange + .66d)
+                {
+                    Demolish(pavilion);
+                    action = 2;
+                    Event("material-lost");
+                }
+                if (action == 2 && ends.Any(fact => fact.CastId == projectedCast && fact.Cancelled))
+                    stage = "实体设施失效，依附护持结束";
+            }
+            ReadFrame(frames.Count, centre, zoom);
+            frames.Add(new { frame = frames.Count, time = Now(), stage, phase = action });
+            next = Now() + .052d;
+            Config.paused = false;
+        }
+        await Game.NextFrame();
+    }
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    if (scene == "array")
+        Check(bothGates && action == 1 && body.current_tile == entry && beast.current_tile == exit &&
+            !Held(body) && !Held(beast) && starts.Count(fact => fact.AbilityId == arrival && fact.CorrelationId == beast.id) == 1,
+            "录像内两端确实成形，撤销者留在原处，另一位旅客实际抵达");
+    else if (scene == "sect")
+        Check(originalVein && hallVein && noVein && restoredVein && withoutArmor < oldArmor &&
+            Mathf.Abs(Armor() - oldArmor) < .04f,
+            "录像内原印换址、短暂停用及恢复，地脉与护甲共同变化",
+            new { originalVein, hallVein, noVein, restoredVein, oldArmor, withoutArmor, final = Armor() });
+    else
+        Check(reached && wardShown && projectedCast != 0 &&
+            starts.Any(fact => fact.CastId == projectedCast && fact.SourceId == body.id) &&
+            ends.Any(fact => fact.CastId == projectedCast && fact.Cancelled) && !FormAt("guard_seal", aim),
+            "录像内原分念抵达，真实护持发布于原设施并在毁坏后终止");
+    Check(frames.Count >= 24, "按递增的世界时间连续拍摄");
+    return new { passed = true, scene, view, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Cast;
+    ConstructedAbilityService.CastEnded -= End;
+    ControllableUnit.clear(false);
+    if (worldfall != null) worldfallType.GetField("_fly", F).SetValue(worldfall, false);
+    CloseView();
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new
+        { scene, centre = new[] { centre.x, centre.y }, body = body.id, beast = beast.id, hall = (long)saved["start"], pavilion = (long)saved["pavilion"] }));
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+}
