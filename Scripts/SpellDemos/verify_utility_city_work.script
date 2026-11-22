@@ -1,0 +1,224 @@
+// 复用旧档城市。准备实际需求并请求一次正常工作，仍由原规划、职工选择和任务解决。
+Actor worker = World.world.units.get(sourceId);
+ActorExtend owner = worker.GetExtend();
+City city = worker.city;
+Check(city != null && city.isAlive() && worker.isAdult() && !worker.isWarrior(), "原城市保有实际成年工人");
+var plan = section switch
+{
+    "growth" => (Action: "nature.grow", Project: "nature_growth", Tag: "world.growth"),
+    "fertilize" => (Action: "crop.mature", Project: "crop_fertilization", Tag: "farm.fertilize"),
+    _ => (Action: "terrain.lower", Project: "housing_terrain", Tag: "terrain.lower")
+};
+string projectId = "cultiway.city_magic." + plan.Project;
+string actualProject = null;
+string name = "test.city-work." + section;
+var content = typeof(ConstructedAbilityService).Assembly;
+var executorType = content.GetType("Cultiway.Content.CollectiveProjects.MagicUtilityProjectExecutor", true);
+var pending = (IDictionary)executorType.GetField("PendingByActor", F).GetValue(null);
+var packType = content.GetType("Cultiway.Content.Persistence.CollectiveProjectSaveContent", true);
+var capture = typeof(CollectiveProjectService).GetMethod("CaptureWorldSave", F);
+JObject Pack(object value) => (JObject)packType.GetMethod("Capture", F).Invoke(null, new[] { value });
+JObject Projects() => JObject.FromObject(capture.Invoke(null, new object[] { (Func<object, JObject>)Pack }));
+int Completed() => Projects()["History"].Count(entry => (long)entry["OwnerId"] == city.id &&
+    (string)entry["Tag"] == plan.Tag);
+
+var learn = typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F);
+var skills = (IReadOnlyList<Entity>)learn.Invoke(owner, null);
+// 每次只让原工人保有本场用法，避免其他原工程抢同一工位。
+foreach (Entity skill in skills.ToArray()) SkillOwnershipService.Forget(owner, skill);
+owner.E.RemoveComponent<ConstructedKnowledge>();
+worker.setMana(worker.getMaxMana(), false);
+var definition = new AbilityDefinition
+{
+    Id = name, Name = "城市验收·" + section, Resource = "mana", Cost = 3f, Power = 0f,
+    TargetRange = 14f, Cooldown = .5f, Lifetime = .4f,
+    Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point, Channels = ActiveAbilityChannel.World },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Impact = new ConstructionImpact
+    {
+        DamageScale = 0f,
+        WorldEffects = new[] { new ConstructionWorldEffect { Action = plan.Action } }
+    },
+    Root = new ConstructionNode { Id = "ground", Form = "world_domain", Matter = "wood", Scale = 2.8f, ActiveFrom = .10f }
+};
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, name);
+
+bool buildEnabled = DebugConfig.isOn(DebugOption.SystemBuildTick);
+bool infinite = DebugConfig.isOn(DebugOption.CityInfiniteResources);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+if (section == "growth") DebugConfig.setOption(DebugOption.CityInfiniteResources, false);
+var starts = new List<ConstructedCastStarted>();
+var effects = new List<object>();
+var ends = new List<ConstructedCastEnded>();
+WorldTile farm = null;
+Building crop = null;
+TileType terrain = null;
+var newTerrainTiles = new HashSet<int>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != sourceId || fact.AbilityId != name || fact.CorrelationId <= 0 ||
+        fact.Origin != ActiveAbilityUseOrigin.Autonomous) return;
+    object cast = pending[sourceId];
+    if (cast != null && (long)cast.GetType().GetProperty("ExecutionToken").GetValue(cast) == fact.CorrelationId &&
+        CollectiveProjectService.TryGetProject((long)cast.GetType().GetProperty("ProjectId").GetValue(cast), out var running) &&
+        (running.DefinitionId == projectId || section == "terrain" && running.DefinitionId == "cultiway.city_magic.farm_terrain") &&
+        running.State == CollectiveProjectState.Executing)
+    {
+        actualProject = running.DefinitionId;
+        starts.Add(fact);
+    }
+}
+void Changed(ConstructedWorldContact fact)
+{
+    if (fact.Action != plan.Action || !fact.Result.Changed || !starts.Any(start => start.CastId == fact.CastId)) return;
+    WorldTile tile = World.world.GetTileSimple(fact.X, fact.Y);
+    bool real = section switch
+    {
+        "fertilize" => tile == farm && tile.building == crop && crop?.component_wheat?.isMaxLevel() == true,
+        "growth" => tile.building?.asset?.flora == true && !tile.building.asset.wheat,
+        _ => tile.main_type == terrain.decrease_to && tile.Type.can_build_on && newTerrainTiles.Contains(tile.tile_id)
+    };
+    effects.Add(new { fact.CastId, fact.Action, fact.X, fact.Y, fact.Age, real });
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (starts.Any(start => start.CastId == fact.CastId)) ends.Add(fact);
+}
+
+try
+{
+    ConstructedAbilityService.CastStarted += Started;
+    ConstructedAbilityService.WorldContactConfirmed += Changed;
+    ConstructedAbilityService.CastEnded += Finished;
+    int initial = Completed();
+    // 与旧净土复验使用相同区域，不清空城市的建筑、项目或成员。
+    for (int y = 69; y <= 79; y++)
+    for (int x = 62; x <= 74; x++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        if (tile.hasBuilding()) continue;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.heat = 0;
+        tile.burned_stages = 0;
+    }
+    Place(worker, 60.5f, 72.5f);
+
+    if (section == "growth")
+    {
+        city.takeResource("wood", city.amount_wood);
+        Check(city.amount_wood < Math.Max(20, city.status.population * 2),
+            "实际仓库有木材不足的需求", city.amount_wood);
+    }
+    else if (section == "fertilize")
+    {
+        farm = World.world.GetTileSimple(68, 74);
+        farm.setTileTypes(TileLibrary.soil_low, TopTileLibrary.field);
+        crop = World.world.buildings.addBuilding("wheat", farm);
+        Check(crop?.component_wheat != null && !crop.component_wheat.isMaxLevel(), "场地保有一株实际未熟麦田");
+        crop.data.grow_time = -1000f;
+        Actor hungry = World.world.units.get(readerId);
+        Check(hungry != null && hungry.needsFood(), "复用原档里能正常进食的读者");
+        hungry.joinCity(city);
+        hungry.data.nutrition = Math.Min(hungry.data.nutrition, 5);
+        city.setStatusDirty();
+        await Advance(.15f);
+        typeof(City).GetMethod("updateCityStatus", F).Invoke(city, null);
+        Check(hungry.isHungry() && city.status.hungry > 0, "从实际居民的饥饿更新原城市需求");
+    }
+    else
+    {
+        terrain = new[] { TileLibrary.mountains, TileLibrary.hills, TileLibrary.soil_high, TileLibrary.soil_low }
+            .First(type => !type.can_build_on && type.decrease_to?.can_build_on == true);
+        for (int y = 72; y <= 77; y++)
+        for (int x = 65; x <= 72; x++)
+        {
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            if (tile.hasBuilding()) continue;
+            tile.setTileTypes(terrain, null);
+            newTerrainTiles.Add(tile.tile_id);
+        }
+        Check(newTerrainTiles.Count >= 6, "存在实际可整理用地");
+
+        var rules = content.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectRules", true);
+        var resolver = content.GetType("Cultiway.Content.CollectiveProjects.MagicUtilitySpellResolver", true);
+        var payloadType = content.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectPayload", true);
+        WorldTile location = World.world.GetTileSimple(68, 75);
+        object allowed = rules.GetMethod("CollectAllowedTileIds", F).Invoke(null, new object[] { city });
+        foreach (string goal in new[] { "HousingTerrain", "FarmTerrain" })
+        {
+            var handle = new ActiveAbilityHandle("content.constructed", owner.E, name);
+            object[] candidate = { owner, handle, SkillSemantics.Effect.LowerTerrain, null };
+            Check((bool)resolver.GetMethod("TryCreateOption", F).Invoke(null, candidate),
+                "同一已学降地术符合真实城市用途 " + goal);
+            object payload = Activator.CreateInstance(payloadType);
+            var goalField = payloadType.GetField("Goal");
+            goalField.SetValue(payload, Enum.Parse(goalField.FieldType, goal));
+            payloadType.GetField("EffectSemantic").SetValue(payload, SkillSemantics.Effect.LowerTerrain);
+            float utility = (float)resolver.GetMethod("EvaluateOption", F)
+                .Invoke(null, new[] { candidate[3], location, payload, allowed, null });
+            Check(utility >= 6f, "同一实际足迹可提供足够新增用地 " + goal, utility);
+        }
+    }
+
+    int planningSteps = Mathf.CeilToInt(Cultiway.Const.TimeScales.SecPerMonth / .25f) + 4;
+    for (int i = 0; i < planningSteps && starts.Count == 0 &&
+         !CollectiveProjectService.HasAssignableProject(owner, false); i++) await Advance(.25f);
+    if (starts.Count == 0)
+    {
+        Check(CollectiveProjectService.TryAssignRoutineJob(owner, out string job),
+            "原规划器从实际需求派出一个可执行的常规工程", Projects());
+        Check(job == ActorJobs.CollectiveProject.id, "原常规工作入口返回实际工程任务", job);
+        worker.ai.setJob(job);
+        worker.setTask(ActorTasks.ExecuteCollectiveProject.id, pCleanJob: false, pForceAction: true);
+    }
+    for (int i = 0; i < 18 && Completed() == initial; i++) await Advance(.5f);
+    var recorded = JArray.FromObject(effects);
+    File.WriteAllText(Path.Combine(folder, "projects.json"), Projects().ToString(Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "effects.json"), recorded.ToString(Formatting.Indented));
+    Check(starts.Count > 0, "原工程实际认领、启动已学构造并得到有效任务编号", new { projectId, starts = starts.Count });
+    Check(ends.Any(end => !end.Cancelled && end.WorldChanges > 0), "项目中的正式施放自然结束并产生实际改变");
+    bool realEffect = section == "terrain"
+        ? recorded.Count(change => (bool)change["real"]) >= 6
+        : recorded.Count > 0 && recorded.All(change => (bool)change["real"]);
+    Check(realEffect, "确认真实作物、植被或新增用地", recorded);
+    Check(Completed() > initial, "真实世界收益通过原城市工程验收");
+    if (section == "growth") CheckFarmProtection();
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = sourceId,
+        city = city.id, projectId = actualProject, effects, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= Changed;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildEnabled);
+    if (section == "growth") DebugConfig.setOption(DebugOption.CityInfiniteResources, infinite);
+    Config.paused = true;
+}
+
+void CheckFarmProtection()
+{
+    // 在同一城内直接检查施放用的实时保护。保持当前时点，避免原版下一轮清理测试麦田。
+    var scopeType = typeof(ConstructedAbilityService).Assembly
+        .GetType("Cultiway.Content.CollectiveProjects.CityConstructionWorldScope", true);
+    object scope = scopeType.GetMethod("Create", F)
+        .Invoke(null, new object[] { city.id, (Func<bool>)(() => true) });
+    var allows = (Func<string, WorldTile, bool>)typeof(ConstructionWorldScope).GetField("Allows", F).GetValue(scope);
+    var fields = city.zones.SelectMany(zone => zone.tiles)
+        .Where(tile => !tile.hasBuilding() && !tile.Type.road && tile.getBiome() != null && allows("nature.grow", tile))
+        .Take(3).ToArray();
+    Check(fields.Length == 3, "同一城内有三块原可催生的地");
+    WorldTile planted = fields[0];
+    WorldTile reserved = fields[1];
+    planted.setTileTypes(TileLibrary.soil_low, TopTileLibrary.field);
+    Building wheat = World.world.buildings.addBuilding("wheat", planted);
+    city.calculated_place_for_farms.Add(reserved);
+    Check(wheat?.component_wheat != null && planted.Type.farm_field && !allows("nature.grow", planted),
+        "运行时保护实际麦田", planted.tile_id);
+    Check(!reserved.hasBuilding() && !allows("nature.grow", reserved),
+        "运行时读取新预留的农田", reserved.tile_id);
+    Check(allows("nature.grow", fields[2]), "同城普通地块仍可催生", fields[2].tile_id);
+}
