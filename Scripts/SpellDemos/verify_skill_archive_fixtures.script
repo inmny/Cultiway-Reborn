@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
@@ -14,12 +15,24 @@ void Check(bool condition, string reason)
 const string scenario = "$CASE";
 const string output = "$OUTPUT";
 var expected = JObject.Parse(File.ReadAllText(Path.Combine(output, "expected.json")));
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+async Task LoadStable(string directory)
+{
+    Config.paused = true;
+    World.world.save_manager.loadWorld(Path.Combine(output, directory));
+    while (SmoothLoader.isLoading())
+    {
+        Config.paused = true;
+        await Game.NextFrame();
+    }
+    Config.paused = true;
+    await Game.NextFrame();
+    await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 1800);
+}
 Game.Resume();
-Config.paused = true;
 ControllableUnit.clear(false);
-World.world.save_manager.loadWorld(Path.Combine(output, "input-world"));
-await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
-Config.paused = true;
+await LoadStable("input-world");
 var report = Cultiway.ModClass.I.WorldSaves.LastReport;
 var access = ConstructionEditing.Access;
 
@@ -48,7 +61,8 @@ else
 {
     Check(report.BackupError == null && Directory.Exists(report.BackupDirectory), "需要保留本次读入的原档");
     if (scenario == "legacy")
-        Check(report.Upgraded > 0 && report.Skipped.Count == 0, "历史世界应完整转换");
+        Check(report.Upgraded > 0 && report.Skipped.SequenceEqual(expected["skips"].Values<string>()),
+            "历史世界只有旧器灵显化按报告退出，其余资料应完整转换");
     else
     {
         Check(report.Skipped.OrderBy(issue => issue).SequenceEqual(expected["skips"].Values<string>().OrderBy(issue => issue)),
@@ -59,5 +73,11 @@ else
 }
 
 SaveManager.saveWorldToDirectory(Path.Combine(output, "archive"));
+if (scenario == "legacy")
+{
+    await LoadStable("archive");
+    Check(!Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup, "升级后的世界应能直接读取");
+    SaveManager.saveWorldToDirectory(Path.Combine(output, "second"));
+}
 return new { passed = true, scenario, process = System.Diagnostics.Process.GetCurrentProcess().Id,
     report.Upgraded, report.Skipped, backup = report.BackupDirectory };

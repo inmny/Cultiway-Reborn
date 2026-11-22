@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
-import zlib
 
+from check_full_world_upgrade import check_full_world_upgrade, read_world
 from common import PROJECT, write_json
 
 
@@ -16,8 +16,7 @@ FIXTURES = PROJECT / 'Scripts/WorldSaveTests/Fixtures'
 
 
 def sections(path):
-    world = json.loads(zlib.decompress(path.read_bytes()))
-    return json.loads(world['mapStats']['custom_data']['custom_data_string']['cultiway.world'])['sections']
+    return read_world(path)[1]
 
 
 def check_saved(case, expected, source, saved):
@@ -87,6 +86,10 @@ def main():
         if result.get('backup') and (Path(result['backup']) / 'map.wbox').read_bytes() != raw:
             raise RuntimeError('游戏生成的原档备份与输入不同')
         check_saved(args.case, expected, copy, output / 'archive/map.wbox')
+        if args.case == 'legacy':
+            initial = check_full_world_upgrade(copy, output / 'archive/map.wbox', expected['retiredAvatar'])
+            second = check_full_world_upgrade(output / 'archive/map.wbox', output / 'second/map.wbox')
+            write_json(output / 'whole-world.json', {'oldToCurrent': initial, 'currentReadback': second})
     except RuntimeError as error:
         write_json(output / 'failure.json', {'passed': False, 'error': str(error)})
         raise

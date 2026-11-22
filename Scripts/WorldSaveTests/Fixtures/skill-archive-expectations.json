@@ -5,8 +5,12 @@
     "source": "首份正式世界档（12.04 复验）",
     "oldObjectsVersion": 1,
     "skills": 128,
+    "retiredAvatar": 55,
     "learned": [
       "object:3be12c7121204b6d9b1b25ffee90a4b7"
+    ],
+    "skips": [
+      "actor:55 / 器灵显化：原档缺少维持该显化的能力编号"
     ]
   },
   "current": {

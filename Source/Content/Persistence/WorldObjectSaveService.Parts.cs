@@ -272,6 +272,26 @@ internal static partial class WorldObjectSaveService
             YuanshenSaveVisuals.RestoreNode(entity);
     }
 
+    /// <summary>结束缺少维持能力的旧器灵显化，避免读档把回收结算为真实死亡。</summary>
+    private static void RemoveUnsupportedSpiritAvatars()
+    {
+        var units = World.world.units;
+        bool scheduled = false;
+        foreach (var entry in Loaded.ToArray())
+        {
+            Entity entity = entry.Value;
+            if (entity.IsNull || !entity.TryGetComponent(out ArtifactSpiritAvatar avatar) ||
+                !string.IsNullOrWhiteSpace(avatar.ability_instance_id) || !entity.TryGetComponent(out ActorBinder binder)) continue;
+
+            if (!avatar.artifact.IsNull) avatar.artifact.RemoveRelation<ArtifactSpiritAvatarRelation>(entity);
+            Loaded.Remove(entry.Key);
+            units.scheduleDestroyOnPlay(binder.Actor);
+            scheduled = true;
+            Report.Skip(entry.Key, "器灵显化", "原档缺少维持该显化的能力编号");
+        }
+        if (scheduled) units.checkObjectsToDestroy();
+    }
+
     /// <summary>半成品保留原材料和进度，读档后作为普通炼制继续，不复用已结束的界面命令编号。</summary>
     private static void RestoreCraftTasks()
     {
