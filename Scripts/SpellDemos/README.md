@@ -3045,3 +3045,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 原版独立游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_manual_cast.py --record`。从同一能力栏和施放热键检查重订版、过期准备、超距及费用。录像按实际世界时间记录这次施放，输出目录另含待恢复的正式世界。解除附体后等原版眩晕和困惑结束，再查自主出手。
 
 在独立 Worldfall 游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_manual_cast.py --worldfall --record --archive 原版输出目录`。脚本读入世界副本，用恢复出来的同一能力从实际第一人称准星施放。省去 `--record` 可只检查当次操作，省去 `--archive` 可在现成演示世界直接检查第一人称。
+
+### 人物自然出手与实际结算（10.15 A）
+
+在原版独立游戏运行 `dev.py exec --timeout 95 -- python3 Scripts/SpellDemos/verify_natural_cast.py`。同一人物在真实交战中自行选用已学行剑，检查体力不足、蓄势暂停、恢复后的单次实际支付与扣血，以及冷却后的独立出手和自然结束。结果写到本次独立游戏输出目录。
