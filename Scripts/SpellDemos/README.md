@@ -3143,3 +3143,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 城市与远端真元交付（11.18 第二批）
 
 在独立原版游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_wakan_scales.py --archive <11.03城市用术准备目录>`。复用原修士和原读者，核对实际城市分区、超距拒绝和远端真元等额入账。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第二批补验城市与远端的真元交付)。
+
+### 城市及远端材料时段（11.18 第三批）
+
+在独立原版游戏运行 `dev.py exec --timeout 200 -- python3 Scripts/SpellDemos/verify_process_scales.py --archive <11.03城市用术准备目录>`。核对两处实际世界材料同一时段的暂停、常速对照、恢复及自然退场。可用 `--case city` 或 `--case world` 单独复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第三批补验同一时段作用于城市及远端过程)。
