@@ -1,0 +1,19 @@
+var process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var identityType = service.Assembly.GetType("Cultiway.Content.Persistence.WorldSaveIdentity");
+var getIdentity = typeof(Entity).GetMethods(F).Single(method => method.Name == "TryGetComponent" &&
+    method.IsGenericMethodDefinition && method.GetParameters().Length == 1).MakeGenericMethod(identityType);
+string Identity(Entity entity)
+{
+    object[] value = { null };
+    return (bool)getIdentity.Invoke(entity, value) ? (string)identityType.GetField("Id").GetValue(value[0]) : null;
+}
+Actor[] Summons(Entity item) => Cultiway.ModClass.I.W.Query<ArtifactSummon, ActorBinder>().Entities.ToArray()
+    .Where(entry => entry.GetComponent<ArtifactSummon>().artifact == item)
+    .Select(entry => entry.GetComponent<ActorBinder>().Actor)
+    .Where(value => value != null && value.isAlive()).OrderBy(value => value.id).ToArray();
+ArtifactAbilityRuntimeEntry Runtime(Entity item, string instance) =>
+    item.GetComponent<ArtifactAbilityRuntime>().abilities.Single(entry => entry.instance_id == instance);
+float Soul(Entity item) => ArtifactStorageOperations.GetAmount(item.GetComponent<ArtifactStorageState>(), ArtifactStorageOperations.SoulEssence);
+bool Choose(Actor actor, ActiveAbilityHandle handle, Actor target) =>
+    ActiveAbilityService.TryUse(actor.GetExtend(), handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+var currentCasts = (IList)service.GetField("casts", F).GetValue(null);

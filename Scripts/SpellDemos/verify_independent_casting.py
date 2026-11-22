@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """在独立游戏中复验命魂等实际施法来源。"""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,18 +14,38 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, world_helpers
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit'), default='soul')
-    section = parser.parse_args().section
+    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
+                                              'prepare', 'cold'), default='soul')
+    parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
+    args = parser.parse_args()
+    section = args.section
+    cold = section == 'cold'
+    if cold != bool(args.archive):
+        parser.error('仅 cold 阶段需要 --archive')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
     output = Path(tempfile.mkdtemp(prefix=f'independent-casting-{section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
-    helpers = world_helpers(output, PROJECT / FIXTURE)
+    fixture = PROJECT / FIXTURE
+    prepared = args.archive.resolve() if cold else output
+    archive = prepared / 'archive'
+    if cold:
+        receipt = json.loads((prepared / 'result.json').read_text())
+        if not receipt['passed'] or hashlib.sha256((archive / 'map.wbox').read_bytes()).hexdigest() != receipt['sha256']:
+            parser.error('冷读需要同一份未改动的正式档')
+    helpers = world_helpers(output, archive if cold else fixture, restore=cold)
     helpers = helpers.replace('ConstructedAbilityService.CastEnded += Ended;', '')
     helpers = helpers.replace('ConstructedAbilityService.ContactConfirmed += Hit;', '')
     script = output / 'input.script'
-    scene = Path(__file__).with_name('independent_casting_scene.script').read_text()
-    if section in ('summon', 'artifact-spirit'):
+    scene = '' if cold else Path(__file__).with_name('independent_casting_scene.script').read_text()
+    if section in ('summon', 'artifact-spirit', 'prepare'):
         scene += Path(__file__).with_name('independent_artifact_casting_scene.script').read_text()
+    if section in ('prepare', 'cold'):
+        scene += Path(__file__).with_name('verify_independent_casting_archive.script').read_text()
+        if cold:
+            scene += f'var originalFixture = {json.dumps(str(fixture))};\n'
+            scene += f'var saved = JObject.Parse(File.ReadAllText({json.dumps(str(prepared / "expected.json"))}));\n'
+        body = f'verify_independent_casting_{section}.script'
+    elif section in ('summon', 'artifact-spirit'):
         body = 'verify_independent_artifact_casting.script'
     else:
         body = 'verify_independent_casting.script' if section == 'soul' else 'verify_independent_sources.script'
@@ -36,6 +57,8 @@ def main():
     except RuntimeError as error:
         write_json(output / 'result.json', dict(passed=False, error=str(error)))
         raise RuntimeError(f'独立施法复验见 {output}') from error
+    if result['passed'] and section in ('prepare', 'cold'):
+        result['sha256'] = hashlib.sha256((archive / 'map.wbox').read_bytes()).hexdigest()
     write_json(output / 'result.json', result)
     if not result['passed']:
         raise SystemExit(f'独立施法未通过，见 {output}')

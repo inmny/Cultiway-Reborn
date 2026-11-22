@@ -1,0 +1,39 @@
+// 准备用已登记且可保存的原状态提供对练场资源，不在正式档里留下专用测试状态。
+CombatStatusEffects.RemoveStatus(body, boost, body);
+CombatStatusEffects.ApplyStrongestStatus(body, Cultiway.Content.StatusEffects.BattleBlessing, 10000f, 1f, body,
+    new BaseStats { [BaseStatses.MaxWakan.id] = 10000, [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 });
+body.updateStats();
+var (caller, banner, instance) = await Manifest(true);
+var (avatar, sword, _) = await Manifest(false);
+Actor soul = null;
+Check(YuanshenTravelService.TryTravelTo(owner, new Vector3(70f, 72f, 0f), YuanshenTravelStance.Balanced) &&
+    YuanshenTravelService.TryGetSoulCarrier(owner, out soul), "同一人物仍有真实命魂，原幡和器灵使用实际装备");
+await Advance(.55f);
+var ward = NewAbility("archive-ward", AbilityAnchor.Source, 12f);
+ward.Root.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0f };
+ward.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Self };
+ward.Binding.Follow = true;
+ward.Cooldown = 0;
+var cast = Learn(ward);
+float before = Balance();
+Check(Choose(caller, cast, caller) && Mathf.Abs(before - Balance() - 6f) < .004f, "正式档前已从原召唤物完成一次扣费");
+Check(currentCasts.Cast<object>().Any(value => (long)Field(value,"SpatialSourceId") == caller.id &&
+    ((AbilityCast)Field(value,"Cast")).Plan.Id == ward.Id), "写档前依附主体确实仍在运行");
+foreach (Actor creature in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.RemoveStatus(creature, hold, creature);
+var actualSummons = Summons(banner);
+var activity = Runtime(banner, instance);
+Check(actualSummons.Contains(caller) && activity.activity_kind != ArtifactAbilityActivityKind.None,
+    "写档时保存正式召唤活动、器灵及当前命魂");
+string archive = Path.Combine(folder, "archive");
+World.world.units.checkContainer();
+SaveManager.saveWorldToDirectory(archive);
+Check(File.Exists(Path.Combine(archive,"map.wbox")) && Identity(banner) != null && Identity(sword) != null,
+    "写入正式地图及两件原法宝身份");
+File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+{
+    process, ownerId = body.id, enemyId = enemy.id, carrier = caller.id, soul = soul.id, avatar = avatar.id,
+    banner = Identity(banner), sword = Identity(sword), instance, units = actualSummons.Select(value => value.id).ToArray(),
+    expiresAt = activity.activity_until, stored = Soul(banner), balance = Balance(), plan = ward.Id
+}, Formatting.Indented));
+return new { passed = true, section, process };

@@ -1,0 +1,55 @@
+Check(process != (int)saved["process"], "全新独立进程读取原文件");
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+Check(report.BackupError == null && report.Skipped.Count == 0, "正式恢复报告没有跳过资料",
+    new { report.BackupError, report.Skipped });
+Actor body = World.world.units.get((long)saved["ownerId"]);
+var owner = body.GetExtend();
+Entity banner = owner.GetItems().Single(value => Identity(value) == (string)saved["banner"]);
+Entity sword = owner.GetItems().Single(value => Identity(value) == (string)saved["sword"]);
+string plan = (string)saved["plan"], instance = (string)saved["instance"];
+Actor caster = World.world.units.get((long)saved["carrier"]);
+Actor avatar = World.world.units.get((long)saved["avatar"]);
+float Balance() => owner.GetCultisys<Xian>().wakan;
+var actual = Summons(banner);
+Check(actual.Select(value => value.id).SequenceEqual(saved["units"].Values<long>()) &&
+    actual.All(value => value.GetExtend().GetComponent<ArtifactSummon>().controller == owner.E) &&
+    Runtime(banner, instance).activity_until == (double)saved["expiresAt"] && Soul(banner) == (float)saved["stored"],
+    "原幡保留同一批召唤物、活动期限和原储魂余额", new { ids = actual.Select(value => value.id).ToArray() });
+Check(sword.GetRelations<ArtifactSpiritAvatarRelation>().Length == 1 &&
+    sword.GetRelations<ArtifactSpiritAvatarRelation>()[0].avatar == avatar.GetExtend().E &&
+    avatar.GetExtend().GetComponent<ArtifactSpiritAvatar>().controller == owner.E,
+    "原剑只恢复同一个真实器灵与原持有人");
+Check(YuanshenTravelService.TryGetSoulCarrier(owner, out Actor soul) && soul.id == (long)saved["soul"] &&
+    ConstructedAbilityService.Knows(owner, plan) && !ConstructedAbilityService.Knows(caster.GetExtend(), plan) &&
+    Balance() == (float)saved["balance"] && currentCasts.Count == 0,
+    "命魂及知识如实恢复，前次费用保留，旧依附法术未重播", new { balance = Balance(), expected = (float)saved["balance"], active = currentCasts.Count });
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, plan);
+foreach (Actor source in new[] { soul, caster, avatar })
+{
+    var offers = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(source.GetExtend(), offers);
+    float before = Balance();
+    Check(offers.Any(value => value.Source == owner.E && value.EntryId == plan) && Choose(source, handle, source) &&
+        Mathf.Abs(before - Balance() - 6f) < .004f &&
+        currentCasts.Cast<object>().Any(value => (long)Field(value,"SpatialSourceId") == source.id &&
+            (long)Field(value,"SourceId") == body.id && (long)Field(value,"TargetId") == source.id),
+        "冷读后的原载体实用原知识，由同一人物扣费", new { source = source.id, paid = before - Balance() });
+}
+Check(ArtifactAbilityLifecycle.Recall(banner, instance), "冷读后原幡仍可正式召回");
+Check(!Choose(caster, handle, caster), "召回即时终止原施法入口");
+World.world.save_manager.loadWorld(originalFixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+    !ReferenceEquals(report, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+// 正常推进后的回收会清掉已失去原版人物、等待删除的旧实体。
+await Advance(.25f);
+Check(currentCasts.Count == 0 &&
+    Cultiway.ModClass.I.W.Query<ArtifactSummon>().Count == 0 &&
+    Cultiway.ModClass.I.W.Query<ArtifactSpiritAvatar>().Count == 0 &&
+    Cultiway.ModClass.I.W.Query<YuanshenSoulCarrierState>().Count == 0,
+    "真正换世界清空旧施法与三种空间来源",
+    new { active = currentCasts.Count, summons = Cultiway.ModClass.I.W.Query<ArtifactSummon>().Count,
+        avatars = Cultiway.ModClass.I.W.Query<ArtifactSpiritAvatar>().Count,
+        souls = Cultiway.ModClass.I.W.Query<YuanshenSoulCarrierState>().Count });
+return new { passed = true, section, process };

@@ -2953,3 +2953,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 同一入口可加 `--section soul-force|node|avatar` 单独验证命魂推拉中心、分念代施与移动归返、显圣及化身。分念段也从原已学入口发射火球。化身段通过原版世界倍速走完准备过程，可将外层 `dev.py exec` 时限调到 175 秒。
 
 `--section summon|artifact-spirit` 分别复验正式原幡的召唤物和原剑的器灵。两段核对主人与载体各自支付、实际出手与命中、并存、解除和恢复。记录索引为 `~/.local/state/cultiway-dev/evidence/independent-casting-1010/artifacts/delivery.json`。
+
+`--section prepare` 保存含实际命魂、原幡召唤和原剑器灵的对练场。用另一个新启动的独立游戏运行 `--section cold --archive 保存阶段的输出目录`，核对原本的关系、费用和剩余期限，以及读回后再施法、召回和换世界。
