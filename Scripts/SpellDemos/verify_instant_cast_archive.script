@@ -1,0 +1,121 @@
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(original, "expected.json")));
+long sourceId = expected.Value<long>("source"), targetId = expected.Value<long>("target");
+string id = expected.Value<string>("edited");
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Actor source = World.world.units.get(sourceId), target = World.world.units.get(targetId);
+Item hammer = source?.getWeapon();
+Check(source != null && source.isAlive() && target != null && target.isAlive() &&
+    hammer?.getAsset().id == "hammer_iron" && hammer.data.id == expected.Value<long>("weapon"),
+    "沿用正式对练原人物与手中的原铁锤");
+var owner = source.GetExtend();
+var definition = ConstructionEditing.Access.Read(id);
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, id);
+Check(ConstructedAbilityService.Knows(owner, id), "实际修订已经学会");
+
+AbilityCast Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Where(value => (long)Field(value, "SourceId") == sourceId)
+    .Select(value => (AbilityCast)Field(value, "Cast")).SingleOrDefault(cast => cast.Plan.Id == id);
+
+float SavedCooldown()
+{
+    string json = Cultiway.ModClass.I.WorldSaves.Actors.Capture(owner, "瞬时施放存读");
+    return (float)JObject.Parse(json)["sections"]["ability_knowledge"]["data"]["Cooldowns"][id];
+}
+
+bool Use()
+{
+    source.attack_timer = 0;
+    return ActiveAbilityService.TryUse(owner, handle,
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+}
+
+if (section == "cold")
+{
+    Check(process != expected.Value<int>("process") && Running() == null &&
+        !BodyControlState.IsBusy(sourceId) && !ConstructedAbilityService.HasWeaponControl(source) &&
+        !ConstructedAbilityService.IsWeaponBorrowed(source),
+        "新进程归还双手和原铁锤，旧瞬时施放不恢复");
+    Check(Mathf.Abs(source.data.stamina - expected.Value<float>("stamina")) < .005f &&
+        target.data.health == expected.Value<int>("health") &&
+        Mathf.Abs(SavedCooldown() - expected.Value<float>("cooldown")) < .15f,
+        "保留已付余额、目标生命和剩余冷却");
+}
+
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+const string idleId = "Cultiway.Verify.InstantCastArchiveIdle";
+var idle = Cultiway.ModClass.L.StatusEffectLibrary.get(idleId) ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild(idleId).SetStats(stats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(target, idle, 10000, target);
+target.updateStats();
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+ControllableUnit.setControllableCreature(source);
+source.attack_timer = target.attack_timer = 999;
+
+var applied = new List<ConstructedQueuedDamage>();
+void Damage(ConstructedQueuedDamage hit)
+{
+    if (hit.SourceId == sourceId && hit.TargetId == targetId && hit.AbilityId == id) applied.Add(hit);
+}
+ConstructedAbilityService.QueuedDamageConfirmed += Damage;
+try
+{
+    if (section == "cold")
+    {
+        await Advance(expected.Value<float>("cooldown") + .25f);
+        Check(applied.Count == 0 && target.data.health == expected.Value<int>("health") && Running() == null,
+            "推进超过旧命中时点仍没有重放落锤");
+    }
+    else
+    {
+        await Advance(.20f);
+        target.setHealth(target.getMaxHealth());
+        source.data.stamina = 100;
+    }
+
+    Place(source, 64.35f);
+    Place(target, 65.01f);
+    source.addAggro(target);
+    target.addAggro(source);
+    float before = source.data.stamina;
+    int health = target.data.health;
+    bool used = Use();
+    Check(used && Mathf.Abs(before - source.data.stamina - definition.Cost) < .005f &&
+        BodyControlState.IsBusy(sourceId) && ConstructedAbilityService.HasWeaponControl(source),
+        "真实出招只支付一次并借用双手和原铁锤",
+        new { used, before, after = source.data.stamina, definition.Cost,
+            occupied = BodyControlState.IsBusy(sourceId), borrowed = ConstructedAbilityService.HasWeaponControl(source) });
+    if (section == "prepare")
+    {
+        await Advance(.20f);
+        var cast = Running();
+        float cooldown = SavedCooldown();
+        Check(cast != null && cast.Age > 0f && cast.Age < .5f && cooldown > 0f && applied.Count == 0 &&
+            target.data.health == health && BodyControlState.IsBusy(sourceId),
+            "已扣费的动作仍在蓄势且尚未命中", new { age = cast?.Age, cooldown });
+        CombatStatusEffects.RemoveStatus(target, idle);
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+        File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+        {
+            process, source = sourceId, target = targetId, weapon = hammer.data.id, edited = id,
+            stamina = source.data.stamina, health, cooldown
+        }, Formatting.Indented));
+    }
+    else
+    {
+        await Advance(definition.Lifetime + .25f);
+        Check(applied.Count(hit => hit.Damage.HealthLost > 0) == 1 && target.data.health < health &&
+            !BodyControlState.IsBusy(sourceId) && !ConstructedAbilityService.IsWeaponBorrowed(source) &&
+            ReferenceEquals(hammer, source.getWeapon()),
+            "原冷却结束后实际再击中一次，收势归还双手及原铁锤",
+            new { health, remaining = target.data.health });
+    }
+    return new { passed = true, process, source = sourceId, target = targetId, ability = id };
+}
+finally
+{
+    ConstructedAbilityService.QueuedDamageConfirmed -= Damage;
+    CombatStatusEffects.RemoveStatus(target, idle);
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
