@@ -42,6 +42,7 @@ internal static class ArtifactAbilityRuntimeBridge
         {
             Target = self,
             ContactPoint = ShieldAbsorptionScope.ContactFor(self),
+            UsesDefenseSurface = ShieldAbsorptionScope.UsesDefenseSurface(self),
             Attacker = attacker,
             DamageComposition = damageComposition,
             AttackType = attackType,

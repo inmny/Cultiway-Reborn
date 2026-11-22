@@ -2913,3 +2913,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 飞剑与剑阵的刃面（10.07）
 
 用独立游戏入口 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_native_projectile_flight.py --section artifact-sword` 核对真剑刃面、剑尖空隙、俯仰转向、实际伤害和归还。用 `artifact-array` 核对剑影成形、实际接触与自然收阵，用 `artifact-array-recall` 核对主动收阵和再次使用。
+
+### 金钟的真实防御表面（10.07）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_golden_bell_absorption.py` 复验实战小击拦截、外侧擦过和破盾余伤。默认在两种视角采集相同的撞点，加 `--skip-views` 可只核对行为。

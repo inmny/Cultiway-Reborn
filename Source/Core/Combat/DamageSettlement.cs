@@ -74,25 +74,32 @@ internal readonly struct ShieldAbsorptionScope : IDisposable
     [ThreadStatic] private static ActorExtend measuredTarget;
     [ThreadStatic] private static float absorbed;
     [ThreadStatic] private static Vector3? contactPoint;
+    [ThreadStatic] private static bool usesDefenseSurface;
 
     private readonly ActorExtend previousTarget;
     private readonly float previousAbsorbed;
     private readonly Vector3? previousPoint;
+    private readonly bool previousDefenseSurface;
 
-    internal ShieldAbsorptionScope(ActorExtend target, Vector3? point)
+    internal ShieldAbsorptionScope(ActorExtend target, Vector3? point, bool defenseSurface)
     {
         previousTarget = measuredTarget;
         previousAbsorbed = absorbed;
         previousPoint = contactPoint;
+        previousDefenseSurface = usesDefenseSurface;
         measuredTarget = target;
         absorbed = 0f;
         contactPoint = point;
+        usesDefenseSurface = defenseSurface;
     }
 
     internal float Absorbed => absorbed;
 
     /// <summary>只读取这一次受击的位置，嵌套受击不会继承外层的接触。</summary>
     internal static Vector3? ContactFor(ActorExtend target) => ReferenceEquals(target, measuredTarget) ? contactPoint : null;
+
+    internal static bool UsesDefenseSurface(ActorExtend target) =>
+        ReferenceEquals(target, measuredTarget) && usesDefenseSurface;
 
     internal static void Record(ActorExtend target, float amount)
     {
@@ -104,5 +111,6 @@ internal readonly struct ShieldAbsorptionScope : IDisposable
         measuredTarget = previousTarget;
         absorbed = previousAbsorbed;
         contactPoint = previousPoint;
+        usesDefenseSurface = previousDefenseSurface;
     }
 }

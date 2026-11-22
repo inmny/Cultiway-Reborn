@@ -56,7 +56,7 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
                 attack_type_for_vanilla: evt.AttackType,
                 attacker_power_level_override: evt.AttackerPowerLevel,
                 metallic_weapon: evt.MetallicWeapon,
-                contactPoint: evt.ContactPoint);
+                contactPoint: evt.ContactPoint, usesDefenseSurface: evt.UsesDefenseSurface);
             if (result.HealthLost > 0) SpatialCombatFeedback.Sound(evt.ContactSound, contact);
             return result;
         }

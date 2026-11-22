@@ -52,10 +52,10 @@ void Paid(ActorExtend from, in WakanMutation mutation)
     if (from == owner && mutation.Kind == WakanMutationKind.Spend) fees.Add(-mutation.Delta);
 }
 
-var renderer = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetSpatialPose", F);
+var renderer = typeof(ArtifactAppearanceRenderer).GetMethod("TryGetBellWardMesh", F);
 object[] args = { bell, null };
-Check((bool)renderer.Invoke(null, args), "找到同一口钟的实际空间模型");
-object model = Field(args[1], "Model");
+Check((bool)renderer.Invoke(null, args), "找到同一口钟的实际钟壁和口沿");
+object model = args[1];
 var vertices = (Vector3[])Field(model, "Vertices");
 var spatialSystem = service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem");
 var meshList = (IEnumerable)spatialSystem.GetField("Meshes", F).GetValue(null);

@@ -15,8 +15,8 @@ from verify_weapon_flight_archive import FIXTURE, IMPORTS, SCRIPTS, world_helper
 CASES = {
     'shield': ('金钟护界', 'golden_bell_absorption', 'all', [
         ('    Check(Use(owner, handle, defender) && fees.Count == 1', 'await BeginFilm(defender, bell, "原钟开启", 3.55f, 1.62f);'),
-        ('    var first = await Strike("hold", .65f);', 'filmStage = "剑气接触与全额吸收";'),
-        ('    var second = await Strike("break", 15f);', 'filmStage = "实际破盾与余伤";'),
+        ('    await Strike("hold", .65f, () => Impact() != null);', 'filmStage = "剑气接触与全额吸收";'),
+        ('    await Strike("break", 15f, () => BodyHits("break") > 0);', 'filmStage = "实际破盾与余伤";'),
         ('    var now = World.world.getCurWorldTime();', 'EndFilm();'),
     ]),
     'redirection': ('移花卸力', 'artifact_redirection', 'robe', [

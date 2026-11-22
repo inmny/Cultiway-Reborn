@@ -25,7 +25,7 @@ public partial class ArtifactAbilities
     private const string ImpactDelay = "impact_delay";
     private const string ImpactDone = "impact_done";
     private const string ShieldCapacity = "shield_capacity";
-    private const string ShieldCurrent = "shield_current";
+    internal const string ShieldCurrent = "shield_current";
     private const string ShieldRegen = "shield_regen";
     private const string ReflectRatio = "reflect_ratio";
     private const string SpeedBonus = "speed_bonus";

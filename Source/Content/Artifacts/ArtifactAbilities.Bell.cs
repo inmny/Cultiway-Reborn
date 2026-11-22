@@ -267,6 +267,7 @@ public partial class ArtifactAbilities
         if (!GoldenBellActivation.Start(context, target, origin)) return false;
         runtime.SetNumber(ShieldCurrent, ability.GetNumber(ShieldCapacity) * context.effect_scale);
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
+        ArtifactBellWard.Add(context.artifact);
         return true;
     }
 
@@ -277,6 +278,7 @@ public partial class ArtifactAbilities
         ArtifactAbilityEndReason _)
     {
         runtime.SetNumber(ShieldCurrent, 0f);
+        ArtifactBellWard.Remove(context.artifact);
         if (!context.controller.IsNull && context.controller.TryGetComponent(out ActorBinder binder))
             ConstructedAbilityService.CancelFromItem(binder.ID, context.artifact.Id, ability.ability_id);
     }
@@ -287,23 +289,34 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        float shield = runtime.GetNumber(ShieldCurrent);
-        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield, evt.Target);
-        runtime.SetNumber(ShieldCurrent, shield);
-        if (absorbed <= 0f) return;
+        if (evt.UsesDefenseSurface && ArtifactBellWard.IsRaised(context.artifact) &&
+            ArtifactBellWard.TryShape(context.artifact, out _)) return;
         Vector3 direction = evt.Attacker != null && !evt.Attacker.isRekt()
             ? evt.Attacker.GetSimPos() - evt.Target.Base.GetSimPos()
             : Vector3.zero;
+        AbsorbWithGoldenBell(context, ability, ref runtime, ref evt.Damage, evt.Target, evt.Attacker, direction, evt.ContactPoint, SpatialActorPose.Foot(evt.Target.Base));
+    }
+
+    internal static float AbsorbWithGoldenBell(
+        ArtifactAbilityExecutionContext context, ArtifactAbilityInstance ability, ref ArtifactAbilityRuntimeEntry runtime,
+        ref float damage, ActorExtend target, BaseSimObject attacker, Vector3 direction, Vector3? contact, Vector3? center = null)
+    {
+        float shield = runtime.GetNumber(ShieldCurrent);
+        float absorbed = CombatDamageEffects.AbsorbDamage(ref damage, ref shield, target);
+        runtime.SetNumber(ShieldCurrent, shield);
+        if (absorbed <= 0f) return 0f;
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
             runtime,
             ArtifactVisualChannels.Guard,
-            target: evt.Attacker,
+            position: center,
+            target: attacker,
             direction: direction,
             intensity: absorbed / Mathf.Max(1f, ability.GetNumber(ShieldCapacity)),
             resourceDepleted: shield <= 0f,
-            contactPoint: evt.ContactPoint);
+            contactPoint: contact);
+        return absorbed;
     }
 
     private static void ConfigureBellAbilityVisuals()

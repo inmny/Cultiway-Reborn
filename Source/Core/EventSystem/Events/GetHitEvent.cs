@@ -21,6 +21,9 @@ public struct GetHitEvent
     /// <summary>本次已确认的接触位置，采用地图坐标及相对地面高度。</summary>
     internal Vector3? ContactPoint;
 
+    /// <summary>移动形体已在共同预测中检查实体护罩。</summary>
+    internal bool UsesDefenseSurface;
+
     /// <summary>原版或模组明确写入的伤害类别；未指定时沿用枚举默认值。</summary>
     public AttackType AttackType;
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Combat;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Core.Performance;
@@ -506,8 +507,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             pending?.Dispose();
             pending = null;
+            ArtifactBellWard.Clear();
         }
 
+        bellWards.Clear();
         barrierIndex.Clear();
         barriers.Clear();
         confirmingContact = false;
@@ -821,6 +824,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         ContactChoice? first = null;
         contactEvaluation++;
+        CaptureBellWards(clock, step);
         FindWeaponObstacles(step, Include);
         for (int index = 0; index < shapes.Count; index++)
         {
@@ -851,6 +855,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (shape.To.Node < 0 && attack) FindBodyCorrespondences(shape, clock, step, touchFrom, Include);
             if (attack && hasBodyGuardShapes)
                 FindBodyGuards(shape, step, touchFrom, Include);
+            if (canTouch && powered) FindBellWards(shape, form, owner, touchFrom, step, Include);
             if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
                 if (!singleActingNode)
@@ -1164,6 +1169,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ResolveBodyGuard(hit);
             return;
         }
+        if (!hit.BellWard.IsNull)
+        {
+            simulation.ResolveBellWard(hit);
+            return;
+        }
         if (hit.Right.HasValue)
         {
             if (node < 0 || hit.Right.Value.To.Node < 0)
@@ -1267,6 +1277,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Vector3 point = hit.Point;
             point.z -= simulation.terrain?.Sample(point.x, point.y) ?? 0f;
             damage.ContactPoint = point;
+            damage.UsesDefenseSurface = UsesBellSurface(hit.Left, form, impact);
             primaryDamage = GetHitEventSystem.Resolve(damage);
         }
         if (contactGeneration != worldGeneration) return;
@@ -1797,6 +1808,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         /// <summary>人物接触的实际对象。</summary>
         internal readonly ActorMotion Actor;
+        internal readonly Entity BellWard;
 
         /// <summary>原攻击实际碰到的建筑及稳定编号，其他接触为空。</summary>
         internal readonly Building Building;
@@ -1871,8 +1883,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
             BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? environment = null, ConstructedActorImpulse.BodyFlight flight = null,
             AbilityCapsule actorShape = default, Vector3 bodyGuardFacing = default, BodySurfaceBinding frostBinding = null,
-            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false, Building building = null)
+            CompiledFrostCoating frostRule = null, bool heldWeaponObstacle = false, Building building = null,
+            Entity bellWard = default)
         {
+            BellWard = bellWard;
             BodyGuardFacing = bodyGuardFacing;
             BodyRelation = bodyRelation;
             Environment = environment;
@@ -1954,6 +1968,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (order != 0) return order;
             order = b.Right.HasValue.CompareTo(a.Right.HasValue);
             if (order != 0) return order;
+            order = a.BellWard.IsNull.CompareTo(b.BellWard.IsNull);
+            if (order != 0) return order;
+            if (!a.BellWard.IsNull && a.BellWard != b.BellWard) return a.BellWard.Id.CompareTo(b.BellWard.Id);
             order = CompareShape(a.Left, b.Left);
             if (order != 0) return order;
             order = a.BodyRelation.CompareTo(b.BodyRelation);

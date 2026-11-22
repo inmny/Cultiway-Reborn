@@ -1,4 +1,4 @@
-// 沿同一个正式受击入口连续消耗一口金钟。
+// 用正式金钟验证实际钟面拦截、破盾余伤和普通受击。
 const float originX = 64f, protectedX = 70.3f, centerY = 72f;
 PrepareArtifactArena(59, 78, 65, 80);
 Actor defender = Make(protectedX), attacker = Make(originX);
@@ -55,6 +55,23 @@ Vector3? ImpactPoint(object item) => (Vector3?)Field(Field(item, "Context"), "co
 bool AtImpact(Vector3 point) => meshes.Cast<object>().Any(item =>
     (string)Field(Field(item, "Model"), "Name") == "spatial_spark" &&
     Vector3.Distance((Vector3)Field(item, "Position"), point) < .005f);
+object Ward() => meshes.Cast<object>().FirstOrDefault(item =>
+    ((string)Field(Field(item, "Model"), "Name")).EndsWith("_ward", StringComparison.Ordinal) &&
+    (Actor)Field(item, "GroundActor") == defender);
+float DistanceToWard(Vector3 point, object pose)
+{
+    object model = Field(pose, "Model");
+    var points = (Vector3[])Field(model, "Vertices");
+    var triangles = (int[])Field(model, "Triangles");
+    Vector3 scale = (Vector3)Field(pose, "Scale"), origin = (Vector3)Field(pose, "Position");
+    Quaternion rotation = (Quaternion)Field(pose, "Rotation");
+    Vector3 At(int index) => origin + rotation * Vector3.Scale(points[triangles[index]], scale);
+    var distance = service.Assembly.GetType("Cultiway.Core.Skills.AbilityTriangleSweep").GetMethod("Segment", F);
+    float closest = float.PositiveInfinity;
+    for (int i = 0; i < triangles.Length; i += 3)
+        closest = Mathf.Min(closest, (float)distance.Invoke(null, new object[] { point, point, At(i), At(i + 1), At(i + 2), null, null }));
+    return closest;
+}
 
 var facts = new List<ConstructedContact>();
 var fees = new List<float>();
@@ -69,11 +86,12 @@ void Confirmed(ConstructedContact fact)
     if (fact.SourceId == attacker.id && fact.TargetId == defender.id && fact.AbilityId.StartsWith("test.bell-absorption."))
         facts.Add(fact);
 }
-async Task<ConstructedContact> Strike(string key, float damageScale)
+int BodyHits(string key) => facts.Count(value => value.AbilityId == "test.bell-absorption." + key);
+async Task Strike(string key, float damageScale, Func<bool> complete = null)
 {
     var spell = new AbilityDefinition
     {
-        Id = "test.bell-absorption." + key, Name = "实测剑气", Lifetime = .092f,
+        Id = "test.bell-absorption." + key, Name = "实测剑气", Lifetime = .28f,
         TargetRange = 12f, Resource = "wakan", Cost = 1.25f, Power = 2f,
         Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
         Impact = new ConstructionImpact { DamageScale = damageScale },
@@ -82,15 +100,15 @@ async Task<ConstructedContact> Strike(string key, float damageScale)
             Id = "blade", Form = "sword_qi", Matter = "iron", Rotation = [-90f, 0f, 0f],
             OnContact = ConstructionContactResponse.Continue,
             Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
-                WorldVelocity = true, InheritVelocity = false, Vector = [780f, 0f, 0f] }]
+                WorldVelocity = true, InheritVelocity = false, Vector = [55f, 0f, 0f] }]
         }
     };
     attackerExtend.GetCultisys<Xian>().wakan = 9000f;
     await Fire(spell, attacker, defender);
     attackerExtend.E.RemoveComponent<ConstructedKnowledge>();
-    await WaitFor(() => facts.Any(value => value.AbilityId == spell.Id), .35f);
+    if (complete == null) await Advance(.32f);
+    else await WaitFor(complete, .35f);
     await Game.NextFrame();
-    return facts.Single(value => value.AbilityId == spell.Id);
 }
 
 WakanResourceService.RegisterMutationCommitted(Paid);
@@ -104,22 +122,39 @@ try
     Check(Use(owner, handle, defender) && fees.Count == 1 && Mathf.Abs(fees[0] - cost) < .003f &&
           Mathf.Abs(Capacity() - ability.GetNumber("shield_capacity") * execution.effect_scale) < .003f,
         "原主动入口只付一次，取得原容量", new { cost, paid = fees.LastOrDefault(), capacity = Capacity() });
-    await Advance(.48f);
+    await Advance(.27f);
+    var initialWard = Ward();
+    Place(defender, protectedX + .7f, centerY);
+    ConstructedAbilityService.NotifyActorChanged(defender);
+    await Advance(.09f);
+    await Game.NextFrame();
+    var shiftedWard = Ward();
+    Check(initialWard != null && shiftedWard != null &&
+        Vector3.Distance((Vector3)Field(initialWard, "Position"), (Vector3)Field(shiftedWard, "Position")) > .5f &&
+        Vector2.Distance((Vector2)Field(shiftedWard, "GroundAnchor"), defender.current_position) < .005f,
+        "人物移位后真实钟罩跟随到新位置");
 
     var before = Capacity();
     var hp = defender.data.health;
-    var first = await Strike("hold", .65f);
-    Check(first.Damage.SettledCount == 1 && first.Damage.HealthLost == 0 && defender.data.health == hp &&
-          first.Damage.ShieldAbsorbed > 0f && Capacity() > 0f &&
-          Mathf.Abs(before - Capacity() - first.Damage.ShieldAbsorbed) < .003f,
-        "小击真实全额吸收，生命不变，护盾只消耗一次",
-        new { before, current = Capacity(), absorbed = first.Damage.ShieldAbsorbed });
+    Place(attacker, originX, centerY + 2.5f);
+    ConstructedAbilityService.NotifyActorChanged(attacker);
+    await Strike("miss", .65f);
+    Check(Mathf.Abs(Capacity() - before) < .003f && hp == defender.data.health && Impact() == null && BodyHits("miss") == 0,
+        "外侧擦过不消耗容量，也不触发人物伤害", new { before, after = Capacity() });
+    Place(attacker, originX, centerY);
+    ConstructedAbilityService.NotifyActorChanged(attacker);
+
+    await Strike("hold", .65f, () => Impact() != null);
+    Check(hp == defender.data.health && Capacity() > 0f && before - Capacity() > 0f && BodyHits("hold") == 0,
+        "小击在钟面全额拦住，未发生人物结算",
+        new { before, current = Capacity(), absorbed = before - Capacity() });
     var visual = Impact();
     Vector3? firstPoint = visual == null ? null : ImpactPoint(visual);
-    Check(visual != null && !(bool)Field(visual, "Broken") && firstPoint.HasValue &&
-          Vector2.Distance(firstPoint.Value, first.Position) < .003f && AtImpact(firstPoint.Value),
-        "吸收画面落在已确认的撞点",
-        new { point = firstPoint?.ToString(), contact = first.Position.ToString() });
+    float firstDistance = firstPoint.HasValue ? DistanceToWard(firstPoint.Value, Ward()) : -1f;
+    Check(visual != null && !(bool)Field(visual, "Broken") && firstPoint.HasValue && firstDistance < .005f &&
+          firstPoint.Value.x < defender.current_position.x && AtImpact(firstPoint.Value),
+        "拦截点与双视角共用钟面重合",
+        new { point = firstPoint?.ToString(), surfaceDistance = firstDistance, center = defender.current_position.ToString() });
     if (shots)
         await CaptureArtifactViews("absorption", defender.current_position, 1.8f,
             () => firstPoint.HasValue && AtImpact(firstPoint.Value) && Capacity() > 0f, nativeZoom: 2.8f, closeSubject: defender);
@@ -127,13 +162,18 @@ try
     await Advance(.40f);
     before = Capacity();
     hp = defender.data.health;
-    var second = await Strike("break", 15f);
+    var fullWard = Ward();
+    await Strike("break", 15f, () => BodyHits("break") > 0);
     visual = Impact();
-    Check(second.Damage.SettledCount == 1 && Mathf.Abs(second.Damage.ShieldAbsorbed - before) < .003f &&
-          Capacity() == 0f && second.Damage.HealthLost > 0 && hp - defender.data.health == second.Damage.HealthLost &&
-          visual != null && (bool)Field(visual, "Broken"),
-        "破盾消耗真实剩余容量，只把余伤交给生命结算",
-        new { before, absorbed = second.Damage.ShieldAbsorbed, lifeLost = second.Damage.HealthLost });
+    var second = facts.Single(value => value.AbilityId == "test.bell-absorption.break");
+    Vector3? breakPoint = visual == null ? null : ImpactPoint(visual);
+    Check(second.Damage.SettledCount == 1 && second.Damage.ShieldAbsorbed == 0f && Capacity() == 0f &&
+          second.Damage.HealthLost > 0 && hp - defender.data.health == second.Damage.HealthLost &&
+          visual != null && (bool)Field(visual, "Broken") && breakPoint.HasValue &&
+          DistanceToWard(breakPoint.Value, fullWard) < .005f && breakPoint.Value.x < second.Position.x && AtImpact(breakPoint.Value),
+        "钟面先耗尽剩余容量，余力飞到人物才扣血",
+        new { before, after = Capacity(), lifeLost = second.Damage.HealthLost, surface = breakPoint?.ToString(),
+            body = second.Position.ToString(), fees = fees.Count });
     if (shots)
         await CaptureArtifactViews("broken", defender.current_position, 1.8f,
             () => Impact() is { } stamp && (bool)Field(stamp, "Broken") && Capacity() == 0f,
@@ -144,7 +184,7 @@ try
     CombatDamageEffects.DealDamage(attacker, defender, 40f, ElementComposition.Static.Iron,
         ignoreDamageReduction: true, attackerPowerLevel: 4f);
     await WaitFor(() => defender.data.health < hp, .40f);
-    Check(hp - defender.data.health == 40 && Capacity() == 0f && Impact() == null && fees.Count == 1,
+    Check(hp - defender.data.health == 40 && Capacity() == 0f && Impact() == null && Ward() == null && fees.Count == 1,
         "耗尽后普通受击照常扣血，不再发出吸收反馈");
 
     var now = World.world.getCurWorldTime();

@@ -71,8 +71,8 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
                 DrawImpact(entry, age, meshes, ref detailBudget);
             else
             {
-                float opening = Mathf.Clamp01(age / 0.16f);
-                float scale = 0.86f + 0.14f * (1f - Mathf.Pow(1f - opening, 3f));
+                float opening = ArtifactBellWard.Opening(age);
+                float scale = ArtifactBellWard.OpeningScale(opening);
                 if (closing >= 0f) scale *= 1f - 0.13f * closing / 0.32f;
                 Color color = entry.Tint;
                 color.a = (0.46f + 0.14f * Mathf.Clamp01(entry.Context.intensity)) * fade * Mathf.Max(0.3f, opening);
@@ -137,10 +137,7 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
     private static void AddBody(Entry entry, List<SpatialVisualMeshInstance> meshes, float scale, Color color)
     {
         float size = entry.ModelScale * scale;
-        Vector3 origin = entry.Center - entry.ModelFoot * size;
-        meshes.Add(new SpatialVisualMeshInstance(entry.Model, origin, entry.Orientation,
-            Vector3.one * size, color, true, !entry.Impact, entry.Center, additive: false,
-            surface: entry.Impact ? SpatialSurface.Metal : SpatialSurface.Energy));
+        meshes.Add(entry.Shape.Pose(entry.Center, size, color, entry.Impact, entry.Model));
     }
 
     /// <summary>原组合钟面的明暗转成金色灵光，两个视角共用原顶点、轮廓和材质分区。</summary>
@@ -153,7 +150,8 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
             Color original = model.Colors[i];
             colors[i] = Color.Lerp(new Color(.69f, .46f, .18f), new Color(1f, .93f, .63f), original.grayscale);
         }
-        return new SpatialVisualMesh(model.Name + "_ward", model.Vertices, model.Normals, model.Triangles, colors);
+        return new SpatialVisualMesh(model.Name.EndsWith("_ward", System.StringComparison.Ordinal) ? model.Name : model.Name + "_ward",
+            model.Vertices, model.Normals, model.Triangles, colors);
     }
 
     /// <summary>为实体钟提供短暂微振，显示变化不回写法宝位置。</summary>
@@ -188,12 +186,10 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
         internal ArtifactAbilityVisualContext Context;
         /// <summary>实际组合钟体，直接保留封闭表面。</summary>
         internal SpatialVisualMesh Model;
-        /// <summary>保持钟形竖直的原始姿态。</summary>
-        internal Quaternion Orientation;
+        /// <summary>真实钟面及该次姿态。</summary>
+        internal ArtifactBellWard.Shape Shape;
         /// <summary>原模型缩放到护持者体型的比例。</summary>
         internal float ModelScale;
-        /// <summary>旋转后的模型底缘中心，对齐实际护持者脚下。</summary>
-        internal Vector3 ModelFoot;
         /// <summary>护罩的世界高度和近似半径。</summary>
         internal float Height, Radius;
         /// <summary>护持者脚下的空间位置。</summary>
@@ -237,17 +233,21 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
         /// <param name="pose">其显示姿态。</param>
         private void ConfigureShape(ArtifactAbilityVisualContext context, SpatialVisualMeshInstance pose)
         {
-            Model = Impact ? pose.Model : shells.GetValue(pose.Model, IlluminateShell);
-            Orientation = pose.Rotation;
+            Shape = ArtifactBellWard.TryShape(context.artifact, out var shell)
+                ? shell : ArtifactBellWard.Shape.Create(pose.Model, pose.Rotation);
+            Model = Impact ? Shape.Model : shells.GetValue(Shape.Model, IlluminateShell);
             Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
-            Height = SpatialActorPose.Height(actor) * 1.6f;
-            Bounds rotated = new(Orientation * Model.Vertices[0], Vector3.zero);
-            foreach (Vector3 vertex in Model.Vertices) rotated.Encapsulate(Orientation * vertex);
-            ModelFoot = new Vector3(rotated.center.x, rotated.center.y, rotated.min.z);
-            ModelScale = Height / rotated.size.z;
-            Radius = Mathf.Max(rotated.size.x, rotated.size.y) * ModelScale * 0.45f;
+            UpdateSize(actor);
             Tint = Color.Lerp(new Color(1f, 0.78f, 0.27f), context.theme.primary, 0.3f);
-            Center = SpatialActorPose.Foot(actor);
+            Center = Impact && context.contact_point.HasValue ? context.position : SpatialActorPose.Foot(actor);
+        }
+
+        private void UpdateSize(Actor actor)
+        {
+            Height = SpatialActorPose.Height(actor) * 1.6f;
+            Bounds rotated = Shape.Bounds;
+            ModelScale = Height / rotated.size.z;
+            Radius = Mathf.Max(rotated.size.x, rotated.size.y) * ModelScale * .45f;
         }
 
         /// <summary>刷新同一效果的上下文，不重播开启声。</summary>
@@ -261,7 +261,8 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
             Started = now;
             Duration = duration;
             Broken = context.resource_depleted;
-            Center = SpatialActorPose.Foot(context.controller.GetComponent<ActorBinder>().Actor);
+            Center = context.contact_point.HasValue ? context.position
+                : SpatialActorPose.Foot(context.controller.GetComponent<ActorBinder>().Actor);
             if (Broken) RemoveQuietEnding(context);
             CombatVisualAudio.PlayBell(Center, Broken ? 0.9f : 0.45f);
         }
@@ -282,7 +283,17 @@ internal sealed class GoldenBellSpatialVisualCue : IArtifactVisualCue
                 Started = Impact ? now : context.runtime.activity_started_at;
             }
             Context = context;
-            if (!Impact) Center = SpatialActorPose.Foot(context.controller.GetComponent<ActorBinder>().Actor);
+            if (!Impact)
+            {
+                Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
+                if (ArtifactBellWard.TryShape(context.artifact, out var shell))
+                {
+                    Shape = shell;
+                    Model = shells.GetValue(Shape.Model, IlluminateShell);
+                    UpdateSize(actor);
+                }
+                Center = SpatialActorPose.Foot(actor);
+            }
         }
 
         /// <summary>管理器结束租约时停止跟随，短暂收尾仍按世界时间消散。</summary>

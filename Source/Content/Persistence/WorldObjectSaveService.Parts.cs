@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -266,6 +267,7 @@ internal static partial class WorldObjectSaveService
     private static void RestoreRuntimeIndexes()
     {
         YuanshenAnchorNetworkService.RestoreWorldObjects();
+        ArtifactBellWard.Restore(Loaded.Values);
         foreach (Entity entity in ModClass.I.W.Query<YuanshenNodeState>().Entities.ToEntityList())
             YuanshenSaveVisuals.RestoreNode(entity);
     }

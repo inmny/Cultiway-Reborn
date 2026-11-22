@@ -40,6 +40,7 @@ public static class ArtifactAppearanceRenderer
     private static readonly Dictionary<string, RenderedAppearance> RenderCache = new();
     /// <summary>与二维烘焙共用外观编号和颜色解析的三维模型缓存。</summary>
     private static readonly Dictionary<string, SpatialVisualMesh> SpatialCache = new();
+    private static readonly Dictionary<string, SpatialVisualMesh> BellWardCache = new();
 
     public static void ClearCache()
     {
@@ -50,6 +51,7 @@ public static class ArtifactAppearanceRenderer
         RenderCache.Clear();
         MeshCache.Clear();
         SpatialCache.Clear();
+        BellWardCache.Clear();
     }
 
     /// <summary>取得用于物品栏和编辑器的法器图标。</summary>
@@ -198,17 +200,39 @@ public static class ArtifactAppearanceRenderer
         string key = appearance.GetCacheKey();
         span = mesh.Max - mesh.Min;
         if (SpatialCache.TryGetValue(key, out model)) return true;
+        model = BuildSpatialMesh(mesh, appearance, key, ward: false);
+        SpatialCache.Add(key, model);
+        return true;
+    }
+
+    internal static bool TryGetBellWardMesh(Entity item, out SpatialVisualMesh model)
+    {
+        model = null;
+        if (!TryGetMesh(item, out ArtifactAppearanceMesh mesh)) return false;
+        var appearance = item.GetComponent<ArtifactAppearance>();
+        string key = appearance.GetCacheKey();
+        if (!BellWardCache.TryGetValue(key, out model))
+        {
+            model = BuildSpatialMesh(mesh, appearance, key + "_ward", ward: true);
+            BellWardCache.Add(key, model);
+        }
+        return model != null;
+    }
+
+    private static SpatialVisualMesh BuildSpatialMesh(ArtifactAppearanceMesh mesh, ArtifactAppearance appearance, string key, bool ward)
+    {
         ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
         SpatialVisualMeshBuilder builder = new();
+        bool hasFaces = false;
         foreach (ArtifactAppearanceMeshFace face in mesh.Faces)
         {
+            if (ward && face.Slot is not ("body" or "mouth")) continue;
             Color32[] ramp = ArtifactAppearanceRasterizer.ResolveMaterialRamp(
                 appearance, catalog, face.Slot, face.Material);
             builder.AddFace(face.Points, ramp[ramp.Length / 2], face.Normals);
+            hasFaces = true;
         }
-        model = builder.Build(key);
-        SpatialCache.Add(key, model);
-        return true;
+        return hasFaces ? builder.Build(key) : null;
     }
 
     /// <summary>当前本体是否仍使用人物随身布局的旧坐标表示。</summary>
