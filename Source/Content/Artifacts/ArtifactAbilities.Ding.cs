@@ -324,13 +324,7 @@ public partial class ArtifactAbilities
     {
         evt.ProgressGain += ability.GetInteger(ProgressBonus);
         evt.Duration *= ability.GetNumber(DurationMultiplier);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.CraftStep,
-            intensity: ability.GetInteger(ProgressBonus),
-            duration: evt.Duration + 0.2f);
+        evt.Feedback.Record(context, ability, runtime, ability.GetInteger(ProgressBonus));
     }
 
     private static void ApplyHundredRefinementResult(
@@ -341,18 +335,13 @@ public partial class ArtifactAbilities
     {
         evt.QualityBonus += ability.GetInteger(QualityBonus);
         evt.YieldMultiplier *= ability.GetNumber(YieldMultiplier);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.CraftResult,
-            intensity: ability.GetInteger(QualityBonus));
+        evt.Feedback.Record(context, ability, runtime, ability.GetInteger(QualityBonus));
     }
 
     private static void ConfigureDingAbilityVisuals()
     {
         ConfigureDingFireRefinementVisuals();
-        ConfigureHundredRefinementCoreVisuals();
+        HundredRefinementCore.Visualize(ProductionVisuals());
     }
 
     private static void ConfigureDingFireRefinementVisuals()
@@ -369,50 +358,4 @@ public partial class ArtifactAbilities
             "ding_fire", flame, IsDeploymentActive));
     }
 
-    private static void ConfigureHundredRefinementCoreVisuals()
-    {
-        ArtifactLocalVisualCue refinementFlame = new ArtifactLocalVisualCue(
-            ArtifactLocalVisualKind.Flame
-        )
-        {
-            anchor = ArtifactVisualAnchorRef.Appearance("core", "center"),
-            color_role = ArtifactVisualColorRole.Primary,
-            scale = 0.055f,
-
-            alpha = 0.7f,
-            loop = true,
-        };
-        ArtifactAreaVisualCue result = Area(
-            ArtifactVisualAnchorKind.Artifact,
-            context => 0.75f * ArtifactAbilityVisuals.ResolveActorScale(context),
-            ArtifactVisualColorRole.Glow,
-            0.7f,
-            0.04f,
-            ArtifactVfxStyles.Fire
-        );
-        result.start_scale = 0.15f;
-        result.end_scale = 1.2f;
-        result.fade_out = true;
-        HundredRefinementCore.Visualize(
-            Theme(SkillVfxElements.Fire.AccentColor)
-                .Signal(
-                    ArtifactVisualChannels.CraftStep,
-                    refinementFlame,
-                    0.8f,
-                    "artifact.hundred_refinement.step",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-                .Signal(
-                    ArtifactVisualChannels.CraftResult,
-                    new ArtifactCompositeVisualCue(
-                        result,
-                        Sparkle(ArtifactVisualAnchorKind.Artifact, 0.08f, 1f, loop: false),
-                        Pulse(1.25f, 1f, 0.16f)
-                    ),
-                    0.6f,
-                    "artifact.hundred_refinement.result",
-                    ArtifactVisualStackPolicy.MergeIntensity
-                )
-        );
-    }
 }

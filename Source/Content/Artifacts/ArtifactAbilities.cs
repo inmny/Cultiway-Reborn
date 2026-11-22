@@ -266,13 +266,7 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
     {
         evt.ProgressGain += ability.GetInteger(ProgressBonus);
         evt.Duration *= ability.GetNumber(DurationMultiplier);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.CraftStep,
-            intensity: ability.GetInteger(ProgressBonus),
-            duration: evt.Duration + 0.2f);
+        evt.Feedback.Record(context, ability, runtime, ability.GetInteger(ProgressBonus));
     }
 
     private static void ApplyAlchemyResultAssist(
@@ -282,12 +276,7 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ArtifactProductionResultEvent evt)
     {
         evt.QualityBonus += ability.GetInteger(QualityBonus);
-        ArtifactAbilityVisuals.Emit(
-            context,
-            ability,
-            runtime,
-            ArtifactVisualChannels.CraftResult,
-            intensity: ability.GetInteger(QualityBonus));
+        evt.Feedback.Record(context, ability, runtime, ability.GetInteger(QualityBonus));
     }
 
     private static int Quality(ArtifactAbilityComposeContext context)

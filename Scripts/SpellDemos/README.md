@@ -2881,3 +2881,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 阴兵储魂与遁形受击（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_spirit_host.py --triggers-only` 核对非致死伤害、实际击杀储魂和魂影收束。用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_robe_concealment.py --triggers-only` 核对受击减伤、隐匿状态和造成伤害后的收衣。两个入口均可加 `--skip-views` 只检查游戏行为。
+
+### 鼎辅炼丹与百炼炉心（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_production.py` 核对实际炼丹、炼器、制符的工序与定型结果。用 `--section alchemy|refining|talisman` 选择单项，或用 `--skip-views` 只检查游戏行为。炼丹部分采集开炉与成丹的原版和 Worldfall 画面。

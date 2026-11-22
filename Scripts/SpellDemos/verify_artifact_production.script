@@ -1,0 +1,232 @@
+// 正式预备入口占用材料，生产行为本身执行工序和定型。
+PrepareArtifactArena(59, 79, 65, 80);
+Actor producer = Make(64.2f);
+var owner = producer.GetExtend();
+owner.AddComponent(new Xian { level = 1, wakan = 0f });
+owner.SetPowerLevel(1f);
+producer.joinLanguage(World.world.languages.newLanguage(producer, true));
+producer.setCulture(World.world.cultures.newCulture(producer, true));
+World.world.kingdoms.makeNewCivKingdom(producer);
+var city = World.world.cities.buildNewCity(producer, producer.current_tile.zone);
+producer.joinCity(city);
+var warehouse = city.GetExtend();
+CombatStatusEffects.ApplyStatus(producer, boost, 10000f, producer);
+owner.MarkCultiwayStatsDirty();
+await Advance(.22f);
+producer.updateStats();
+Place(producer, 74.5f, 74.5f);
+producer.position_height = 0f;
+
+var design = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Ding, Atoms = [ArtifactAtoms.SpiritDing, ArtifactAtoms.SpiritGatheringPattern, ArtifactAtoms.WorldWood],
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "炼丹与炉心复验"
+}));
+var ids = design.AbilitySet.abilities.Select(value => value.ability_id).ToArray();
+var alchemy = ArtifactAbilities.DingAlchemyAssist;
+var refinement = ArtifactAbilities.HundredRefinementCore;
+Check(ids.Contains(alchemy.id) && ids.Contains(refinement.id), "同一正式鼎配方生成两种生产能力", ids);
+Entity ding = ArtifactBlueprintCodec.Materialize(design, producer.getName());
+owner.AddSpecialItem(ding);
+Check(owner.EquipArtifact(ding, locked: true, mode: ArtifactEquipMode.Standby, priority: 100), "待命装备原鼎");
+await Advance(.20f);
+var assist = Definition(ding, alchemy.id);
+var furnace = Definition(ding, refinement.id);
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var sessionType = service.Assembly.GetType("Cultiway.Content.Crafting.CraftSessionService");
+var beginElixir = sessionType.GetMethod("TryBeginElixir", F);
+var beginRefining = sessionType.GetMethod("TryBeginArtifact", F);
+var visuals = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+object[] Stamps(string channel) => visuals.Cast<object>()
+    .Where(value => (double)Field(value, "Closing") < 0d)
+    .Where(value => Field(value, "Context") is ArtifactAbilityVisualContext context &&
+        context.artifact == ding && context.channel == channel).ToArray();
+bool StepVisible() => Stamps("craft_step").Length == 1;
+bool ResultVisible() => Stamps("craft_result").Length == 1;
+bool NearAmount(float a, float b) => Mathf.Abs(a - b) < .012f;
+
+Entity Ingredient(Cultiway.Core.Libraries.ItemShapeAsset shape, string name, int level)
+{
+    Entity item = SpecialItemUtils.StartBuild(shape, World.world.getCurWorldTime(), "本场原料", 1000000, "human")
+        .AddComponent(new EntityName(name)).AddComponent(ItemLevel.FromValue(level)).AddTag<TagIngredient>().Build();
+    owner.AddSpecialItem(item);
+    return item;
+}
+Entity[] Herbs() => [Ingredient(ItemShapes.Herb, "丹方药叶", 5), Ingredient(ItemShapes.Root, "丹方药根", 5)];
+Entity Begin(MethodInfo method, object recipe, string task)
+{
+    producer.setTask(task, pForceAction: true);
+    object[] args = { producer, recipe, 0L, default(Entity), string.Empty };
+    bool accepted = (bool)method.Invoke(null, args);
+    Check(accepted && (Entity)args[3] != default && producer.ai.task?.id == task,
+        "原任务和预备入口实际占用材料", new { task, accepted, reason = args[4] });
+    Entity work = (Entity)args[3];
+    Check(work.GetRelations<CraftOccupyingRelation>().Length > 0 && work.HasComponent<CraftSession>(),
+        "半成品持有真实工序和材料关系");
+    return work;
+}
+var elixirAction = new BehCraftElixir();
+var refiningAction = new BehCraftArtifact();
+var completed = new List<ProductionCompletedEvent>();
+Action<ProductionCompletedEvent> recordResult = fact =>
+{
+    if (fact.Producer == owner) completed.Add(fact);
+};
+ProductionLifecycle.RegisterCompleted(recordResult);
+var resultHandlers = (IList)typeof(ProductionLifecycle).GetField("completedHandlers", F).GetValue(null);
+var costs = new List<float>();
+var costObserver = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object oldObserver = costObserver.GetValue(null);
+void Paid(ActorExtend payer, in WakanMutation change)
+{
+    if (payer == owner && change.Kind == WakanMutationKind.Spend) costs.Add(-change.Delta);
+}
+WakanResourceService.RegisterMutationCommitted(Paid);
+
+int assistGrade = assist.GetInteger("quality_bonus");
+int furnaceGrade = furnace.GetInteger("quality_bonus");
+float durationScale = assist.GetNumber("duration_multiplier") * furnace.GetNumber("duration_multiplier");
+int assistProgress = 1 + assist.GetInteger("progress_bonus") + furnace.GetInteger("progress_bonus");
+float yieldScale = furnace.GetNumber("yield_multiplier");
+bool ValidCount(int amount) => amount >= Mathf.FloorToInt(yieldScale) && amount <= Mathf.CeilToInt(yieldScale);
+async Task Operating()
+{
+    owner.SetArtifactEquipMode(ding, ArtifactEquipMode.ForcedOperating);
+    await Advance(.22f);
+    Check(ArtifactAbilityLifecycle.MeetsState(owner.E.GetRelation<EquippedArtifactRelation, Entity>(ding).state,
+        ArtifactControlState.Operating), "同一原鼎开始运转");
+}
+async Task CheckFlame(float duration, string scene, bool capture = false)
+{
+    await Advance(.065f);
+    var flames = Stamps("craft_step");
+    float visibleDuration = flames.Length == 1 ? (float)Field(flames[0], "Duration") : 0f;
+    Check(flames.Length == 1 && NearAmount(visibleDuration, duration) && !ResultVisible(),
+        scene + "只点一份原鼎炉火，持续时间等于这道工序", new { duration, visibleDuration, count = flames.Length });
+    if (capture && shots)
+        await CaptureArtifactViews("alchemy-step", producer.current_position, 1.8f,
+            () => StepVisible() && !ResultVisible(), nativeZoom: 2.45f, closeSubject: producer);
+}
+
+try
+{
+    if (section is "all" or "alchemy")
+    {
+        var interruptedIngredients = Herbs();
+        var recipe = Cultiway.Content.Libraries.Manager.ElixirLibrary.NewElixir(interruptedIngredients);
+        owner.Master(recipe, 1f);
+        Entity aborted = Begin(beginElixir, recipe.id, ActorTasks.CraftElixir.id);
+        elixirAction.execute(producer);
+        float waitingStep = producer.timer_action;
+        await Advance(.08f);
+        Check(aborted.GetComponent<CraftingElixir>().progress == 1 && waitingStep >= 1f && waitingStep <= 3f &&
+              !StepVisible() && !ResultVisible() && costs.Count == 0,
+            "待命仍能按原进度炼丹，无炉火及额外真元费", new { waitingStep });
+        await Advance(waitingStep);
+        await Operating();
+        elixirAction.execute(producer);
+        float accelerated = producer.timer_action;
+        Check(aborted.GetComponent<CraftingElixir>().progress == 1 + assistProgress &&
+              accelerated >= Mathf.Max(.15f, durationScale) - .002f && accelerated <= 3f * durationScale + .003f,
+            "两种能力的实际加成已写入半成品", new { assistProgress, durationScale, accelerated });
+        await CheckFlame(accelerated, "实际加速的炼丹");
+        producer.setTask(ActorTasks.CraftArtifact.id, pForceAction: true);
+        await Advance(.17f);
+        Check(aborted.HasComponent<CraftWaste>() && interruptedIngredients.All(item => item.IsNull) &&
+              !aborted.HasComponent<Elixir>() && !StepVisible() && !ResultVisible() && completed.Count == 0,
+            "中断后走原废品收尾，熄火且没有成丹反馈");
+
+        var ingredients = Herbs();
+        var beforeCity = new HashSet<Entity>(warehouse.GetItems());
+        Entity pills = Begin(beginElixir, recipe.id, ActorTasks.CraftElixir.id);
+        elixirAction.execute(producer);
+        float duration = producer.timer_action;
+        Check(pills.GetComponent<CraftingElixir>().progress == assistProgress && ingredients.All(item => !item.IsNull),
+            "重新开炉只推进原工序，此时材料仍在", assistProgress);
+        await CheckFlame(duration, "重新开炉", capture: true);
+        await Advance(Mathf.Max(.15f, duration - .04f));
+        elixirAction.execute(producer);
+        await Game.NextFrame();
+        var lot = warehouse.GetItems().Where(item => !beforeCity.Contains(item) && item.HasComponent<Elixir>() &&
+            item.GetComponent<Elixir>().elixir_id == recipe.id).ToArray();
+        var fact = completed.Single(value => value.Product == pills);
+        float potency = pills.GetComponent<Elixir>().value;
+        int grade = Mathf.Clamp(5 + Mathf.FloorToInt(Mathf.Log10(Mathf.Max(0f, potency) + 1f)) + assistGrade + furnaceGrade, 0, 35);
+        Check(lot.Contains(pills) && lot.All(item => (int)item.GetComponent<ItemLevel>() == grade) &&
+              ingredients.All(item => item.IsNull) && lot.Length == fact.OutputCount && ValidCount(lot.Length) &&
+              (int)fact.FinalLevel == grade && costs.Count == 0 && ResultVisible() && !StepVisible(),
+            "成丹实际交库后才显示亮光，品质、产量和原材料结算相符",
+            new { grade, count = lot.Length, yieldScale, assistGrade, furnaceGrade, potency });
+        if (shots)
+        {
+            await Advance(.17f);
+            await CaptureArtifactViews("alchemy-result", producer.current_position, 1.8f,
+                () => ResultVisible() && lot.Contains(pills), nativeZoom: 2.45f, closeSubject: producer);
+        }
+        await Advance(.69f);
+        Check(!StepVisible() && !ResultVisible(), "成丹反馈自然收束");
+    }
+    else
+    {
+        await Operating();
+    }
+
+    if (section is "all" or "refining")
+    {
+        var ores = new[] { Ingredient(ItemShapes.Crystal, "炼器原晶", 5), Ingredient(ItemShapes.Stone, "炼器原石", 5) };
+        var beforeInventory = new HashSet<Entity>(owner.GetItems());
+        Entity forged = Begin(beginRefining, ores, ActorTasks.CraftArtifact.id);
+        int rawLevel = forged.GetComponent<ItemLevel>();
+        refiningAction.execute(producer);
+        float duration = producer.timer_action;
+        float efficiency = furnace.GetNumber("duration_multiplier");
+        Check(forged.GetComponent<CraftingArtifact>().progress == 1 + furnace.GetInteger("progress_bonus") &&
+              duration >= Mathf.Max(.15f, efficiency) - .002f && duration <= 3f * efficiency + .003f,
+            "炼器工序仅有炉心加成", new { duration, efficiency });
+        await CheckFlame(duration, "炼器原工序");
+        await Advance(Mathf.Max(.15f, duration - .04f));
+        refiningAction.execute(producer);
+        await Game.NextFrame();
+        var made = owner.GetItems().Where(item => !beforeInventory.Contains(item) && item.HasComponent<Artifact>()).ToArray();
+        var record = completed.Single(value => value.Product == forged);
+        int grade = Mathf.Clamp(rawLevel + furnaceGrade, 0, 35);
+        Check(made.Contains(forged) && made.Length == record.OutputCount && ValidCount(made.Length) &&
+              made.All(item => (int)item.GetComponent<ItemLevel>() == grade) &&
+              ores.All(item => item.IsNull) && ResultVisible() && !StepVisible(),
+            "实际定型炼器仅增加炉心品质，产量与库存相符", new { rawLevel, grade, count = made.Length });
+        foreach (Entity product in made)
+            if (owner.GetEquippedArtifacts().Contains(product)) owner.UnequipArtifact(product, suppressAutoEquip: true);
+        await Advance(.69f);
+    }
+
+    if (section is "all" or "talisman")
+    {
+        var skill = new SkillContainerBuilder(SkillEntities.Fireball).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        owner.LearnSkillV3(skill);
+        producer.updateStats();
+        var former = new HashSet<Entity>(owner.GetItems().Concat(warehouse.GetItems()));
+        float max = producer.stats[BaseStatses.MaxWakan.id];
+        WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), max * .5f);
+        costs.Clear();
+        new BehCraftTalisman().execute(producer);
+        await Game.NextFrame();
+        var talismans = owner.GetItems().Concat(warehouse.GetItems()).Where(item => !former.Contains(item) &&
+            item.HasComponent<Talisman>()).ToArray();
+        Check(costs.Count == 1 && NearAmount(costs.Single(), max * .01f) && ValidCount(talismans.Length) &&
+              talismans.All(item => item.TryGetComponent(out ItemLevel grade) && (int)grade == furnaceGrade) &&
+              ResultVisible() && !StepVisible(),
+            "制符只扣原真元费，实际成品具有炉心加成", new { costs = costs.ToArray(), count = talismans.Length, furnaceGrade });
+        await Advance(.69f);
+        Check(!ResultVisible(), "最后一份成品反馈已自然结束");
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    resultHandlers.Remove(recordResult);
+    costObserver.SetValue(null, oldObserver);
+}

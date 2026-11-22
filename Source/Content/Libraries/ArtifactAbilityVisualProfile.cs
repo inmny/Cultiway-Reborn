@@ -22,6 +22,9 @@ public enum ArtifactVisualStackPolicy
 
     /// <summary>同一驾驭者只保留一份视觉；再次触发时刷新其上下文和时长。</summary>
     SinglePerController,
+
+    /// <summary>同一件原物的重复反馈合为一份，其他原物各自显示。</summary>
+    SinglePerArtifact,
 }
 
 /// <summary>

@@ -139,6 +139,7 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
             {
                 ModClass.LogError($"[ElixirCraft] completion event failed recipe={id}: {exception}");
             }
+            productionResult.Feedback.Publish(ArtifactVisualChannels.CraftResult);
         }
         catch (Exception exception)
         {

@@ -91,8 +91,10 @@ public class BehCraftTalisman : BehaviourActionActor
             item);
         if (result.QualityBonus != 0)
         {
-            ref ItemLevel level = ref item.GetComponent<ItemLevel>();
-            level = ItemLevel.FromValue(level + result.QualityBonus);
+            if (item.TryGetComponent(out ItemLevel level))
+                item.GetComponent<ItemLevel>() = ItemLevel.FromValue(level + result.QualityBonus);
+            else
+                item.AddComponent(ItemLevel.FromValue(result.QualityBonus));
         }
         int outputCount = ArtifactProductionService.ResolveOutputCount(result.YieldMultiplier);
         IHasInventory receiver = pObject.city != null && Randy.randomChance(0.6f)
@@ -103,6 +105,7 @@ public class BehCraftTalisman : BehaviourActionActor
             Entity skill = clone.GetComponent<Talisman>().SkillContainer;
             clone.AddRelation(new SkillMasterRelation { SkillContainer = skill });
         });
+        result.Feedback.Publish(ArtifactVisualChannels.CraftResult);
         return BehResult.Continue;
     }
 }

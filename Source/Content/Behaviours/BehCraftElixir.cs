@@ -84,6 +84,7 @@ public class BehCraftElixir : BehCityActor
         ArtifactAbilityDispatcher.Dispatch(extend.E, step);
         crafting.progress += Math.Max(1, step.ProgressGain);
         actor.timer_action = Math.Max(0.15f, step.Duration);
+        productionStep.Feedback.Publish(ArtifactVisualChannels.CraftStep, actor.timer_action, craftingItem);
         return BehResult.RepeatStep;
     }
 }

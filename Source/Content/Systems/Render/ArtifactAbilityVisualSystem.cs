@@ -147,7 +147,7 @@ public sealed class ArtifactAbilityVisualSystem :
 
     private void ProcessSignal(ArtifactVisualSignalRequest request, double now)
     {
-        if (!CanShow(request.context)) return;
+        if (!CanShow(request.context) || !HasCraftingProduct(request.crafting_product)) return;
         ArtifactAbilityVisualSignal signal = request.signal;
         ArtifactVisualKey key = ArtifactVisualKey.ForSignal(request.context, signal, ++signalSerial);
         if (transientVisuals.TryGetValue(key, out ActiveVisual active) &&
@@ -167,6 +167,7 @@ public sealed class ArtifactAbilityVisualSystem :
 
             active.context = context;
             active.expires_at = now + request.duration;
+            active.crafting_product = request.crafting_product;
             active.lease.Refresh(context, now, request.duration);
             return;
         }
@@ -179,7 +180,8 @@ public sealed class ArtifactAbilityVisualSystem :
                 signal.cue,
                 lease,
                 request.context,
-                now + request.duration);
+                now + request.duration,
+                request.crafting_product);
         }
     }
 
@@ -190,7 +192,7 @@ public sealed class ArtifactAbilityVisualSystem :
         {
             ActiveVisual active = pair.Value;
             if (now >= active.expires_at || !active.lease.IsAlive ||
-                !CanShow(active.context))
+                !CanShow(active.context) || !HasCraftingProduct(active.crafting_product))
             {
                 staleKeys.Add(pair.Key);
                 continue;
@@ -199,6 +201,9 @@ public sealed class ArtifactAbilityVisualSystem :
         }
         for (int i = 0; i < staleKeys.Count; i++) RemoveVisual(transientVisuals, staleKeys[i]);
     }
+
+    private static bool HasCraftingProduct(Entity? item) =>
+        !item.HasValue || !item.Value.IsNull && !item.Value.Tags.Has<TagRecycle>() && item.Value.HasComponent<CraftSession>();
 
     /// <summary>空间档案使用独立视角，其余档案仍按原版镜头和可见标记显示。</summary>
     /// <param name="context">当前显示上下文。</param>
@@ -245,17 +250,20 @@ public sealed class ArtifactAbilityVisualSystem :
         public readonly IArtifactVisualLease lease;
         public ArtifactAbilityVisualContext context;
         public double expires_at;
+        public Entity? crafting_product;
 
         public ActiveVisual(
             IArtifactVisualCue cue,
             IArtifactVisualLease lease,
             ArtifactAbilityVisualContext context,
-            double expiresAt)
+            double expiresAt,
+            Entity? craftingProduct = null)
         {
             this.cue = cue;
             this.lease = lease;
             this.context = context;
             expires_at = expiresAt;
+            crafting_product = craftingProduct;
         }
     }
 
@@ -287,7 +295,9 @@ public sealed class ArtifactAbilityVisualSystem :
                     loop.channel,
                     context.ability.instance_id,
                     0)
-                : new ArtifactVisualKey(context.controller, default, loop.stack_group, string.Empty, 0);
+                : new ArtifactVisualKey(context.controller,
+                    loop.stack_policy == ArtifactVisualStackPolicy.SinglePerArtifact ? context.artifact : default,
+                    loop.stack_group, string.Empty, 0);
         }
 
         public static ArtifactVisualKey ForSignal(
@@ -302,7 +312,9 @@ public sealed class ArtifactAbilityVisualSystem :
                     signal.channel,
                     context.ability.instance_id,
                     nextSerial)
-                : new ArtifactVisualKey(context.controller, default, signal.stack_group, string.Empty, 0);
+                : new ArtifactVisualKey(context.controller,
+                    signal.stack_policy == ArtifactVisualStackPolicy.SinglePerArtifact ? context.artifact : default,
+                    signal.stack_group, string.Empty, 0);
         }
 
         public bool Equals(ArtifactVisualKey other)

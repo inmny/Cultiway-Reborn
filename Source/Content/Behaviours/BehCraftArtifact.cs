@@ -104,6 +104,7 @@ public class BehCraftArtifact : BehCityActor
                 {
                     ModClass.LogError($"[CraftSession] artifact completion event failed actor={actor.getID()}: {publishException}");
                 }
+                result.Feedback.Publish(ArtifactVisualChannels.CraftResult);
                 ModClass.LogInfo($"{actor.getName()}[{actor.data.id}] 完成炼制 {craftingItem.Name} x{outputCount}");
             }
             catch (Exception exception)
@@ -135,6 +136,7 @@ public class BehCraftArtifact : BehCityActor
             Randy.randomFloat(1f, 3f));
         crafting.progress += Math.Max(1, step.ProgressGain);
         actor.timer_action = Mathf.Max(0.15f, step.Duration);
+        step.Feedback.Publish(ArtifactVisualChannels.CraftStep, actor.timer_action, craftingItem);
         return BehResult.RepeatStep;
     }
 }

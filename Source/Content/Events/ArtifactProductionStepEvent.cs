@@ -1,3 +1,4 @@
+using Cultiway.Content.Artifacts;
 using Cultiway.Core;
 using Friflo.Engine.ECS;
 
@@ -14,6 +15,7 @@ public sealed class ArtifactProductionStepEvent
     public Entity Product { get; }
     public int ProgressGain { get; set; } = 1;
     public float Duration { get; set; }
+    internal ArtifactProductionFeedback Feedback;
 
     public ArtifactProductionStepEvent(
         ActorExtend producer,

@@ -14,7 +14,7 @@ public partial class ArtifactAbilities
     private static void ConfigureVisuals()
     {
         ConfigureFlyingSwordVisuals();
-        ConfigureDingAlchemyVisuals();
+        DingAlchemyAssist.Visualize(ProductionVisuals());
         ConfigureGuardianWardVisuals();
         ConfigureMirrorInsightVisuals();
         ConfigureVitalityRenewalVisuals();
@@ -39,51 +39,30 @@ public partial class ArtifactAbilities
             .Signal(ArtifactVisualChannels.End, flash, 0.35f));
     }
 
-    private static void ConfigureDingAlchemyVisuals()
+    private static readonly ArtifactLocalVisualCue productionFlame = new(ArtifactLocalVisualKind.Flame)
     {
-        ArtifactLocalVisualCue flame = new(ArtifactLocalVisualKind.Flame)
-        {
-            anchor = ArtifactVisualAnchorKind.Artifact,
-            color_role = ArtifactVisualColorRole.Primary,
-            offset = new Vector3(0f, 0.08f, 0.15f),
-            scale = 0.05f,
+        anchor = ArtifactVisualAnchorRef.Appearance("core", "center"),
+        color_role = ArtifactVisualColorRole.Primary,
+        scale = .066f,
+        alpha = .87f,
+        scale_pulse_amplitude = .06f,
+    };
 
-            alpha = 0.82f,
-            scale_pulse_amplitude = 0.06f,
-            loop = true,
-        };
-        ArtifactCompositeVisualCue result = new(
-            Sparkle(ArtifactVisualAnchorKind.Artifact, 0.07f, 1f, loop: false),
-            new ArtifactAreaVisualCue
-            {
-                style_key = ArtifactVfxStyles.Fire,
-                anchor = ArtifactVisualAnchorKind.Artifact,
-                color_role = ArtifactVisualColorRole.Glow,
-                ResolveRadius = context => 0.65f * ArtifactAbilityVisuals.ResolveActorScale(context),
-                line_alpha = 0.65f,
-                fill_alpha = 0.04f,
-                start_scale = 0.2f,
-                end_scale = 1.15f,
-                fade_out = true,
-                show_inner_ring = false,
-            });
-        DingAlchemyAssist.Visualize(new ArtifactAbilityVisualProfile
-            {
-                fallback_theme = ArtifactVisualTheme.FromPrimary(SkillVfxElements.Fire.AccentColor),
-            }
-            .Signal(
-                ArtifactVisualChannels.CraftStep,
-                flame,
-                1f,
-                "artifact.alchemy.flame",
-                ArtifactVisualStackPolicy.MergeIntensity)
-            .Signal(
-                ArtifactVisualChannels.CraftResult,
-                result,
-                0.55f,
-                "artifact.alchemy.result",
-                ArtifactVisualStackPolicy.MergeIntensity));
-    }
+    private static readonly ArtifactLocalVisualCue productionGlow = new(ArtifactLocalVisualKind.GatheredWakan)
+    {
+        anchor = ArtifactVisualAnchorRef.Appearance("core", "center"),
+        color_role = ArtifactVisualColorRole.Glow,
+        offset = new Vector3(0f, 0f, .22f),
+        scale = .079f,
+        alpha = .92f,
+        loop = false,
+    };
+
+    private static ArtifactAbilityVisualProfile ProductionVisuals() => Theme(SkillVfxElements.Fire.AccentColor)
+        .Signal(ArtifactVisualChannels.CraftStep, productionFlame, .4f,
+            "artifact.production.flame", ArtifactVisualStackPolicy.SinglePerArtifact)
+        .Signal(ArtifactVisualChannels.CraftResult, productionGlow, .52f,
+            "artifact.production.result", ArtifactVisualStackPolicy.SinglePerArtifact);
 
     private static void ConfigureGuardianWardVisuals()
     {

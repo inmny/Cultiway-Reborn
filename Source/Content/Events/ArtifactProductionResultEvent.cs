@@ -1,3 +1,4 @@
+using Cultiway.Content.Artifacts;
 using Cultiway.Core;
 using Friflo.Engine.ECS;
 
@@ -11,6 +12,7 @@ public sealed class ArtifactProductionResultEvent
     public Entity Product { get; }
     public int QualityBonus { get; set; }
     public float YieldMultiplier { get; set; } = 1f;
+    internal ArtifactProductionFeedback Feedback;
 
     public ArtifactProductionResultEvent(
         ActorExtend producer,

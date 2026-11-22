@@ -52,7 +52,19 @@ public static class ArtifactAbilityVisuals
         float duration = 0f,
         ArtifactAbilityEndReason? endReason = null,
         bool resourceDepleted = false,
-        Vector3? contactPoint = null)
+        Vector3? contactPoint = null) =>
+        Queue(execution, ability, runtime, channel, position, direction, target, intensity, duration,
+            endReason, resourceDepleted, contactPoint, null);
+
+    /// <summary>工序反馈随真实半成品结束，已经定型的成品反馈仅按原持续时间退出。</summary>
+    internal static void EmitProduction(ArtifactAbilityExecutionContext execution, ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime, string channel, float intensity, float duration, Entity? craftingProduct) =>
+        Queue(execution, ability, runtime, channel, null, default, null, intensity, duration, null, false, null, craftingProduct);
+
+    private static void Queue(ArtifactAbilityExecutionContext execution, ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime, string channel, Vector3? position, Vector3 direction, BaseSimObject target,
+        float intensity, float duration, ArtifactAbilityEndReason? endReason, bool resourceDepleted, Vector3? contactPoint,
+        Entity? craftingProduct)
     {
         ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
         ArtifactAbilityVisualProfile profile = asset?.visual;
@@ -83,7 +95,8 @@ public static class ArtifactAbilityVisuals
         PendingSignals.Add(new ArtifactVisualSignalRequest(
             context,
             signal,
-            duration > 0f ? duration : signal.duration));
+            duration > 0f ? duration : signal.duration,
+            craftingProduct));
     }
 
     internal static ArtifactAbilityVisualContext CreateLoopContext(
@@ -342,14 +355,17 @@ internal readonly struct ArtifactVisualSignalRequest
     public readonly ArtifactAbilityVisualContext context;
     public readonly ArtifactAbilityVisualSignal signal;
     public readonly float duration;
+    public readonly Entity? crafting_product;
 
     public ArtifactVisualSignalRequest(
         ArtifactAbilityVisualContext context,
         ArtifactAbilityVisualSignal signal,
-        float duration)
+        float duration,
+        Entity? craftingProduct)
     {
         this.context = context;
         this.signal = signal;
         this.duration = duration;
+        crafting_product = craftingProduct;
     }
 }
