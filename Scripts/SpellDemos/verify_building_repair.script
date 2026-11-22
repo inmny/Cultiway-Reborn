@@ -1,0 +1,126 @@
+const string spell = "test.building-repair";
+const string action = "building.repair";
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Actor source = World.world.units.get((long)expected["actor"]);
+City city = source.city;
+var owner = source.GetExtend();
+var contactsForRepair = new List<ConstructedWorldContact>();
+var starts = new List<ConstructedCastStarted>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId == spell && fact.SourceId == source.id) starts.Add(fact);
+}
+void Changed(ConstructedWorldContact fact)
+{
+    if (fact.AbilityId == spell && fact.Action == action && fact.Result.Changed) contactsForRepair.Add(fact);
+}
+
+bool buildEnabled = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += Changed;
+try
+{
+    Check(city != null && city.isAlive(), "复用正式档中的原修士和原城市");
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, spell);
+    if (section == "cold")
+    {
+        Check(process != (int)expected["process"], "由另一实际游戏进程正式读取");
+        WorldTile plot = World.world.GetTileSimple((int)expected["x"], (int)expected["y"]);
+        Building restored = plot.building;
+        int hp = (int)expected["repaired"];
+        Check(restored != null && restored.id == (long)expected["building"] && restored.getHealth() == hp &&
+              restored.asset.id == (string)expected["asset"] && restored.isUsable() &&
+              restored.city == city && city.id == (long)expected["city"], "建筑原编号、修复量、类型和城市保留");
+        Check(source.getHomeBuilding() == restored && restored.residents.Contains(source.id),
+            "原版住房保存内容恢复同一居民与房屋");
+        var choices = new List<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(owner, choices);
+        Check(choices.Contains(handle), "正式读回原修士学过的修缮构造");
+        await Advance(.4f);
+        Check(starts.Count == 0 && contactsForRepair.Count == 0 && restored.getHealth() == hp,
+            "读档和正常推进没有重播修缮");
+        return new { passed = true, process, actor = source.id, city = city.id, building = restored.id,
+            repaired = hp, checks };
+    }
+
+    var asset = AssetManager.buildings.get("house_human_2");
+    WorldTile site = city.zones.SelectMany(zone => zone.tiles)
+        .OrderBy(tile => Math.Abs(tile.x - 73) + Math.Abs(tile.y - 74))
+        .FirstOrDefault(tile => World.world.buildings.canBuildFrom(tile, asset, city, BuildPlacingType.Load));
+    Check(site != null, "复用旧城区可用屋址");
+    Building house = World.world.buildings.addBuilding(asset, site, pCheckForBuild: false);
+    house.setKingdom(city.kingdom);
+    await Advance(.5f);
+    Check(house.current_tile == site && house.isUsable() && !house.isUnderConstruction() &&
+          house.city == city && house.hasResidentSlots(), "原版已建成城内石屋具有住宿槽");
+    int max = house.getMaxHealth();
+    long id = house.id;
+    source.setMana(source.getMaxMana(), false);
+    Place(source, site.x - 3f, site.y + .5f);
+
+    var definition = new AbilityDefinition
+    {
+        Id = spell, Name = "塑石补屋", Resource = "mana", Cost = 3f, Power = 0f,
+        TargetRange = 14f, Cooldown = .1f, Lifetime = .4f,
+        Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point, Channels = ActiveAbilityChannel.World },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact
+        {
+            DamageScale = 0f,
+            WorldEffects = new[] { new ConstructionWorldEffect { Action = action, MaterialVolume = 1f } }
+        },
+        Root = new ConstructionNode { Id = "masonry", Form = "time_weathering_stamp", Matter = "earth",
+            Offset = new[] { 0f, 0f, -.08f }, Scale = 2.75f, Volume = 4f, ActiveFrom = .1f }
+    };
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, spell);
+    async Task Use()
+    {
+        var aim = new ActiveAbilityTarget(null, new Vector3(site.x + .5f, site.y + .5f, 0));
+        Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script), "正式受理同一已学修缮术");
+        await Advance(.65f);
+    }
+
+    await Use();
+    Check(house.getHealth() == max && contactsForRepair.Count == 0 &&
+          endings.Count == 1 && endings[0].Fact.WorldChanges == 0 && !endings[0].Fact.Cancelled,
+        "满额房屋无修缮结果，法术正常结束",
+        new { max, health = house.getHealth(), hits = contactsForRepair.Count, ends = endings.Select(end => end.Fact).ToArray() });
+
+    house.getHit(max / 2, pFlash: false, pSkipIfShake: false);
+    int damaged = house.getHealth();
+    Check(damaged < max && house.isUsable() && house.id == id, "原版受损流程留下同一存活房屋", new { max, damaged });
+    await Use();
+    int repaired = house.getHealth();
+    Check(starts.Count == 2 && endings.Count == 2 && !endings[1].Fact.Cancelled &&
+          endings[1].Fact.WorldChanges == 1 && contactsForRepair.Count == 1,
+        "实际足迹内一座多格房屋只结算一次并自然结束",
+        new { starts = starts.Count, ends = endings.Select(end => end.Fact).ToArray(), hits = contactsForRepair.ToArray() });
+    ConstructedWorldContact result = contactsForRepair[0];
+    Check(result.X == site.x && result.Y == site.y && result.Result.Flags == SkillEffectOutcomeFlags.BuildingRepaired &&
+          result.Result.Magnitude == repaired - damaged && result.MaterialVolume == 1 &&
+          repaired == damaged + Math.Max(1, max / 8) && site.building == house && house.id == id,
+        "根部只使用一份材料并补回实际原版生命", new { damaged, repaired, max, result.MaterialVolume });
+    source.clearHomeBuilding();
+    typeof(City).GetMethod("updateCityStatus", F).Invoke(city, null);
+    new BehFindHouse().execute(source);
+    Check(source.getHomeBuilding() == house && house.residents.Contains(source.id) &&
+          city.status.housing_total >= house.asset.housing_slots,
+        "修后仍可由正常找房任务入住");
+
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "写出正式世界档");
+    return new { passed = true, process, actor = source.id, city = city.id, building = house.id, asset = house.asset.id,
+        x = site.x, y = site.y, max, damaged, repaired, checks };
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= Changed;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildEnabled);
+    Config.paused = true;
+}

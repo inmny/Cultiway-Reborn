@@ -1354,6 +1354,7 @@
   "Cultiway.Construction.NodeWorldTotal": "Part · Maximum total (0: unlimited)",
   "Cultiway.Construction.WorldAction.nature.grow": "Grow vegetation",
   "Cultiway.Construction.WorldAction.nature.repair": "Repair damaged living plants",
+  "Cultiway.Construction.WorldAction.building.repair": "Repair damaged buildings",
   "Cultiway.Construction.WorldAction.nature.wither": "Wither vegetation",
   "Cultiway.Construction.WorldAction.nature.renew": "Renew native vegetation",
   "Cultiway.Construction.WorldAction.building.weather": "Weather stone buildings",
