@@ -1,0 +1,19 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SharedSoulPact",
+  "Name": "同袍替负",
+  "Resource": "mana",
+  "Cost": 9,
+  "Cooldown": 0.45,
+  "Lifetime": 6.5,
+  "Power": 1,
+  "TargetRange": 18,
+  "Use": {"Channels": "World", "Target": "Object"},
+  "Impact": {"Targets": "Friendly", "SelectedTargetOnly": true, "DamageScale": 0},
+  "SoulPact": {"Fraction": 0.75, "Capacity": 110, "AllowOtherBearers": true},
+  "Binding": {"Anchor": "Source", "Follow": true},
+  "Root": {
+    "Id": "seal", "Form": "soul_pact_seal", "Matter": "spirit", "State": "energy", "ContactRole": "Decoration",
+    "Scale": 0.8, "DisappearAt": 0.44
+  }
+}

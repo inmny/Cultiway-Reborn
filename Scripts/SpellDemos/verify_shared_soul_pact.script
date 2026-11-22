@@ -1,0 +1,168 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var legacy = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "legacy.json")));
+var first = Make(64);
+var second = Make(67);
+var receiver = Make(71);
+var enemy = Make(74, "wolf");
+receiver.setKingdom(first.kingdom);
+second.setKingdom(first.kingdom);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SoulPact.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SoulPact.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+var shares = new List<SoulPactShare>();
+void Shared(SoulPactShare share) => shares.Add(share);
+ConstructedAbilityService.SoulPactShared += Shared;
+var pacts = (IDictionary)service.GetField("soulPacts", F).GetValue(null);
+int Bearers() => pacts.Contains(receiver.id) ? ((Array)pacts[receiver.id]).Length : 0;
+bool Near(float firstValue, float secondValue) => Mathf.Abs(firstValue - secondValue) < .01f;
+
+int Strike(Actor target, float damage, bool ignoreProtection = false)
+{
+    int health = target.data.health;
+    var element = ElementComposition.Static.Iron;
+    target.GetExtend().GetHit(damage, ref element, enemy, AttackType.Weapon, ignore_damage_reduction: ignoreProtection,
+        attacker_power_level_override: enemy.GetExtend().GetPowerLevel());
+    return health - target.data.health;
+}
+int Receive() => Strike(receiver, 120f, ignoreProtection: true);
+
+async Task Send(AbilityDefinition input, Actor bearer)
+{
+    bearer.setMana(80);
+    await Fire(input, bearer, receiver, aggro: false);
+    Check(Near(80f - bearer.getMana(), input.Cost), "正式施放只向各自承受者支付一次", new { bearer = bearer.id, balance = bearer.getMana() });
+    bearer.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+}
+bool Reject(AbilityDefinition input, Actor bearer)
+{
+    ConstructedAbilityService.Register(input);
+    ConstructedAbilityService.Learn(bearer.GetExtend(), input.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", bearer.GetExtend().E, input.Id);
+    float before = bearer.getMana();
+    bool accepted = ActiveAbilityService.TryUse(bearer.GetExtend(), handle,
+        new ActiveAbilityTarget(receiver, receiver.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    bearer.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    return !accepted && Near(before, bearer.getMana());
+}
+FormVisualInstance[] Marks() => FormVisualScene.Instances
+    .Where(value => value.Resource.Description.Id == "soul_pact_seal" && value.Tint is { } tint && tint.g != .85f && tint.b > .45f).ToArray();
+
+try
+{
+    var owner = first.GetExtend();
+    var draft = ConstructionEditing.Copy(definition);
+    draft.SoulPact.AllowOtherBearers = false;
+    ConstructedAbilityService.Register(draft);
+    ConstructedAbilityService.Learn(owner, draft.Id);
+    LocalizedTextManager.instance.setLanguage("cz");
+    WindowWanfaConstructionEditor.Open(draft.Id, first);
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    Button Named(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name);
+    Named("Page0").onClick.Invoke();
+    var option = editor.GetComponentsInChildren<Toggle>(false).Single(toggle => toggle.name == "SoulPactAllowOtherBearers");
+    option.isOn = true;
+    var session = (ConstructionEditSession)Field(editor, "session");
+    Check(session.Draft.SoulPact.AllowOtherBearers && Named("Replace").interactable,
+        "真实编辑器打开共同替负，完整构造经编译可正式保存");
+    Named("Replace").onClick.Invoke();
+    session = (ConstructionEditSession)Field(editor, "session");
+    var saved = ConstructionEditing.Access.Read(session.SourceId);
+    Check(saved.SoulPact.AllowOtherBearers && saved.Cost == draft.Cost &&
+        saved.SoulPact.Fraction == definition.SoulPact.Fraction && !JObject.FromObject(legacy).SelectTokens("$..AllowOtherBearers").Any(),
+        "正式保存的开关与原费用、比例一起读回，旧定义省略新增字段");
+    File.WriteAllText(Path.Combine(folder, "edited-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Named("Close").onClick.Invoke();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+
+    foreach (Actor bearer in new[] { first, second })
+    {
+        CombatStatusEffects.ApplyStatus(bearer, mana, 10000, bearer);
+        bearer.setStatsDirty();
+        bearer.updateStats();
+        bearer.setMana(80);
+    }
+    var other = ConstructionEditing.Copy(saved);
+    other.Id = definition.Id + ".Second";
+    other.SoulPact.Fraction = .60f;
+    other.SoulPact.Capacity = 180;
+    int unshared = Receive();
+    Check(unshared == 120 && shares.Count == 0, "同一人物在无联系时实际承担120点");
+    int expectedFirst = Strike(first, 90f);
+    int expectedSecond = Strike(second, 120 - expectedFirst);
+    int expectedOnLoss = Strike(second, 72f);
+    Check(expectedFirst > 0 && expectedSecond > Mathf.Floor((120 - expectedFirst) * other.SoulPact.Fraction) &&
+        expectedOnLoss > 0, "用同一原版伤害取得各承受者实际护甲扣减后的基准",
+        new { expectedFirst, expectedSecond, expectedOnLoss });
+    await Advance(.18f);
+    await Send(saved, first);
+    var repeat = ConstructionEditing.Copy(saved);
+    repeat.Id = definition.Id + ".Repeat";
+    Check(Reject(repeat, first) && Reject(legacy, second) && Bearers() == 1,
+        "同一个人不能用不同构造重复加入，旧独立契约也不挤占新联系，拒绝不收费");
+    await Send(other, second);
+    await Advance(.33f);
+    Check(Bearers() == 2 && Marks().Any(mark => Mathf.Abs(mark.Transform.m03 - 64f) < .3f) &&
+        Marks().Any(mark => Mathf.Abs(mark.Transform.m03 - 67f) < .3f) &&
+        Marks().Count(mark => mark.Tint.Value.g == .93f) == 1,
+        "两个活承受者各有契印，原受护者只显示一枚契印");
+
+    int a0 = first.data.health, b0 = second.data.health;
+    int hit = Receive(), aLoss = a0 - first.data.health, bLoss = b0 - second.data.health;
+    Check(shares.Count == 2 && shares[0].BearerId == first.id && shares[1].BearerId == second.id &&
+        aLoss == expectedFirst && bLoss == expectedSecond && hit + aLoss + bLoss == unshared &&
+        shares[0].Covered == aLoss && shares[1].Covered == bLoss &&
+        shares[0].Remaining == saved.SoulPact.Capacity - aLoss && shares[1].Remaining == other.SoulPact.Capacity - bLoss,
+        "两人按同一原余伤算份额，合计不超过真实来伤", new { hit, aLoss, bLoss, paid = shares.Select(value => value.Covered).ToArray() });
+
+    ConstructedAbilityService.Learn(first.GetExtend(), saved.Id);
+    ConstructedAbilityService.Learn(second.GetExtend(), other.Id);
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    var expected = new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        first = first.id, second = second.id, receiver = receiver.id, enemy = enemy.id,
+        firstId = saved.Id, secondId = other.Id, firstHealth = first.data.health,
+        secondHealth = second.data.health, receiverHealth = receiver.data.health
+    };
+    first.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    second.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.2f);
+
+    first.addStatusEffect("invincible", .26f, pColorEffect: false);
+    a0 = first.data.health;
+    b0 = second.data.health;
+    int immune = Receive();
+    Check(first.hasStatus("invincible") && first.data.health == a0 && b0 - second.data.health == expectedOnLoss &&
+        immune + expectedOnLoss == unshared && Bearers() == 2 && shares.Count == 3 && shares[2].BearerId == second.id &&
+        shares[2].Remaining == shares[1].Remaining - expectedOnLoss, "第一人确实免伤时只扣第二人份额，余量回原目标",
+        new { immune, secondLoss = b0 - second.data.health, remaining = shares.Last().Remaining });
+    await Advance(.39f);
+    Check(!first.hasStatus("invincible"), "原版免伤自然结束");
+    first.dieAndDestroy(AttackType.None);
+    b0 = second.data.health;
+    int inherited = Receive();
+    Check(inherited + expectedOnLoss == unshared && b0 - second.data.health == expectedOnLoss && Bearers() == 1 &&
+        shares.Count == 4 && shares[3].BearerId == second.id && shares[3].Remaining == shares[2].Remaining - expectedOnLoss,
+        "第一人真实死亡只解除该人的关系，未重签或多扣另一人的份额",
+        new { inherited, secondLoss = b0 - second.data.health });
+    await Advance((float)(other.Lifetime - .9f) + .4f);
+    Check(Bearers() == 0 && Marks().Length == 0 && endings.Any(row => row.Fact.AbilityId == other.Id && !row.Fact.Cancelled) &&
+        Receive() == unshared && shares.Count == 4, "原承受关系结束后没有迟到转移，原目标恢复完整扣账");
+
+    await Send(legacy, second);
+    Check(Bearers() == 1 && Reject(other, second), "旧独立契约仍能单独生效");
+    return new { passed = true, expected, unshared, aLoss, bLoss, immune, inherited };
+}
+finally
+{
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    if (editor != null && Field(editor, "session") != null)
+        typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.SoulPactShared -= Shared;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}

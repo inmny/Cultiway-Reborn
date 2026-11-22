@@ -1,0 +1,38 @@
+var original = (JObject)expected["expected"];
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var first = World.world.units.get((long)original["first"]);
+var second = World.world.units.get((long)original["second"]);
+var receiver = World.world.units.get((long)original["receiver"]);
+var enemy = World.world.units.get((long)original["enemy"]);
+string firstId = (string)original["firstId"], secondId = (string)original["secondId"];
+var a = ConstructionEditing.Access.Read(firstId);
+var b = ConstructionEditing.Access.Read(secondId);
+bool Knows(Actor actor, string id) => actor.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(id);
+Check(process != (int)original["process"] && a?.SoulPact?.AllowOtherBearers == true && b?.SoulPact?.AllowOtherBearers == true &&
+    a.SoulPact.Fraction == .75f && b.SoulPact.Fraction == .60f && a.SoulPact.Capacity == 110 && b.SoulPact.Capacity == 180 &&
+    Knows(first, firstId) && Knows(second, secondId) &&
+    first.data.health == (int)original["firstHealth"] && second.data.health == (int)original["secondHealth"] &&
+    receiver.data.health == (int)original["receiverHealth"],
+    "另一进程保留两份正式知识、不同额度及已经付出的生命");
+var pacts = (IDictionary)service.GetField("soulPacts", F).GetValue(null);
+int events = 0;
+void Shared(SoulPactShare share) => events++;
+ConstructedAbilityService.SoulPactShared += Shared;
+try
+{
+    int before = receiver.data.health;
+    var element = ElementComposition.Static.Iron;
+    receiver.GetExtend().GetHit(120f, ref element, enemy, AttackType.Weapon, ignore_damage_reduction: true,
+        attacker_power_level_override: enemy.GetExtend().GetPowerLevel());
+    Check(pacts.Count == 0 && events == 0 && before - receiver.data.health == 120 &&
+        first.data.health == (int)original["firstHealth"] && second.data.health == (int)original["secondHealth"] &&
+        !FormVisualScene.Instances.Any(value => value.Resource.Description.Id == "soul_pact_seal"),
+        "正式冷读后旧临时联系、转移和契印不重放");
+    return new { passed = true, process, originalProcess = (int)original["process"], firstId, secondId };
+}
+finally
+{
+    ConstructedAbilityService.SoulPactShared -= Shared;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
