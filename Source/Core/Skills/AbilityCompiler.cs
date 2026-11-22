@@ -91,6 +91,9 @@ public sealed class CompiledAbility
     /// <summary>受击分担的参数副本；当次契约另存实际余额。</summary>
     internal CompiledSoulPact SoulPact { get; }
 
+    /// <summary>已经冻结的区域或全图条件。</summary>
+    internal CompiledWorldCondition WorldCondition { get; }
+
     /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
     public float ContactForce { get; }
 
@@ -296,6 +299,8 @@ public sealed class CompiledAbility
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
         if (definition.SoulPact != null)
             SoulPact = new CompiledSoulPact(definition.SoulPact, Use.Target, Impact.Targets);
+        if (definition.WorldCondition != null)
+            WorldCondition = new CompiledWorldCondition(definition.WorldCondition);
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.AffectsActors || node.EnclosesActors || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null))

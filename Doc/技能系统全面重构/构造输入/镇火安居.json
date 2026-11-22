@@ -1,0 +1,16 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FireWatch",
+  "Name": "镇火安居",
+  "Resource": "mana",
+  "Cost": 5,
+  "Cooldown": 0.3,
+  "Lifetime": 2.1,
+  "Power": 1,
+  "TargetRange": 18,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Impact": {"DamageScale": 0},
+  "WorldCondition": {"Radius": 4},
+  "Binding": {"Anchor": "Target"},
+  "Root": {"Id": "site", "Form": "pivot", "ContactRole": "Decoration", "DisappearAt": 0.22}
+}

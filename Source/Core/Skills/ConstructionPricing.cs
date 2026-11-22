@@ -95,6 +95,8 @@ public sealed class ConstructionMeasure
         var contactSpreads = new Dictionary<int, double>();
         var onceSpreadChannels = new Dictionary<string, double>(StringComparer.Ordinal);
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
+        if (plan.WorldCondition is { } condition)
+            work += plan.Lifetime * (condition.EntireWorld ? 32d : Math.PI * condition.Radius * condition.Radius * .025d);
         if (plan.Use.SelfStatus is { } selfStatus) work += StatusWork(selfStatus, power, 1d);
         work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body != null)

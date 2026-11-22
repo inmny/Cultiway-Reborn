@@ -82,6 +82,10 @@ public sealed class AbilityDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionSoulPact SoulPact;
 
+    /// <summary>这次正式施放在实际空间中保持的条件。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionWorldCondition WorldCondition;
+
     /// <summary>构造的根部。</summary>
     public ConstructionNode Root;
 

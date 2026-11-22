@@ -3115,3 +3115,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ## 麦田局部生长节奏（11.12）
 
 在独立游戏运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_crop_growth_time.py --archive <11.03城市用术准备目录>`。用原城和原版风车准备两块合法麦田，经正式编辑保存后实际施放 [借时育禾](../../Doc/技能系统全面重构/构造输入/借时育禾.json)。脚本检查原生长秒数和成熟阶段、另一块田的对照进度、真实费用、移除和清空，以及正式世界读回。
+
+## 区域与世界防火条件（11.13）
+
+在独立游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_world_fire_condition.py`。复用现成世界，按原版入口真实点火，用 [镇火安居](../../Doc/技能系统全面重构/构造输入/镇火安居.json) 和 [息焰敕令](../../Doc/技能系统全面重构/构造输入/息焰敕令.json) 验证地块范围、重叠、付费、解除及正式读回。用 `--section source` 单独补验全图条件、来源失效与读回。

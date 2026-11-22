@@ -64,6 +64,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
         InventoryRows();
         SoulPactRows();
+        WorldConditionRows();
         MagnitudeRows();
         if (parts.Count == 0)
         {
