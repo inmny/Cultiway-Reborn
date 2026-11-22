@@ -7,18 +7,24 @@ namespace Cultiway.Content.Skills;
 
 public sealed partial class ConstructedAbilityService
 {
-    /// <summary>原世界冲击和建筑伤害由真实爆发提交一次，共同人物接触随后继续。</summary>
+    /// <summary>原范围的落地词条、世界冲击或建筑伤害由真实爆发提交一次。</summary>
     private static void ConfirmLegacyAreaImpact(RunningCast running)
     {
         LegacyAreaImpact area = running.AreaImpact;
         int node = running.AreaImpactNode;
-        if (area == null || node < 0 || running.WorldScope != null ||
+        if (area == null || node < 0 || running.WorldScope != null && !area.UtilityForce.HasValue ||
             running.Cast.Role(node) == ConstructionContactRole.Decoration ||
             !running.Cast.TryGetActionActivation(node, out Vector3 point)) return;
         running.AreaImpact = null;
         long generation = worldGeneration;
         CastAuthority authority = running.Owner(node);
         Actor attacker = authority.IsLive ? authority.Actor : null;
+        if (area.UtilityForce.HasValue)
+        {
+            if (running.WorldScope?.IsValid() == false || !authority.WorldSource && attacker == null) return;
+            ConfirmUtilityLanding(running, node, area, authority, attacker, point);
+            return;
+        }
         if (area.Element != null)
         {
             SkillGroundFx.ApplyImpact(point, area.Element, area.Radius, true, attacker, true);

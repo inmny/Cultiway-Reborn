@@ -100,7 +100,7 @@ internal static partial class ProjectileConstructionMigration
             goal.Follow = true; goal.Arrival = ConstructionFlightArrival.None;
             goal.Approach = true; goal.Offset = new[] { 0f, 0f, descentHeight };
         }
-        int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
+        int seed = unchecked((int)(emission.Source?.id ?? emission.StepSeed) * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
                              emission.InitialAngleOffsetDegrees.GetHashCode());
         const float orbitEnd = (2.2f - .2f) / 1.8f;
         if (boomerang)

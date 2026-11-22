@@ -180,6 +180,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 {
                     ConfirmLegacyGroundTravel(running, generation);
                     if (generation != worldGeneration) yield break;
+                    ConfirmUtilityGravity(running, generation);
+                    if (generation != worldGeneration) yield break;
                     ConfirmLegacyAreaImpact(running);
                     if (generation != worldGeneration) yield break;
                 }
@@ -629,7 +631,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         int work = 0;
         foreach (RunningCast running in active)
         {
-            if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
+            if (refresh && running.TrackTarget == null && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
                 !changedActors.ContainsKey(running.TargetId) && !changedActors.ContainsKey(running.SpatialSourceId) &&
                 !(running.WeaponConstraint?.Active == true &&
                   changedActors.ContainsKey(running.WeaponConstraint.Owner.SourceId))) continue;
@@ -648,7 +650,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.LastSourceFoot = foot;
             running.LastSourceHeight = height;
             running.InitialOwner.LastFoot = foot;
-            if (running.Target?.data?.id == running.TargetId && running.Target.isAlive() &&
+            if (running.TrackTarget != null)
+            {
+                Vector3 target = running.TrackTarget();
+                target.z += terrain?.Sample(target.x, target.y) ?? 0f;
+                running.LastTargetFoot = running.LastTarget = target;
+            }
+            else if (running.Target?.data?.id == running.TargetId && running.Target.isAlive() &&
                 running.Target.hasHealth() &&
                 actorIndices.TryGetValue(running.TargetId, out int targetIndex))
             {
@@ -1500,7 +1508,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
                 return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         }
-        ApplyContactExchange(running.Owner(node), target, impact.Exchange, result, strength);
+        CastAuthority exchangeOwner = running.Owner(node);
+        ApplyContactExchange(exchangeOwner.IsLive ? exchangeOwner.Actor : null, target, impact.Exchange, result, strength);
         if (generation != worldGeneration || target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f, damage: settled);
         CompiledConstructionContactOutcome outcome = SelectContactOutcome(impact.RandomContact, result);

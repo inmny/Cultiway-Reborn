@@ -2995,3 +2995,41 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 设施来源连续实录（10.12）
 
 在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/record_facility_sources.py --archive 保存阶段的输出目录 --case array`。参数 `--case` 也可选 `sect` 或 `node`。每段从同一正式文件进入，输出原帧、实际时间、结算和单段录像。
+
+### 世界来源的功能法术（10.13 A1）
+
+在原版独立游戏运行 `dev.py exec --timeout 120 -- python3 Scripts/SpellDemos/verify_utility_world_source.py`。可用 `--section terrain` 单独复验抬地延时、范围和实际建筑保护，或用 `--section field` 复验净土并存、任务失效和再次施放。脚本读入现成世界，并记录实际发射的归属、费用读数、地块结果和结束情况。
+
+### 功能法术的落地状态（10.13 A2a）
+
+在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_status.py`。可用 `--section landing` 只检查正式蓝图学习、六种状态、地块、阵营与范围、逐发扣费及再次施放，也可用 `--section field` 只检查持续净土的地块周期与对象条件。
+
+`--section damage` 检查燃烧、中毒、长时诅咒和燃尽。使用同一世界和人物，核对逐发强度、真实受击、原建筑保护、周期扣血、有限毒层和结束后再用。
+
+`--section motion` 检查实际击退及落地、施法载体换位和回生、空中条件及两种位移组合。`--section carrier` 或 `--section combo` 可单独复验代施或组合。
+
+`--section affixes` 检查随机附加、爆炸、终焉及轮回。`--section branches` 只复验范围伤害、地面元素、生命阈值、代施身体的反噬和恢复，沿用相同的已学抬地入口和测试世界。
+
+### 功能法术的移动领域（10.13 A2c1）
+
+在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_motion.py`。可用 `--section advance` 单独检查起步、巡航、逐发混沌和再用，用 `--section vortex` 检查世界来源的涡旋与实际净化。用 `--section follow` 或 `--section building` 分别检查人物跟随及建筑落点，包括移除目标后回到原坐标继续净化。场景沿用正式旧发射队列和现成地图。
+
+`--section gravity` 检查跟随净土与瞬时抬地的实际引力、成形时点、敌我范围、落地恢复和再次发射。
+
+### 功能术的万法阁试放（10.13 B1）
+
+在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_preview.py`。用真实编辑按钮选人，检查无目标时返回草稿、实际净化、运行中等待和结束后再次试放。输出同一草稿的返回截图及试放前后的法力、学习和使用记录。
+
+### 功能术的正式存读（10.13 B2）
+
+用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_utility_archive.py --case prepare --legacy 历史交付目录` 读入带有 `restart-expected.json` 和 `save/map.wbox` 的原功能术存档。脚本从恢复的实际容器写书及导入万法阁，然后保存正式世界。
+
+退出并重启同一独立环境，使用 `--case cold --archive 准备阶段的输出目录`。脚本核对正式存档校验值、旧词条、全局蓝图、书籍与阅读，实际再次施放时记录逐发扣费并再次存读。两段都加载世界副本。
+
+### 原功能术的城市工程（10.13 C1）
+
+运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --archive 正式存读准备目录`。同一城市检查原候选、自然认领、两发结束时点、实际足迹、失效停止及重新认领。可用 `--section eligibility` 或 `--section work` 分开验证。工作阶段保存进行中的实际城市任务。
+
+### 城市工程冷读录像（10.13 C2）
+
+用上一个入口加 `--section capture` 可只保存刚开始、仍未实际净化的任务。退出该游戏后，在原版与 Worldfall 的独立游戏分别运行 `dev.py exec --timeout 250 -- python3 Scripts/SpellDemos/record_utility_city.py --work 城市工程输出目录 --view native`，Worldfall 将视角参数改为 `--view worldfall`。两段读同一份正式存档的副本，输出真实世界时间、工作结果和对应录像。

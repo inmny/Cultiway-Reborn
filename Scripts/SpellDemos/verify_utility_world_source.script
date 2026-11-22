@@ -1,0 +1,215 @@
+// 世界事件通过正式无施法者序列使用原功能容器。
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Cultiway.Content;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Components.Skill;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+using UnityEngine;
+
+var checks = new List<string>();
+void Check(bool passed, string message)
+{
+    if (!passed) throw new InvalidOperationException(message);
+    checks.Add(message);
+    Log.Info(message);
+}
+
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+async Task Advance(float seconds)
+{
+    double until = World.world.getCurWorldTime() + seconds;
+    Config.paused = false;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600);
+    Config.paused = true;
+    await Boundary();
+}
+
+Config.paused = true;
+Game.Resume();
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+string fixture = __UTILITY_WORLD_FIXTURE__;
+string section = __UTILITY_WORLD_SECTION__;
+if (!File.Exists(Path.Combine(fixture, "map.wbox"))) throw new FileNotFoundException(fixture);
+World.world.save_manager.loadWorld(fixture);
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+await Boundary();
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(60, 72), pAdultAge: true, pSpawnWithItems: false);
+var owner = actor.GetExtend();
+var stats = new BaseStats { ["mana"] = 2000 };
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.UtilityWorld.Hold") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UtilityWorld.Hold").SetStats(stats).SetDuration(1000).Build();
+CombatStatusEffects.ApplyStatus(actor, hold, 1000, actor);
+owner.AddComponent(new Xian { level = 2, wakan = 500 });
+actor.setStatsDirty();
+actor.updateStats();
+
+var manager = Cultiway.ModClass.I.SkillV3;
+Entity raise = new SkillContainerBuilder(SkillEntities.RaiseTerrain).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+Entity field = new SkillContainerBuilder(SkillEntities.CleanLandField).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+var fieldBuilder = new SkillContainerBuilder(field);
+fieldBuilder.SetModifier(new CleanLandModifier { Duration = 2.2f });
+fieldBuilder.Build(SkillContainerBuildMode.RuleOnly);
+owner.LearnSkillV3(field);
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var contacts = new List<ConstructedWorldContact>();
+var legacy = new List<string>();
+var charges = new List<object>();
+bool charged = false;
+var constructionEmission = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+SkillEmissionResult ObserveEmission(SkillEmission emission)
+{
+    if (!emission.Sourceless || emission.RuntimeData.CorrelationId < 101301 || emission.RuntimeData.CorrelationId > 101304)
+        return constructionEmission(emission);
+    int before = actor.getMana();
+    SkillEmissionResult result = constructionEmission(emission);
+    int after = actor.getMana();
+    charged |= after != before;
+    charges.Add(new { emission.RuntimeData.CorrelationId, before, after });
+    return result;
+}
+
+void Started(ConstructedCastStarted cast) => starts.Add(cast);
+void Ended(ConstructedCastEnded cast) => ends.Add(cast);
+void Contact(ConstructedWorldContact contact) => contacts.Add(contact);
+void Legacy(Entity execution)
+{
+    var correlation = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
+    if (correlation >= 101301 && correlation <= 101304) legacy.Add(execution.GetComponent<SkillEntity>().Asset.id);
+}
+
+Entity Emit(Entity skill, long correlation, ConstructionWorldScope scope, params SkillCastStep[] steps)
+{
+    var plan = new SkillCastPlan();
+    plan.Steps.AddRange(steps);
+    int before = actor.getMana();
+    Entity sequence = manager.StartSourcelessSkillSequence(owner, skill, plan, 1f, 4f, runtime_data: new SkillCastRuntimeData
+    {
+        Origin = ActiveAbilityUseOrigin.Script,
+        CorrelationId = correlation,
+        WorldScope = scope
+    });
+    charged |= actor.getMana() != before;
+    return sequence;
+}
+
+var point = new Vector3(68, 72, 0);
+var birth = new Vector3(60, 72, 0);
+WorldTile Tile(int x, int y = 72) => World.world.GetTileSimple(x, y);
+SkillCastStep At(int x, float delay = 0) => SkillCastStep.FromSource(birth, null, new Vector3(x, point.y, 0), delay);
+void Pollute(WorldTile tile)
+{
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.heat = 50;
+    tile.burned_stages = 2;
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Ended;
+ConstructedAbilityService.WorldContactConfirmed += Contact;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
+Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = ObserveEmission;
+try
+{
+    actor.setMana(900, false);
+    if (section != "field")
+    {
+        for (int y = 67; y <= 77; ++y)
+        for (int x = 63; x <= 73; ++x)
+        {
+            Tile(x, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        }
+        var original = Tile(68).main_type;
+        var limit = new ConstructionWorldScope(() => true, (_, tile) => tile.pos.x != 69);
+        double queuedAt = World.world.getCurWorldTime();
+        Check(!Emit(raise, 101301, limit, At(68, .4f)).IsNull, "无施法者原序列接受明确落点和延时");
+        await Advance(.2f);
+        Check(starts.Count == 0 && Tile(68).main_type == original, "到实际发射时点前不启动或修改地块");
+        await Advance(1.6f);
+        var terrainCast = starts.Single(cast => cast.CorrelationId == 101301);
+        var raised = contacts.Where(hit => hit.CastId == terrainCast.CastId && hit.Result.Changed).ToArray();
+        Check(terrainCast.SourceId == 0 && terrainCast.Origin == ActiveAbilityUseOrigin.Script &&
+            terrainCast.WorldTime >= queuedAt + .35, "调度人物未成为来源，仍保留关联、来源方式和发射延时");
+        var expected = new HashSet<(int x, int y)>();
+        for (int y = 70; y <= 74; ++y)
+        for (int x = 66; x <= 70; ++x)
+        {
+            if (x != 69 && (x - 68) * (x - 68) + (y - 72) * (y - 72) <= 4 && !Tile(x, y).hasBuilding())
+                expected.Add((x, y));
+        }
+        Check(expected.Count > 0 && raised.Length == expected.Count && expected.SetEquals(raised.Select(hit => (hit.X, hit.Y))) &&
+            raised.All(hit => hit.OwnerId == 0 && hit.SourceId == 0 && Tile(hit.X, hit.Y).main_type != original) &&
+            Tile(69).main_type == original && Tile(71).main_type == original &&
+            Tile(68, 73).hasBuilding() && Tile(68, 73).main_type == original,
+            "抬地保留原两格范围、任务边界及地上建筑，无人物成长倍率");
+        Check(ends.Any(cast => cast.CastId == terrainCast.CastId), "瞬时步骤自然结束");
+    }
+
+    if (section != "terrain")
+    {
+        foreach (int x in new[] { 68, 73, 78 }) Pollute(Tile(x));
+        bool valid = true;
+        var scope = new ConstructionWorldScope(() => valid, (_, tile) => tile.pos.y == 72 &&
+            (tile.pos.x == 68 || tile.pos.x == 73 || tile.pos.x == 78));
+        Check(!Emit(field, 101302, scope, At(68), At(73, .1f), At(78, .2f)).IsNull,
+            "同一旧容器从三个世界坐标发射持续区域");
+        await Advance(1.2f);
+        var fields = starts.Where(cast => cast.CorrelationId == 101302).ToArray();
+        Check(fields.Length == 3 && ends.Any(cast => cast.CastId == fields[0].CastId && cast.Cancelled) &&
+            fields.Skip(1).All(cast => !ends.Any(end => end.CastId == cast.CastId)), "同容器第三次发射只替换最早的实例");
+        var cleared = contacts.Where(hit => fields.Any(cast => cast.CastId == hit.CastId) && hit.Result.Changed).ToArray();
+        Check(cleared.Any(hit => hit.X == 73) && cleared.Any(hit => hit.X == 78) && cleared.All(hit => hit.X != 68),
+            "留下的两处区域在自己的落点净土，已替换处没有首次净土结果");
+
+        Pollute(Tile(73));
+        valid = false;
+        Check(Emit(field, 101303, scope, At(73)).IsNull, "已经失效的任务不能开始新步骤");
+        int beforeInvalidation = contacts.Count;
+        await Advance(.7f);
+        Check(contacts.Count == beforeInvalidation && fields.All(cast => ends.Any(end => end.CastId == cast.CastId)) &&
+            Tile(73).burned_stages > 0, "运行中的任务失效后也停止净土并退出");
+
+        var newScope = new ConstructionWorldScope(() => true, (_, tile) => tile == Tile(73));
+        Check(!Emit(field, 101304, newScope, At(73)).IsNull, "有效新任务可以再次使用原容器");
+        await Advance(3.2f);
+        var repeated = starts.Single(cast => cast.CorrelationId == 101304);
+        Check(contacts.Any(hit => hit.CastId == repeated.CastId && hit.Result.Changed && hit.X == 73) &&
+            ends.Any(end => end.CastId == repeated.CastId && !end.Cancelled), "再次使用按原周期兑现并自然结束");
+    }
+    Check(!charged && charges.Count == starts.Count && charges.Count > 0, "排队和逐次实际发射均不扣调度人物法力");
+    Check(legacy.Count == 0, "同批世界步骤没有另建旧执行体");
+    return new { passed = true, section, checks, starts, ends, contacts, charges, legacy };
+}
+finally
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = constructionEmission;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.WorldContactConfirmed -= Contact;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
+    SkillBlueprintCompiler.Recycle(raise);
+    owner.ForgetSkillV3(field);
+    SkillBlueprintCompiler.Recycle(field);
+}

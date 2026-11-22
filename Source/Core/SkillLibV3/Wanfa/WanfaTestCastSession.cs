@@ -1,4 +1,6 @@
+using System;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
@@ -13,20 +15,23 @@ internal static class WanfaTestCastSession
     {
         None,
         SelectingCaster,
-        WaitingForRecycle
+        WaitingForExecution
     }
 
     private static readonly SkillBlueprintCompiler Compiler = new();
     private static SkillBlueprint _draft;
-    private static Entity _trackedSkillEntity;
+    private static Func<bool> _isExecutionActive;
     private static SessionState _state;
     public static bool IsActive => _state == SessionState.SelectingCaster;
+
+    /// <summary>内容可接管已经迁移的试放，并提供同一次执行的实际结束状态。</summary>
+    internal static Func<SkillEmission, Action<Func<bool>>, SkillEmissionResult> ConstructionPreview;
 
     public static void Enter(SkillBlueprint draft, PowerButton grantButton)
     {
         WanfaGrantSession.Clear();
         _draft = draft.DeepClone();
-        _trackedSkillEntity = default;
+        _isExecutionActive = null;
         _state = SessionState.SelectingCaster;
         PowerButtonSelector.instance.unselectAll();
         PowerButtonSelector.instance.clickPowerButton(grantButton);
@@ -55,12 +60,39 @@ internal static class WanfaTestCastSession
             return false;
         }
 
-        _trackedSkillEntity = ModClass.I.SkillV3.SpawnSkill(compiled.Container, actor, target,
-            SkillContext.DefaultStrength,
-            power_level: actor.GetExtend().GetPowerLevel());
+        float power = actor.GetExtend().GetPowerLevel();
+        BaseSimObject carrier = Manager.ResolveSpatialSource(actor);
+        Func<bool> active = null;
+        var result = ConstructionPreview?.Invoke(new SkillEmission
+        {
+            SkillContainer = compiled.Container,
+            Source = actor,
+            SpatialSource = carrier,
+            SourcePos = carrier.GetSimPos(),
+            Target = target,
+            TargetPos = target.GetSimPos(),
+            Strength = SkillContext.DefaultStrength,
+            PowerLevel = power,
+            RuntimeData = new SkillCastRuntimeData { Origin = ActiveAbilityUseOrigin.Player }
+        }, isActive => active = isActive) ?? SkillEmissionResult.Unhandled;
+        if (result == SkillEmissionResult.Unhandled)
+        {
+            Entity execution = ModClass.I.SkillV3.SpawnSkill(compiled.Container, actor, target,
+                SkillContext.DefaultStrength, power_level: power);
+            if (!execution.IsNull) active = () => !execution.IsNull;
+        }
+        if (active == null || result == SkillEmissionResult.Rejected)
+        {
+            SkillBlueprintCompiler.Recycle(compiled.Container);
+            WorldTip.showNow("Cultiway.Wanfa.UI.Tip.TestUnavailable".Localize(), false, "top", 3f);
+            FinishSelection();
+            return false;
+        }
+
+        _isExecutionActive = active;
         WanfaPavilionService.Instance.TrackTestContainer(compiled.Container);
         _draft = null;
-        _state = SessionState.WaitingForRecycle;
+        _state = SessionState.WaitingForExecution;
         PowerButtonSelector.instance.unselectAll();
         FocusCamera(target);
         return true;
@@ -74,9 +106,9 @@ internal static class WanfaTestCastSession
             return;
         }
 
-        if (_state == SessionState.WaitingForRecycle && _trackedSkillEntity.IsNull)
+        if (_state == SessionState.WaitingForExecution && !_isExecutionActive())
         {
-            _trackedSkillEntity = default;
+            _isExecutionActive = null;
             _state = SessionState.None;
             WanfaPavilionService.Instance.CompleteTestCast();
         }
@@ -85,7 +117,7 @@ internal static class WanfaTestCastSession
     public static void Clear(bool resumeEditor)
     {
         _draft = null;
-        _trackedSkillEntity = default;
+        _isExecutionActive = null;
         _state = SessionState.None;
         if (resumeEditor) WanfaPavilionService.Instance.CompleteTestCast();
     }
@@ -112,7 +144,7 @@ internal static class WanfaTestCastSession
     private static void FinishSelection(bool unselectPower = true)
     {
         _draft = null;
-        _trackedSkillEntity = default;
+        _isExecutionActive = null;
         _state = SessionState.None;
         if (unselectPower) PowerButtonSelector.instance.unselectAll();
         WanfaPavilionService.Instance.CompleteTestCast();

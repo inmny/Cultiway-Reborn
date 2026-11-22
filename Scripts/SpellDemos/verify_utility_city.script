@@ -1,0 +1,180 @@
+// 用正式存档已有的城市和技能验证旧入口，实际规划、认领和施放由城市自己执行。
+Actor caster = World.world.units.get(sourceId);
+var owner = caster.GetExtend();
+City city = caster.city;
+Check(city != null && city.isAlive() && owner.HasCultisys<Magic>(), "复用旧档保留的城市与会用法术的人物");
+var assembly = typeof(ConstructedAbilityService).Assembly;
+var learnedMethod = typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F);
+var learned = (IReadOnlyList<Entity>)learnedMethod.Invoke(owner, null);
+Entity Learned(SkillEntityAsset asset) => learned.First(skill => skill.GetComponent<SkillContainer>().Asset == asset);
+var resolver = assembly.GetType("Cultiway.Content.CollectiveProjects.MagicUtilitySpellResolver");
+var choose = resolver.GetMethod("TryCreateOption", F);
+bool Option(SkillEntityAsset asset, SemanticAsset effect)
+{
+    var args = new object[] { owner, new ActiveAbilityHandle("core.learned_skill", Learned(asset)), effect, null };
+    return (bool)choose.Invoke(null, args);
+}
+
+caster.setMana(caster.getMaxMana(), false);
+if (section is "eligibility" or "all")
+{
+    Check(Option(SkillEntities.CleanLandField, SkillSemantics.Effect.Cleanse),
+        "应急与常规净化共用原净土候选");
+    Check(Option(SkillEntities.NatureGrowthField, SkillSemantics.Effect.Growth),
+        "植被工程仍读取原生长术");
+    Check(Option(SkillEntities.Fertilize, SkillSemantics.Effect.Fertilize),
+        "催熟工程仍读取原麦田术");
+    Check(Option(SkillEntities.RaiseTerrain, SkillSemantics.Effect.RaiseTerrain) &&
+        Option(SkillEntities.LowerTerrain, SkillSemantics.Effect.LowerTerrain) &&
+        Option(SkillEntities.DrainWater, SkillSemantics.Effect.DrainWater),
+        "住房与农地工程仍可选择对应的地形法术");
+    Check(!Option(SkillEntities.FillWater, SkillSemantics.Effect.FillWater) &&
+        !Option(SkillEntities.SummonRainCloud, SkillSemantics.Effect.Cleanse),
+        "原候选仍阻止注水及用雨云代替净化");
+}
+if (section == "eligibility") return new { passed = true, section, checks };
+
+Entity prior = Learned(SkillEntities.CleanLandField);
+var exported = new SkillBlueprintExporter().Export(prior);
+Check(exported.Success, "现有净土可进入原蓝图改造");
+var combo = SkillModifiers.Combo.CreateDefaultSpec();
+combo.Parameters[nameof(ComboModifier.SalvoBonus)] = "1";
+exported.Blueprint.Modifiers.Add(combo);
+var compiled = new SkillBlueprintCompiler().Compile(exported.Blueprint, SkillBlueprintCompileMode.Runtime);
+Check(compiled.Success && SkillOwnershipService.Replace(owner, prior, compiled.Container) == SkillOwnershipResult.Replaced,
+    "实际已学入口采用合法的两发词条改造");
+
+Place(caster, 60.5f, 72.5f);
+int row = 75;
+for (int x = 60; x <= 74; x++)
+for (int y = 68; y <= 80; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.heat = 0;
+    tile.burned_stages = 0;
+}
+void Pollute()
+{
+    int nearby = section == "capture" ? 2 : 0;
+    for (int x = 63; x <= 71; x++)
+    for (int y = row - nearby; y <= row + nearby; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.wasteland_low);
+        tile.setBurnedStage(15);
+        World.world.burned_layer.setTileDirty(tile);
+    }
+    caster.setMana(caster.getMaxMana(), false);
+}
+
+var captureType = assembly.GetType("Cultiway.Content.Persistence.CollectiveProjectSaveContent");
+JObject Pack(object value) => (JObject)captureType.GetMethod("Capture", F).Invoke(null, new[] { value });
+JObject Projects() => JObject.FromObject(typeof(CollectiveProjectService).GetMethod("CaptureWorldSave", F)
+    .Invoke(null, new object[] { (Func<object, JObject>)Pack }));
+int Completions() => Projects()["History"].Count(h => (long)h["OwnerId"] == city.id && (string)h["Tag"] == "clean.emergency");
+int CleaningHistory() => Projects()["History"].Count(h => (long)h["OwnerId"] == city.id &&
+    (string)h["Tag"] is "clean.emergency" or "clean.routine");
+var starts = new List<ConstructedCastStarted>();
+var worldHits = new List<ConstructedWorldContact>();
+var ends = new List<(ConstructedCastEnded Event, string State)>();
+var projectIds = new Dictionary<long, long>();
+var footprints = new Dictionary<long, HashSet<int>>();
+var executorType = assembly.GetType("Cultiway.Content.CollectiveProjects.MagicUtilityProjectExecutor");
+var pendingProjects = (IDictionary)executorType.GetField("PendingByActor", F).GetValue(null);
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != SkillEntities.CleanLandField.id || fact.SourceId != sourceId ||
+        fact.Origin != ActiveAbilityUseOrigin.Autonomous || fact.CorrelationId <= 0) return;
+    object pending = pendingProjects[sourceId];
+    if (pending != null && (long)pending.GetType().GetProperty("ExecutionToken").GetValue(pending) == fact.CorrelationId)
+    {
+        projectIds[fact.CorrelationId] = (long)pending.GetType().GetProperty("ProjectId").GetValue(pending);
+        footprints[fact.CorrelationId] = (HashSet<int>)Field(pending, "Footprint");
+    }
+    starts.Add(fact);
+}
+void FinishedCityCast(ConstructedCastEnded fact)
+{
+    if (!starts.Any(start => start.CastId == fact.CastId)) return;
+    string state = projectIds.TryGetValue(fact.CorrelationId, out long projectId) &&
+                   CollectiveProjectService.TryGetProject(projectId, out var project)
+        ? project.State.ToString() : "released";
+    ends.Add((fact, state));
+}
+void WorldHit(ConstructedWorldContact fact)
+{
+    if (fact.Result.Changed && starts.Any(start => start.CastId == fact.CastId)) worldHits.Add(fact);
+}
+
+async Task Until(Func<bool> condition, int seconds)
+{
+    for (int i = 0; i < seconds * 4 && !condition(); i++) await Advance(.25f);
+}
+bool buildWasEnabled = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += FinishedCityCast;
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+try
+{
+    int history = Completions();
+    Pollute();
+    await Until(() => starts.Count > 0, 20);
+    Check(starts.Count > 0 && projectIds.TryGetValue(starts[0].CorrelationId, out long _) &&
+        footprints[starts[0].CorrelationId].Count > 0,
+        "真正自主认领并启动旧净土，任务已冻结实际足迹", Projects());
+    long initial = starts[0].CorrelationId;
+    long originalProject = projectIds[initial];
+    Check(CollectiveProjectService.TryGetProject(originalProject, out var working) &&
+        working.State == CollectiveProjectState.Executing, "保存时真实城市项目仍在执行");
+    Check(worldHits.Count == 0 && Pack(working.Payload)["ConfirmedWorldChange"]?.Value<bool>() == false,
+        "正式存档记录尚未产生任何实际净化");
+    int historyAtSave = CleaningHistory();
+    string archive = Path.Combine(folder, "work-save");
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "保存进行中的真实城市需求");
+    if (section == "capture")
+        return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = sourceId,
+            city = city.id, archive, project = originalProject, formerCorrelation = initial, historyAtSave,
+            targetTile = working.TargetTileId, checks };
+    await Until(() => Completions() > history, 18);
+    var completed = ends.Where(end => end.Event.CorrelationId == initial).ToArray();
+    var hits = worldHits.Where(hit => starts.Any(start => start.CastId == hit.CastId && start.CorrelationId == initial)).ToArray();
+    Check(starts.Count(start => start.CorrelationId == initial) == 2 && completed.Length == 2 &&
+        completed[0].State == "Executing" && completed[1].State == "Verifying",
+        "先结束的一发仍处于执行，末发真实结束才进入验收", completed.Select(end => end.State).ToArray());
+    Check(Completions() > history && hits.Length > 0 && hits.All(hit =>
+        footprints[initial].Contains(World.world.GetTileSimple(hit.X, hit.Y).tile_id)),
+        "只以冻结足迹内的实际净化兑现城市收益");
+
+    int accounted = starts.Count;
+    Pollute();
+    await Until(() => starts.Count > accounted, 20);
+    Check(starts.Count > accounted, "新的实际污染产生下一次城市工作");
+    long invalid = starts[accounted].CorrelationId;
+    long invalidProject = projectIds[invalid];
+    var invalidCasts = new HashSet<long>(starts.Where(start => start.CorrelationId == invalid).Select(start => start.CastId));
+    int before = worldHits.Count(hit => invalidCasts.Contains(hit.CastId));
+    Check(CollectiveProjectService.TryFailExecution(invalidProject, invalid, true), "在实际施放中取消对应工程令牌");
+    await Advance(.35f);
+    Check(!starts.Skip(accounted).Any(start => start.CorrelationId == invalid && !invalidCasts.Contains(start.CastId)) &&
+        worldHits.Count(hit => invalidCasts.Contains(hit.CastId)) == before,
+        "任务失效后不会继续发射或修改该次足迹");
+    history = Completions();
+    await Until(() => Completions() > history, 25);
+    Check(starts.Skip(accounted).Any(start => start.CorrelationId != invalid) && Completions() > history,
+        "仍有需求时城市可重新认领，实际完成恢复后的工程");
+
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = sourceId,
+        city = city.id, archive, project = originalProject, formerCorrelation = initial,
+        targetTile = working.TargetTileId, historyAtSave, states = completed.Select(end => end.State).ToArray(), checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= FinishedCityCast;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildWasEnabled);
+}

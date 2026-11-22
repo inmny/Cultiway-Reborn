@@ -184,8 +184,10 @@ public sealed partial class ConstructedAbilityService
                 if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, shape.To.Node, shape.To.Shape, rule, tile)) continue;
                 AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
                 bool pulse = rule.Contact.Mode == ConstructionContactMode.Pulse;
-                if (pulse && (!shape.Continuous || endpointOnly) && earliest < 1f - .000001f) continue;
-                if (!shape.Continuous || endpointOnly) earliest = 1;
+                // 外部跟随在本步采集时已跳到真实目标，前后形状相同。周期可在步内到点，不扫过转移空隙。
+                bool endpoint = endpointOnly || !shape.Continuous && !(pulse && running.TrackTarget != null);
+                if (pulse && endpoint && earliest < 1f - .000001f) continue;
+                if (endpoint) earliest = 1;
                 AbilityCapsule start = Slice(shape.From, shape.To, earliest);
                 if (!AbilityPairSweep.Find(start, pulse ? start : shape.To, surface, surface, out float at,
                         out Vector3 point, out Vector3 normal)) continue;

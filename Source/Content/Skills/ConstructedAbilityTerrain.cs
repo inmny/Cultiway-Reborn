@@ -47,7 +47,7 @@ public sealed partial class ConstructedAbilityService
         foreach (RunningCast running in casts)
         {
             Include(running.LastSourceFoot);
-            Include(running.LastTargetFoot);
+            Include(running.TrackTarget?.Invoke() ?? running.LastTargetFoot);
             if (running.Cast.Plan.HasPropagation)
             {
                 float range = running.Cast.Plan.EventOperations.Where(operation => operation.Propagation != null)

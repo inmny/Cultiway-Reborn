@@ -1,0 +1,137 @@
+// 通过实际编辑按钮和选人入口试放功能术，检查界面返回和原草稿。
+Actor source = Make(64);
+Actor target = Make(68, "wolf");
+Kingdom hostile = target.kingdom;
+var owner = source.GetExtend();
+foreach (Actor actor in World.world.units.units_only_alive.ToArray())
+    if (actor != source) actor.setKingdom(source.kingdom);
+target.setKingdom(source.kingdom);
+var manaSource = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.UtilityPreview.Mana") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UtilityPreview.Mana")
+        .SetStats(new BaseStats { ["mana"] = 500f }).SetDuration(1000).Build();
+CombatStatusEffects.ApplyStatus(source, manaSource, 1000, source);
+owner.NewCultisys(Cultisyses.Magic);
+owner.GetCultisys<Magic>().level = 1;
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+
+var builder = new SkillContainerBuilder(SkillEntities.CleanLandField).UseAnimation(0);
+builder.AddModifier(new CleanLandModifier { Duration = 1.6f });
+Entity original = builder.Build(SkillContainerBuildMode.RuleOnly);
+var exported = new SkillBlueprintExporter().Export(original);
+SkillBlueprintCompiler.Recycle(original);
+Check(exported.Success, "从真实功能容器导出草稿");
+SkillBlueprint draft = exported.Blueprint;
+string signature = SkillBlueprintSignature.Build(draft);
+await Advance(.2f);
+
+World.world.console.Hide();
+foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+WindowWanfaSkillEditor.Open(draft, false);
+var editor = (MonoBehaviour)typeof(WindowWanfaSkillEditor).GetField("_instance", F).GetValue(null);
+await Game.WaitUntil(() => editor.gameObject.activeInHierarchy, 300);
+await Game.NextFrame();
+var test = (Button)Field(editor, "_testCastButton");
+Check(test.isActiveAndEnabled && test.interactable, "实际编辑窗口的试放按钮可用");
+
+var starts = new List<ConstructedCastStarted>();
+var ends = new List<ConstructedCastEnded>();
+var worldContacts = new List<ConstructedWorldContact>();
+int legacy = 0, returns = 0;
+var pavilion = WanfaPavilionService.Instance;
+void Started(ConstructedCastStarted cast)
+{
+    if (cast.SourceId == source.id && cast.AbilityId == SkillEntities.CleanLandField.id) starts.Add(cast);
+}
+void FinishedPreview(ConstructedCastEnded cast)
+{
+    if (starts.Any(initial => initial.CastId == cast.CastId)) ends.Add(cast);
+}
+void Contact(ConstructedWorldContact hit)
+{
+    if (starts.Any(initial => initial.CastId == hit.CastId) && hit.Result.Changed) worldContacts.Add(hit);
+}
+void Legacy(Entity execution)
+{
+    var context = execution.GetComponent<SkillContext>();
+    if (context.SourceObj == source && execution.GetComponent<SkillEntity>().Asset == SkillEntities.CleanLandField)
+        legacy++;
+}
+int Learned() => ((IReadOnlyList<Entity>)owner.GetType().GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null)).Count;
+int Uses() => owner.E.TryGetComponent(out ConstructedUseHistory history) ? history.Uses : 0;
+void Returned() => returns++;
+async Task SelectSource()
+{
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    test.onClick.Invoke();
+    await Game.WaitUntil(() => !editor.gameObject.activeInHierarchy && !ScrollWindow.isAnimationActive(), 300);
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += FinishedPreview;
+ConstructedAbilityService.WorldContactConfirmed += Contact;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
+pavilion.TestCastCompleted += Returned;
+try
+{
+    string power = Cultiway.WorldboxGame.GodPowers.WanfaGrant.id;
+    var grant = typeof(WanfaPavilionService).Assembly.GetType("Cultiway.Core.SkillLibV3.Wanfa.WanfaGrantSession");
+    var select = grant.GetMethod("TrySpawnBrush", F);
+    bool PressSource() => (bool)select.Invoke(null, new object[] { source.current_tile, power });
+    await SelectSource();
+    var session = grant.Assembly.GetType("Cultiway.Core.SkillLibV3.Wanfa.WanfaTestCastSession");
+    Check((bool)session.GetProperty("IsActive", F).GetValue(null) && ActionLibrary.getActorFromTile(source.current_tile) == source,
+        "地图试放选择已开启，原选人方法能读到指定人物",
+        new { selected = ActionLibrary.getActorFromTile(source.current_tile)?.id, source.id, returns });
+    bool missing = !PressSource();
+    Check(missing && starts.Count == 0 && returns == 1,
+        "没有敌对目标时不会创建施放并请求返回", new { returns, animation = ScrollWindow.isAnimationActive() });
+    await Game.WaitUntil(() => editor.gameObject.activeInHierarchy, 300);
+    Check(returns == 1 && SkillBlueprintSignature.Build((SkillBlueprint)Field(editor, "_draft")) == signature,
+        "无目标时返回原编辑内容");
+
+    target.setKingdom(hostile);
+    Check(source.kingdom.isEnemy(target.kingdom) && World.world.units.units_only_alive.Contains(target),
+        "原选人入口有明确敌对目标");
+    WorldTile tile = World.world.GetTileSimple(68, 72);
+    int learning = Learned(), uses = Uses();
+    for (int i = 1; i <= 2; i++)
+    {
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.heat = 50;
+        tile.burned_stages = 2;
+        await SelectSource();
+        source.setMana(250, false);
+        int mana = source.getMana();
+        bool accepted = PressSource();
+        Check(mana > 0 && accepted, "从实际窗口和原地图选人受理功能术试放",
+            new { mana, maximum = source.getMaxMana(), accepted, starts = starts.Count, returns });
+        Check(starts.Count == i && source.getMana() == mana && Learned() == learning && Uses() == uses,
+            "一次共同施放由玩家发起，无收费、学习或使用记录", new { mana, uses });
+        var cast = starts[i - 1];
+        await Advance(.7f);
+        Check(cast.Origin == ActiveAbilityUseOrigin.Player && worldContacts.Any(hit => hit.CastId == cast.CastId && hit.X == 68 && hit.Y == 72) &&
+            tile.heat == 0 && ends.Count == i - 1 && !editor.gameObject.activeInHierarchy && returns == i,
+            "真实净化已经发生，领域仍在运行，编辑窗口继续等待");
+        Config.paused = false;
+        await Game.WaitUntil(() => ends.Count == i && editor.gameObject.activeInHierarchy, 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Check(ends.Count == i && returns == i + 1 &&
+            SkillBlueprintSignature.Build((SkillBlueprint)Field(editor, "_draft")) == signature,
+            "实际运行结束后回到同一草稿，可继续试放");
+    }
+    Check(legacy == 0, "功能术试放只由共同执行提交");
+    for (int frame = 0; frame < 12; frame++) await Game.NextFrame();
+    string screenshot = Screen.Capture(Path.Combine(folder, "试放后回到原草稿.png"));
+    return new { passed = true, screenshot, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= FinishedPreview;
+    ConstructedAbilityService.WorldContactConfirmed -= Contact;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
+    pavilion.TestCastCompleted -= Returned;
+}
