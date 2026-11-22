@@ -41,6 +41,8 @@ internal sealed class MagicUtilityProjectContent : ICanInit
             DefaultPriority = priority,
             Validate = CityMagicUtilityProjectRules.Validate,
             Verify = CityMagicUtilityProjectRules.Verify,
+            AdvanceVerifiedStage = id == CityMagicUtilityProjectIds.RoutineClean ? CityDistrictPlan.Advance : null,
+            RetainsPlan = id == CityMagicUtilityProjectIds.RoutineClean ? CityDistrictPlan.HasDistricts : null,
             RatePolicy = rateLimited
                 ? new CollectiveProjectRatePolicy
                 {

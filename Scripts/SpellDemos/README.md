@@ -3119,3 +3119,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ## 区域与世界防火条件（11.13）
 
 在独立游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_world_fire_condition.py`。复用现成世界，按原版入口真实点火，用 [镇火安居](../../Doc/技能系统全面重构/构造输入/镇火安居.json) 和 [息焰敕令](../../Doc/技能系统全面重构/构造输入/息焰敕令.json) 验证地块范围、重叠、付费、解除及正式读回。用 `--section source` 单独补验全图条件、来源失效与读回。
+
+## 城市分区净化工程（11.14）
+
+在独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_city_district_cleanup.py --archive <11.03城市用术准备目录>`。沿用原城、真实篝火和原工人，只准备两个有污染的分区。复验原任务的两次付费、断开与重新接通、源点移除、原档读回和完成历史。见[城市分区净化工程](../../Doc/技能系统全面重构/城市分区净化工程.md)。
