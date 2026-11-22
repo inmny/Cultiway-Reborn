@@ -3007,3 +3007,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section damage` 检查燃烧、中毒、长时诅咒和燃尽。使用同一世界和人物，核对逐发强度、真实受击、原建筑保护、周期扣血、有限毒层和结束后再用。
 
 `--section motion` 检查实际击退及落地、施法载体换位和回生、空中条件及两种位移组合。`--section carrier` 或 `--section combo` 可单独复验代施或组合。
+
+`--section affixes` 检查随机附加、爆炸、终焉及轮回。`--section branches` 只复验范围伤害、地面元素、生命阈值、代施身体的反噬和恢复，沿用相同的已学抬地入口和测试世界。

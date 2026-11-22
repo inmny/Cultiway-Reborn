@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
@@ -215,11 +214,11 @@ internal static class UtilityConstructionMigration
         if (instantPulse && container.OnEffectObj != null)
         {
             float effectScale = emission.RuntimeData.ResolveEffectScale();
-            landingImpact = ContactEffectMigration.UtilityLanding(skill, effectScale);
+            landingImpact = ContactEffectMigration.UtilityLanding(skill, effectScale, caster, out UtilityLandingStep[] steps);
             if (landingImpact != null)
             {
                 landingAt = formation;
-                if (landingImpact.AdditionalDamage.Length > 0 || landingImpact.Exchange != null || landingImpact.Knockback != null)
+                if (steps.Length > 0)
                 {
                     // 先按原占位处理地块，再提交可能改变占位的作用。
                     landingAt += TerrainPulseWindow + .001f;
@@ -232,9 +231,9 @@ internal static class UtilityConstructionMigration
                 if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
                 if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
                 if (skill.TryGetComponent(out MercyModifier mercy)) strength *= Mathf.Clamp(mercy.DamageMultiplier, .05f, 1f);
-                bool swapFirst = landingImpact.Exchange != null && landingImpact.Knockback != null &&
-                    skill.GetComponentTypes().First(type => type == typeof(SwapModifier) || type == typeof(KnockbackModifier)) == typeof(SwapModifier);
-                landing = LegacyAreaImpact.ForUtility(radius, strength * effectScale, swapFirst);
+                var element = landingImpact.Spreads.Length > 0 || skill.HasComponent<ReincarnationTrialModifier>()
+                    ? ModClass.I.SkillV3.ResolveGroundEffectElement(skill, emission.RuntimeData) : null;
+                landing = LegacyAreaImpact.ForUtility(radius, strength * effectScale, element, steps);
             }
         }
 

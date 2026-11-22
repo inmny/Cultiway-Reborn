@@ -17,7 +17,7 @@ internal static partial class ContactEffectMigration
     /// <summary>已经完整接管的原接触附加词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
     internal static bool Supports(Type type) => SupportsUtilityLanding(type) ||
-        type == typeof(ChaosModifier) || type == typeof(GravityModifier) || type == typeof(RandomAffixModifier) || type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
+        type == typeof(ChaosModifier) || type == typeof(GravityModifier);
 
     /// <summary>可在原地面冲击中使用同一份状态与伤害资料的词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
@@ -25,7 +25,8 @@ internal static partial class ContactEffectMigration
         type == typeof(DazeModifier) || type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) ||
         type == typeof(SilenceModifier) || type == typeof(BurnModifier) || type == typeof(PoisonModifier) ||
         type == typeof(EternalCurseModifier) || type == typeof(BurnoutModifier) || type == typeof(KnockbackModifier) ||
-        type == typeof(SwapModifier) || type == typeof(MercyModifier);
+        type == typeof(SwapModifier) || type == typeof(MercyModifier) || type == typeof(RandomAffixModifier) ||
+        type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -119,27 +120,49 @@ internal static partial class ContactEffectMigration
         return statuses;
     }
 
-    /// <summary>功能术只提交明确的落地词条，燃烧与燃尽按原容器顺序刷新。</summary>
+    /// <summary>按原容器顺序展开会改变位置、生命或世界的词条，并保留原状态刷新顺序。</summary>
     /// <param name="skill">原容器。</param><param name="effectScale">本次固定效果倍率。</param>
-    internal static ConstructionImpact UtilityLanding(Entity skill, float effectScale)
+    /// <param name="caster">决定爆炸原范围成长的实际施法者。</param><param name="steps">本次落地的实际执行顺序。</param>
+    internal static ConstructionImpact UtilityLanding(Entity skill, float effectScale, Core.ActorExtend caster,
+        out UtilityLandingStep[] steps)
     {
         List<ConstructionStatus> statuses = ControlStatuses(skill, effectScale);
         var damage = new List<ConstructionContactDamage>();
-        foreach (Type type in skill.GetComponentTypes())
-        {
-            if (type == typeof(BurnoutModifier)) AddBurnout(skill, 1f, statuses, damage);
-            else AddDamageStatus(skill, type, effectScale, 1f, statuses);
-        }
+        var order = new List<UtilityLandingStep>();
         ConstructionKnockback knockback = LandingKnockback(skill, effectScale);
         ConstructionExchange exchange = LandingExchange(skill, effectScale);
         float healing = MercyHealing(skill);
-        return statuses.Count == 0 && damage.Count == 0 && knockback == null && exchange == null && healing <= 0f ? null : new ConstructionImpact
+        ConstructionRandomContact random = RandomContact(skill, effectScale, 1f);
+        ConstructionConditionalContact[] conditional = ConditionalContacts(skill, effectScale, 1f, statuses);
+        ConstructionContactSpread[] spreads = ContactSpreads(skill, caster, 1f);
+        foreach (Type type in skill.GetComponentTypes())
+        {
+            if (type == typeof(BurnoutModifier))
+            {
+                AddBurnout(skill, 1f, statuses, damage);
+                if (damage.Count > 0) order.Add(UtilityLandingStep.AdditionalDamage);
+            }
+            else if (type == typeof(KnockbackModifier) && knockback != null) order.Add(UtilityLandingStep.Knockback);
+            else if (type == typeof(SwapModifier) && exchange != null) order.Add(UtilityLandingStep.Exchange);
+            else if (type == typeof(MercyModifier) && healing > 0f) order.Add(UtilityLandingStep.Restoration);
+            else if (type == typeof(RandomAffixModifier) && random != null) order.Add(UtilityLandingStep.Random);
+            else if (type == typeof(ExplosionModifier) && spreads.Length > 0) order.Add(UtilityLandingStep.Explosion);
+            else if (type == typeof(DeathSentenceModifier)) order.Add(UtilityLandingStep.DeathSentence);
+            else if (type == typeof(ReincarnationTrialModifier) && Array.Exists(conditional, rule => rule.OnKill != null))
+                order.Add(UtilityLandingStep.ReincarnationTrial);
+            else AddDamageStatus(skill, type, effectScale, 1f, statuses);
+        }
+        steps = order.ToArray();
+        return statuses.Count == 0 && steps.Length == 0 ? null : new ConstructionImpact
         {
             DamageScale = 0f,
             Statuses = statuses.ToArray(),
             AdditionalDamage = damage.ToArray(),
             Knockback = knockback,
             Exchange = exchange,
+            RandomContact = random,
+            ConditionalContacts = conditional,
+            Spreads = spreads,
             Restoration = healing > 0f ? new ConstructionRestoration
             {
                 Target = ConstructionRestorationTarget.Controller,

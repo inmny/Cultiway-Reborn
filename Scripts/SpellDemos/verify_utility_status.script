@@ -31,7 +31,7 @@ var ended = new List<ConstructedCastEnded>();
 var legacy = new List<long>();
 var payment = new List<object>();
 var owned = new List<Entity>();
-bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101332;
+bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101338;
 int Count(Actor actor) => effects.Count(effect => CombatStatusEffects.HasStatus(actor, effect, source));
 void Started(ConstructedCastStarted cast)
 {
@@ -86,13 +86,14 @@ void Add(SkillBlueprint blueprint, SkillModifierAsset modifier, params (string k
     blueprint.Modifiers.Add(spec);
 }
 
-bool Use(Entity skill, long correlation, Actor carrier = null, float effectScale = .75f)
+bool Use(Entity skill, long correlation, Actor carrier = null, float effectScale = .75f, ElementComposition? element = null)
 {
     source.setMana(source.getMaxMana(), false);
     var context = new SkillCasterContext(owner, (carrier ?? source).GetExtend());
     using var scope = SkillCasterContextService.Enter(in context);
     return ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
-        new ActiveAbilityTarget(null, point, runtimeData: new SkillCastRuntimeData { CorrelationId = correlation, EffectScale = effectScale }),
+        new ActiveAbilityTarget(null, point, runtimeData: new SkillCastRuntimeData { CorrelationId = correlation, EffectScale = effectScale,
+            HasElementOverride = element.HasValue, ElementOverride = element.GetValueOrDefault() }),
         ActiveAbilityUseOrigin.Script);
 }
 
@@ -347,6 +348,119 @@ try
             (swapFirst ? enemy.current_position.x < 65 && enemy.position_height > 0 : enemy.current_tile.pos.x == 65),
             "两种位移按原容器顺序提交，归还旧运动后不把目标拉回", new { swapFirst, enemy.under_forces,
                 x = enemy.current_position.x, height = enemy.position_height, carrierTile = ally.current_tile.pos.x });
+    }
+
+    if (section is "affixes" or "branches" or "all")
+    {
+        if (section != "branches")
+        {
+            Entity random = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+                Add(blueprint, SkillModifiers.RandomAffix, ("Chance", "1"), ("EffectPower", "1")));
+            AllowMovement(enemy);
+            Place(enemy, 69);
+            enemy.position_height = 0;
+            var randomStates = new[] { StatusEffects.Daze, StatusEffects.Burn, StatusEffects.Poison, StatusEffects.ArmorBreak };
+            foreach (var state in randomStates) CombatStatusEffects.RemoveStatus(enemy, state);
+            enemy.setHealth(enemy.getMaxHealth());
+            int beforeRandom = enemy.getHealth();
+            await CastAffix(random, 101333);
+            var selected = randomStates.Where(state => CombatStatusEffects.HasStatus(enemy, state, source)).Select(state => state.id).ToArray();
+            bool direct = enemy.getHealth() < beforeRandom, knocked = enemy.under_forces;
+            Check(selected.Length + (direct ? 1 : 0) + (knocked ? 1 : 0) == 1,
+                "一次真实落地只落实一个随机候选", new { selected, direct, knocked });
+            foreach (var state in randomStates) CombatStatusEffects.RemoveStatus(enemy, state);
+            if (knocked)
+            {
+                Config.setWorldSpeed("x5", false);
+                try { for (int i = 0; i < 24 && enemy.under_forces; ++i) await Advance(.3f); }
+                finally { Config.setWorldSpeed("x1", false); }
+                Check(!enemy.under_forces && enemy.position_height <= .001f, "随机击退真实结束后允许重新布置");
+            }
+        }
+
+        Entity explosion = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+        {
+            Add(blueprint, SkillModifiers.Explosion, ("Radius", "2"), ("DamageRatio", "0.4"));
+            Add(blueprint, SkillModifiers.Daze, ("Duration", "1"));
+        });
+        float radius = SkillEffectRadius.ResolveForCaster(owner, explosion, 2f);
+        float center = point.x + radius * .7f;
+        Place(enemy, center);
+        Place(outside, point.x + radius + .2f);
+        Place(ally, outside.current_position.x);
+        Place(wolf, center + radius + .6f);
+        enemy.position_height = outside.position_height = ally.position_height = wolf.position_height = 0;
+        WorldTile burstTile = World.world.GetTileSimple(Mathf.CeilToInt(point.x + radius), 72);
+        burstTile.setTileTypes(TileLibrary.sand, null);
+        Check(burstTile.Type == TileLibrary.sand, "准备原落地范围外的真实沙地", burstTile.pos.x);
+        var resolved = new List<(long Id, float Amount)>();
+        Action<ActorExtend, BaseSimObject, float, ElementComposition, AttackType> observe = (receiver, attacker, amount, _, _) =>
+        {
+            if (attacker == source && amount > 0f) resolved.Add((receiver.Base.id, amount));
+        };
+        var observers = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
+        ActorExtend.RegisterActionOnDamageResolved(observe);
+        try { await CastAffix(explosion, 101334, element: ElementComposition.Static.Earth); }
+        finally { observers.SetValue(null, Delegate.Remove((Delegate)observers.GetValue(null), observe)); }
+        Check(resolved.Any(hit => hit.Id == outside.id) && !resolved.Any(hit => hit.Id == ally.id || hit.Id == wolf.id) &&
+            CombatStatusEffects.HasStatus(enemy, StatusEffects.Daze, source) && !CombatStatusEffects.HasStatus(outside, StatusEffects.Daze, source),
+            "爆炸传给落地范围外的附近敌人，保留阵营与边界，硬直仍只在原对象上",
+            new { radius, center, resolved = resolved.Select(hit => new { hit.Id, hit.Amount }).ToArray() });
+        Check(burstTile.main_type == TileLibrary.soil_low, "爆炸真实地面元素在原落地范围外把沙地变成土壤",
+            new { burstTile.pos.x, tileType = burstTile.main_type.id });
+        CombatStatusEffects.RemoveStatus(enemy, StatusEffects.Daze);
+
+        Entity trial = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+            Add(blueprint, SkillModifiers.ReincarnationTrial, ("DamageRatio", "0.6"), ("BacklashRatio", "0.4"), ("HealRatio", "0.25")));
+        for (int y = 69; y <= 75; ++y)
+        for (int x = 65; x <= 71; ++x)
+            World.world.GetTileSimple(x, y).building?.setKingdom(source.kingdom);
+        Place(enemy, 69);
+        Place(outside, 77);
+        Place(ally, 65.3f);
+        enemy.setHealth(enemy.getMaxHealth());
+        int trialTarget = enemy.getHealth();
+        SetCarrierHealth();
+        int ownerHealth = source.getHealth(), carrierHealth = ally.getHealth();
+        await CastAffix(trial, 101335, ally);
+        Check(enemy.isAlive() && enemy.getHealth() < trialTarget && ally.getHealth() < carrierHealth && source.getHealth() == ownerHealth,
+            "轮回高生命分支使目标受伤，反噬归实际代施身体", new { before = carrierHealth, after = ally.getHealth() });
+        enemy.setHealth(20);
+        SetCarrierHealth();
+        ownerHealth = source.getHealth();
+        carrierHealth = ally.getHealth();
+        await CastAffix(trial, 101336, ally);
+        Check(ally.getHealth() == carrierHealth + 15 && source.getHealth() == ownerHealth,
+            "轮回低生命分支按原每发量给实际载体恢复十五点", new { before = carrierHealth, after = ally.getHealth() });
+
+        Entity sentence = Learn(SkillEntities.RaiseTerrain, field: false, configure: blueprint =>
+            Add(blueprint, SkillModifiers.DeathSentence, ("ExecuteHealthRatio", "0.2"), ("BonusDamageRatio", "0.25")));
+        if (!enemy.isRekt() && enemy.isAlive()) Place(enemy, 79);
+        Place(outside, 69);
+        outside.setHealth(outside.getMaxHealth());
+        int beforeSentence = outside.getHealth();
+        await CastAffix(sentence, 101337);
+        Check(outside.isAlive() && outside.getHealth() < beforeSentence && CombatStatusEffects.HasStatus(outside, StatusEffects.DeathSentence, source),
+            "终焉高于阈值时施加标记和有限伤害");
+        outside.setHealth(20);
+        await CastAffix(sentence, 101338);
+        Check(outside.isRekt() || !outside.isAlive() || outside.getHealth() <= 0, "终焉低于阈值时实际完成斩杀");
+
+        async Task CastAffix(Entity ability, long correlation, Actor carrier = null, ElementComposition? element = null)
+        {
+            tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+            Check(Use(ability, correlation, carrier, 1f, element), "已学抬地的落地词条实际排队", correlation);
+            await Advance(.25f);
+            var cast = starts.Single(item => item.CorrelationId == correlation);
+            Check(results.Any(hit => hit.CastId == cast.CastId && hit.Action == "terrain.raise" && hit.Result.Changed),
+                "每次实际附加作用仍保留同次地块结果", correlation);
+        }
+
+        void SetCarrierHealth()
+        {
+            source.setHealth(source.getMaxHealth() - 200);
+            ally.setHealth(ally.getMaxHealth() - 200);
+        }
     }
 
     Check(legacy.Count == 0 && payment.Count == starts.Count, "实际发射全部走共同执行且没有旧实体");
