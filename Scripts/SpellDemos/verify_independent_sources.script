@@ -158,6 +158,50 @@ try
         Check(YuanshenNodeLockService.TryResolve(manifestation, out var projected) &&
             projected.GetComponent<YuanshenAdvancedNodeState>().support_only, "聚焦实际显圣节点");
         float away = point.x + (point.x < MapBox.width - 8f ? 6f : -6f);
+        if (section == "advanced-returns")
+        {
+            bool Command(string entry) => ActiveAbilityService.TryUse(owner,
+                new ActiveAbilityHandle("content.yuanshen_advanced", owner.E, entry),
+                new ActiveAbilityTarget(null, (Vector3)point), ActiveAbilityUseOrigin.Script);
+
+            Check(YuanshenAnchorNetworkService.TryGetAuthorizedAtPoint(owner, point, out _, out Entity anchor) &&
+                anchor.GetComponent<YuanshenAnchorState>().current_load > 0f &&
+                Command("return_manifest"), "正式回收正在占用原香火位的实际显圣");
+            await Advance(.3f);
+            Check(!YuanshenNodeLockService.TryResolve(manifestation, out _) &&
+                anchor.GetComponent<YuanshenAnchorState>().current_load == 0,
+                "实际显圣归返，释放原香火位及节点");
+
+            Cultivation().wakan = 9900f;
+            Check(Command("prepare_avatar"), "实际原锚点可以启动化身准备");
+            await Advance(.65f);
+            float afterPreparation = Balance();
+            Check(owner.GetComponent<YuanshenAvatarPreparationState>().paid_wakan > 0f &&
+                Command("cancel_avatar") && !owner.HasComponent<YuanshenAvatarPreparationState>() &&
+                Balance() == afterPreparation, "正式取消保留已经支付的费用并停止准备");
+            Check(Command("prepare_avatar"), "可以从原锚点正式重新准备");
+            Config.setWorldSpeed("x5", false);
+            for (int period = 0; period < 5 && owner.HasComponent<YuanshenAvatarPreparationState>(); period++)
+            {
+                Cultivation().wakan = 9900f;
+                await Advance(13f);
+            }
+            Config.setWorldSpeed("x1", false);
+            Check(YuanshenAdvancedNodeService.CountRole(owner, YuanshenNodeRole.Avatar) == 1 &&
+                anchor.GetComponent<YuanshenAnchorState>().current_load > 0f &&
+                !owner.HasComponent<YuanshenAvatarPreparationState>(),
+                "真实世界循环从原锚点完成唯一化身");
+            var finished = owner.GetComponent<YuanshenRuntimeState>().advanced_nodes.Single();
+            Place(body, away, point.y);
+            float beforeReturn = Balance();
+            Check(Command("return_avatar") && Balance() == beforeReturn, "正式回收实际化身");
+            await Advance(3f);
+            Check(!YuanshenNodeLockService.TryResolve(finished, out _) &&
+                anchor.GetComponent<YuanshenAnchorState>().current_load == 0 &&
+                !YuanshenThoughtService.TryGetFocused(owner, out _, out _),
+                "化身回收后原香火位和聚焦释放");
+            return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+        }
         Place(body, away, point.y);
         Vector2 near = point + new Vector2(1f, 0f);
         Place(enemy, near.x, near.y);

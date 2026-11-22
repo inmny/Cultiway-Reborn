@@ -1,0 +1,216 @@
+Actor patient = Make(64.5f);
+ActorExtend owner = patient.GetExtend();
+var library = Cultiway.Content.Libraries.Manager.ElixirLibrary;
+var atoms = Cultiway.Content.Libraries.Manager.ElixirEffectAtomLibrary.list.ToArray();
+
+ElixirRecipeDefinition Recipe(ElixirEffectAtomAsset atom, string variant,
+    Func<ElixirEffectComposition, bool> accept)
+{
+    var affinities = atom.semantic_affinities.Select(affinity => affinity.semantic).Distinct().ToArray();
+    var profiles = new List<SemanticContribution[]>
+    {
+        atom.semantic_affinities.Select(affinity =>
+            new SemanticContribution(affinity.semantic, affinity.weight / 6f)).ToArray()
+    };
+    profiles.AddRange(affinities.Select(semantic => new[] { new SemanticContribution(semantic) }));
+    foreach (var first in affinities)
+    foreach (var second in affinities)
+    {
+        if (first != second)
+            profiles.Add(new[] { new SemanticContribution(first), new SemanticContribution(second, .25f) });
+    }
+
+    foreach (var profile in profiles)
+    foreach (int stage in new[] { atom.minimum_quality_stage, Math.Max(1, atom.minimum_quality_stage), 3 }.Distinct())
+    {
+        var context = new ElixirRecipeContext { ingredient_count = 1, quality_stage = stage, semantics = profile };
+        // Skip semantic combinations that could not place this atom, even with a near tie.
+        float score = atom.ScoreFor(context);
+        int count = stage == 0 ? 1 : stage < 3 ? 2 : 3;
+        if (score <= 0f || atoms.Count(other => other.ScoreFor(context) > score + .01f) >= count) continue;
+        for (int seed = 1; seed <= 12; seed++)
+        {
+            var sample = new ElixirAsset { composition_seed = seed, recipe_context = context };
+            if (!accept(ElixirEffectComposer.Compose(sample))) continue;
+            return new ElixirRecipeDefinition
+            {
+                AssetId = "Cultiway.Verify.Elixir." + atom.effect_key + "." + variant,
+                Ingredients = new[]
+                {
+                    new ElixirIngredientRequirement
+                    {
+                        minimum_quality_stage = stage,
+                        semantics = profile.Select(value => new ElixirSemanticRequirement(
+                            Cultiway.ModClass.L.SemanticLibrary.get(value.semantic_id), value.strength)).ToArray(),
+                        required_semantics = atom.required_semantics
+                    }
+                },
+                Context = context,
+                Seed = seed
+            };
+        }
+    }
+
+    return null;
+}
+
+Entity Pill(ElixirAsset asset, float dose, ActorExtend holder = null)
+{
+    Entity item = SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime())
+        .AddComponent(new Elixir { elixir_id = asset.id, value = dose }).Build();
+    (holder ?? owner).AddSpecialItem(item);
+    return item;
+}
+
+Entity Status(ActorExtend holder, ElixirAsset asset) => holder.GetStatuses()
+    .SingleOrDefault(item => item.GetComponent<StatusComponent>().id == asset.id);
+
+bool Close(float a, float b) => Mathf.Abs(a - b) <= .015f;
+void CheckDose(ElixirAsset asset, ElixirEffectComposition effect, float dose)
+{
+    Entity pill = Pill(asset, dose);
+    Check(owner.TryConsumeElixir(pill) && pill.IsNull, "实际药品消耗一次 " + asset.id);
+    Entity status = Status(owner, asset);
+    var actual = status.GetComponent<StatusComponent>().Type.stats;
+    float multiplier = Mathf.Log(dose + 1f) + 1f;
+    Check(effect.StatusStats.Count > 0 && effect.StatusStats.All(value => Close(actual[value.Key], value.Value)) &&
+          Close(status.GetComponent<AliveTimeLimit>().value, 60f * multiplier) &&
+          Close(status.GetComponent<StatusStatsMultiplier>().Value, multiplier),
+        "实际人物状态持有对应原子的属性和剂量 " + asset.id,
+        new { dose, actual = effect.StatusStats, multiplier });
+}
+
+ElixirAsset Register(ElixirEffectAtomAsset atom, ElixirEffectType type)
+{
+    var recipe = Recipe(atom, type.ToString(), effect => effect.EffectType == type && effect.Atoms[0] == atom);
+    Check(recipe != null, "指定效果由原丹方规则自然选中 " + atom.id + " " + type);
+    return library.GetOrAddDefinition(recipe, out _);
+}
+
+if (section == "elixir-atoms")
+{
+    var results = new Dictionary<string, object>();
+    var missing = new List<string>();
+    foreach (var atom in atoms.Where(atom => atom.effect_mode == ElixirAtomEffectMode.Adaptive))
+    {
+        var recipe = Recipe(atom, "status", effect => effect.EffectType == ElixirEffectType.StatusGain &&
+            effect.Atoms.Contains(atom));
+        if (recipe == null)
+        {
+            missing.Add(atom.id);
+            continue;
+        }
+
+        var asset = library.GetOrAddDefinition(recipe, out _);
+        var effect = ElixirEffectComposer.Compose(asset);
+        CheckDose(asset, effect, 1f);
+        results[atom.id] = new { recipe = asset.id, recipe.Seed, recipe.Context,
+            atoms = effect.Atoms.Select(part => part.id).ToArray(), effect.StatusStats };
+        CombatStatusEffects.RemoveStatus(patient, Status(owner, asset).GetComponent<StatusComponent>().Type);
+    }
+
+    File.WriteAllText(Path.Combine(folder, "atoms.json"),
+        JsonConvert.SerializeObject(new { results, missing }, Formatting.Indented));
+    Check(missing.Count == 0, "普通药性均能由正式组合和服用获得", missing.ToArray());
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, checks };
+}
+
+var body = Register(ElixirEffectAtoms.Body, ElixirEffectType.StatusGain);
+var bodyEffect = ElixirEffectComposer.Compose(body);
+patient.removeTrait("super_health");
+patient.updateStats();
+int baseHealth = patient.getMaxHealth();
+CheckDose(body, bodyEffect, 3f);
+patient.updateStats();
+Check(patient.getMaxHealth() > baseHealth, "淬体药效改变人物实际生命上限");
+
+var attribute = Register(ElixirEffectAtoms.Body, ElixirEffectType.DataGain);
+var compound = ElixirEffectComposer.Compose(attribute);
+for (int use = 0; use < 3; use++)
+{
+    Entity item = Pill(attribute, 1f);
+    Check(owner.TryConsumeElixir(item) && item.IsNull, "永久淬体实际服用 " + (use + 1));
+}
+float permanent = owner.GetComponent<PermanentStats>().Stats["health"];
+Check(Close(permanent, compound.DataAttributes["health"] * 3f * (1f + Mathf.Log(2f))),
+    "三剂永久属性按实际剂量叠加", permanent);
+Entity aboveLimit = Pill(attribute, 1f);
+Check(!owner.TryConsumeElixir(aboveLimit) && !aboveLimit.IsNull, "第四剂超过叠加上限且保留原物");
+
+var mind = Register(ElixirEffectAtoms.Mind, ElixirEffectType.DataGain);
+patient.removeTrait(ActorTraits.OpenSource.id);
+Entity firstMind = Pill(mind, 2f), secondMind = Pill(mind, 2f);
+Check(owner.TryConsumeElixir(firstMind) && firstMind.IsNull && patient.hasTrait(ActorTraits.OpenSource.id),
+    "明心丹首次赋予真实特质");
+float mindBefore = owner.GetComponent<PermanentStats>().Stats["intelligence"];
+Check(owner.TryConsumeElixir(secondMind) && secondMind.IsNull &&
+      owner.GetComponent<PermanentStats>().Stats["intelligence"] > mindBefore,
+    "已有特质时第二剂进入永久属性");
+
+var open = Register(ElixirEffectAtoms.RootOpening, ElixirEffectType.DataGain);
+owner.E.RemoveComponent<ElementRoot>();
+Entity firstRoot = Pill(open, 1f), secondRoot = Pill(open, 1f);
+Check(owner.TryConsumeElixir(firstRoot) && firstRoot.IsNull && owner.HasElementRoot() &&
+      !owner.TryConsumeElixir(secondRoot) && !secondRoot.IsNull, "初次开灵成功，已有灵根则保留下一剂");
+
+var polish = Register(ElixirEffectAtoms.Jindan, ElixirEffectType.DataGain);
+Entity jinPill = Pill(polish, 1f);
+Check(!owner.TryConsumeElixir(jinPill) && !jinPill.IsNull, "未成金丹时保留原温养丹");
+owner.AddComponent(new Xian { level = XianLevels.Jindan, wakan = 0f });
+owner.AddComponent(new Jindan { formation = new CoreFormationSnapshot { strength = 1f } });
+Check(owner.TryConsumeElixir(jinPill) && jinPill.IsNull && owner.GetComponent<Jindan>().stage == 1 &&
+      Close(owner.GetComponent<Jindan>().strength, 1f + Mathf.Log(2f)),
+    "原温养丹在合格境界提高一转和实际强度");
+
+var restore = Register(ElixirEffectAtoms.WakanRestore, ElixirEffectType.Restore);
+owner.MarkCultiwayStatsDirty();
+patient.updateStats();
+float cap = patient.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
+owner.GetComponent<Xian>().wakan = cap * .25f;
+float Wakan() => owner.GetComponent<Xian>().wakan;
+float before = Wakan();
+Entity smallDose = Pill(restore, cap * .10f);
+Check(owner.TryConsumeElixir(smallDose) && smallDose.IsNull && Close(Wakan(), before + cap * .10f),
+    "补气丹按原剂量恢复真元", new { before, after = Wakan(), cap });
+Entity largeDose = Pill(restore, cap);
+Check(owner.TryConsumeElixir(largeDose) && largeDose.IsNull && Close(Wakan(), cap),
+    "超出余量的药效止于原真元恢复上限");
+Entity remaining = Pill(restore, cap * .10f);
+Check(!owner.TryConsumeElixir(remaining) && !remaining.IsNull, "已到恢复上限时保留原剂");
+
+long actorId = patient.id;
+var active = Status(owner, body);
+active.GetComponent<AliveTimer>().value = active.GetComponent<AliveTimeLimit>().value - .5f;
+float remainingTime = active.GetComponent<AliveTimeLimit>().value - active.GetComponent<AliveTimer>().value;
+string archive = Path.Combine(folder, "archive");
+var saved = SaveManager.saveWorldToDirectory(archive);
+Check(saved.actors_data.Any(actor => actor.id == actorId), "正式地图写入服药人物");
+File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+{
+    process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = actorId,
+    max = patient.stats[BaseStatses.MaxWakan.id], cap, dose = remaining.GetComponent<Elixir>().value,
+    remaining = remainingTime, health = permanent, intelligence = owner.GetComponent<PermanentStats>().Stats["intelligence"]
+}, Formatting.Indented));
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+Actor restored = World.world.units.get(actorId);
+ActorExtend restoredOwner = restored.GetExtend();
+var restoredStatus = Status(restoredOwner, body);
+float readTime = restoredStatus.IsNull ? 0f : restoredStatus.GetComponent<AliveTimeLimit>().value -
+    restoredStatus.GetComponent<AliveTimer>().value;
+Check(!restoredStatus.IsNull && readTime >= remainingTime - .1f && readTime <= remainingTime &&
+      Close(restoredOwner.GetComponent<PermanentStats>().Stats["health"], permanent) &&
+      restored.hasTrait(ActorTraits.OpenSource.id) && restoredOwner.HasElementRoot(),
+    "正式读取保留药效余时、永久数据、特质和已开的灵根");
+var restoredPill = restoredOwner.GetItems().Single(item =>
+    item.TryGetComponent(out Elixir elixir) && elixir.elixir_id == restore.id);
+restoredOwner.GetComponent<Xian>().wakan = 0f;
+Check(restoredOwner.TryConsumeElixir(restoredPill) && restoredPill.IsNull &&
+      Close(restoredOwner.GetComponent<Xian>().wakan, cap * .10f),
+    "读回原药可用当前正式规则继续恢复");
+await Advance(.85f);
+restored.updateStats();
+Check(Status(restoredOwner, body).IsNull, "读回的临时药效按原余时到期");
+return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = actorId, archive, checks };

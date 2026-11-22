@@ -23,29 +23,36 @@ FILMS = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
-                                              'natural-summon', 'facility', 'prepare', 'cold', *FILMS), default='soul')
-    parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
+    parser.add_argument('--section', choices=('soul', 'travel-stances', 'thought-orders', 'thought-artifact',
+                                              'body-consent', 'body-hostile', 'body-consent-finish', 'body-anchor',
+                                              'body-anchor-finish', 'advanced-engage', 'advanced-returns', 'soul-force', 'node', 'avatar', 'summon',
+                                              'artifact-spirit', 'natural-summon', 'facility', 'prepare', 'cold', *FILMS),
+                        default='soul')
+    parser.add_argument('--archive', type=Path, help='cold 使用 prepare 输出目录，body-anchor-finish 使用实际塑体存档目录')
     args = parser.parse_args()
     section = args.section
     cold = section == 'cold'
-    if cold != bool(args.archive):
-        parser.error('仅 cold 阶段需要 --archive')
+    anchor_finish = section == 'body-anchor-finish'
+    if (cold or anchor_finish) != bool(args.archive):
+        parser.error('冷读与接续塑体阶段需要 --archive')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过独立游戏的 dev.py exec 运行')
     output = Path(tempfile.mkdtemp(prefix=f'independent-casting-{section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     fixture = PROJECT / FIXTURE
-    prepared = args.archive.resolve() if cold else output
-    archive = prepared / 'archive'
+    prepared = args.archive.resolve() if cold or anchor_finish else output
+    archive = prepared if anchor_finish else prepared / 'archive'
     if cold:
         receipt = json.loads((prepared / 'result.json').read_text())
         if not receipt['passed'] or hashlib.sha256((archive / 'map.wbox').read_bytes()).hexdigest() != receipt['sha256']:
             parser.error('冷读需要同一份未改动的正式档')
-    helpers = world_helpers(output, archive if cold else fixture, restore=cold)
+    if anchor_finish and not (archive / 'map.wbox').is_file():
+        parser.error('找不到塑体进行中的正式档')
+    restoring = cold or anchor_finish
+    helpers = world_helpers(output, archive if restoring else fixture, restore=restoring)
     helpers = helpers.replace('ConstructedAbilityService.CastEnded += Ended;', '')
     helpers = helpers.replace('ConstructedAbilityService.ContactConfirmed += Hit;', '')
     script = output / 'input.script'
-    scene = '' if cold else Path(__file__).with_name('independent_casting_scene.script').read_text()
+    scene = '' if restoring else Path(__file__).with_name('independent_casting_scene.script').read_text()
     if section in ('summon', 'artifact-spirit', 'natural-summon', 'prepare') or section in FILMS:
         scene += Path(__file__).with_name('independent_artifact_casting_scene.script').read_text()
     if section in ('prepare', 'cold'):
@@ -61,6 +68,20 @@ def main():
         body = 'record_independent_casting.script'
     elif section == 'natural-summon':
         body = 'verify_natural_summon.script'
+    elif section == 'travel-stances':
+        body = 'verify_yuanshen_travel_stances.script'
+    elif section == 'thought-orders':
+        body = 'verify_yuanshen_thought_orders.script'
+    elif section == 'thought-artifact':
+        body = 'verify_yuanshen_thought_artifact.script'
+    elif section in ('body-consent', 'body-hostile', 'body-consent-finish'):
+        body = 'verify_yuanshen_body_consent.script'
+    elif section == 'body-anchor':
+        body = 'verify_yuanshen_body_anchor.script'
+    elif anchor_finish:
+        body = 'verify_yuanshen_reconstruction_finish.script'
+    elif section == 'advanced-engage':
+        body = 'verify_yuanshen_advanced_engage.script'
     elif section == 'facility':
         body = 'verify_facility_nodes.script'
     else:
@@ -69,7 +90,7 @@ def main():
                       + f'const string section = "{section}";\n' + scene + Path(__file__).with_name(body).read_text())
     baseline.connect(False, validate_runtime=False)
     try:
-        result = baseline.call('run', str(script), '145000' if section == 'avatar' or section in FILMS else '90000')
+        result = baseline.call('run', str(script), '145000' if section in ('avatar', 'body-anchor-finish', 'advanced-returns') or section in FILMS else '90000')
     except RuntimeError as error:
         write_json(output / 'result.json', dict(passed=False, error=str(error)))
         raise RuntimeError(f'独立施法复验见 {output}') from error

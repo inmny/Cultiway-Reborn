@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Artifacts;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
 using strings;
 using UnityEngine;
@@ -129,8 +130,8 @@ internal sealed class YuanshenThoughtActiveAbilityProvider : IActiveAbilityProvi
             Create => YuanshenTravelService.IsWithinTether(caster, target.Position),
             Focus => YuanshenThoughtService.TryGetOwnedAtPoint(caster, target.Position, NodePickRadius, out _),
             MoveFocused or GuardFocused => YuanshenTravelService.IsWithinTether(caster, target.Position),
-            FollowFocused => target.Object != null && !target.Object.isRekt() && target.Object.isActor() &&
-                             !caster.Base.canAttackTarget(target.Object.a) &&
+            FollowFocused => target.Object != null && target.Object.isAlive() && target.Object.isActor() &&
+                             SkillTargetRelationResolver.IsFriendly(caster.Base, target.Object) &&
                              YuanshenTravelService.IsWithinTether(caster, target.Object.a.current_position),
             TrackFocused => YuanshenNodeLockService.TryGetLockedNear(
                 caster.Base, target.Position, NodePickRadius, out _),

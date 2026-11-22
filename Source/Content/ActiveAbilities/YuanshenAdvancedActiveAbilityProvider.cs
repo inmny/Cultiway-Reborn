@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
 using strings;
 
@@ -103,8 +104,8 @@ internal sealed class YuanshenAdvancedActiveAbilityProvider : IActiveAbilityProv
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
         if (!IsValid(caster, handle)) return false;
-        return handle.EntryId != Engage || target.Object != null && !target.Object.isRekt() &&
-               target.Object.isActor() && target.Object.a != caster.Base;
+        return handle.EntryId != Engage || target.Object?.isActor() == true &&
+               SkillTargetRelationResolver.IsHostile(caster.Base, target.Object);
     }
 
     /// <summary>普通战斗规划器不直接选择高阶元神管理命令。</summary>

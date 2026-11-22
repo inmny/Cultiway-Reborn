@@ -1,0 +1,47 @@
+string provider = "content.yuanshen_travel";
+var handles = new List<ActiveAbilityHandle>();
+bool Command(string entry, Vector3 target)
+{
+    ActiveAbilityService.Collect(owner, handles);
+    return ActiveAbilityService.TryUse(owner,
+        handles.Single(handle => handle.ProviderId == provider && handle.EntryId == entry),
+        new ActiveAbilityTarget(null, target), ActiveAbilityUseOrigin.Script);
+}
+
+Cultivation().wakan = 9000f;
+float balance = Balance();
+Check(!Command("travel_guarded", new Vector3(5000f, 72f, 0f)) &&
+    !YuanshenTravelService.TryGetSoulCarrier(owner, out _) && Balance() == balance,
+    "正式神游入口拒绝超过牵引范围的位置，未付费");
+var choices = new[] { (Id: "travel_guarded", Share: 40f), (Id: "travel_balanced", Share: 60f),
+                      (Id: "travel_full", Share: 90f) };
+Actor carrier = null;
+float paid = 0f;
+foreach (var choice in choices)
+{
+    float previous = Balance();
+    Check(Command(choice.Id, new Vector3(69.5f, 72f, 0f)) &&
+        YuanshenTravelService.TryGetSoulCarrier(owner, out Actor current) && (carrier == null || carrier == current),
+        "正式神游命令使用同一个实际载体 " + choice.Id);
+    YuanshenTravelService.TryGetSoulCarrier(owner, out Actor actual);
+    var runtime = owner.GetComponent<YuanshenRuntimeState>();
+    Check(Mathf.Abs(runtime.main_soul_share - choice.Share) < .001f &&
+        Mathf.Abs(runtime.body_residual_share - (100f - choice.Share)) < .001f &&
+        (carrier == null ? previous > Balance() : previous == Balance()),
+        "姿态使用原心神比例，仅首次开启付费 " + choice.Id,
+        new { actual.id, runtime.main_soul_share, runtime.body_residual_share, paid = previous - Balance() });
+    if (carrier == null) paid = previous - Balance();
+    carrier = actual;
+}
+await Advance(.45f);
+long carrierId = carrier.id;
+balance = Balance();
+Check(Command("return", body.GetSimPos()) && balance == Balance(), "归一命令不重复收启动费用");
+await Advance(3f);
+Check(!YuanshenTravelService.TryGetSoulCarrier(owner, out _) &&
+    (World.world.units.get(carrierId) == null || !World.world.units.get(carrierId).isAlive()),
+    "正式归一回收先前的同一个载体，原修士仍可再次出游");
+ActiveAbilityService.Collect(owner, handles);
+Check(body.isAlive() && handles.Count(handle => handle.ProviderId == provider) == choices.Length,
+    "归一后只保留三个正常神游入口");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, paid };

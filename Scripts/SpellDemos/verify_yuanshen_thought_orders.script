@@ -1,0 +1,80 @@
+owner.GetComponent<Yuanshen>().stage = 5;
+Actor ally = Make(68f);
+ActorExtend rival = enemy.GetExtend();
+rival.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Huashen, wakan = 9000 });
+rival.AddComponent(owner.GetComponent<Yuanshen>());
+CombatStatusEffects.ApplyStatus(enemy, boost, 10000, enemy);
+rival.MarkCultiwayStatsDirty();
+enemy.setStatsDirty();
+enemy.updateStats();
+await Advance(.2f);
+ally.joinKingdom(body.kingdom);
+body.addAggro(enemy);
+enemy.addAggro(body);
+rival.GetCultisys<Xian>().wakan = 9000;
+Cultivation().wakan = 9000;
+var handles = new List<ActiveAbilityHandle>();
+bool Order(string entry, Vector2 point = default, Actor target = null)
+{
+    ActiveAbilityService.Collect(owner, handles);
+    return ActiveAbilityService.TryUse(owner,
+        handles.Single(handle => handle.ProviderId == "content.yuanshen_thought" && handle.EntryId == entry),
+        new ActiveAbilityTarget(target, (Vector3)point), ActiveAbilityUseOrigin.Script);
+}
+
+Ready(body);
+Place(body, 64.5f);
+body.attack_timer = 999f;
+try
+{
+    Check(Order("create", new Vector2(67f, 72f)), "通过正式命令创建实际分念");
+    var first = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenNodeLockService.TryResolve(first, out Entity node) &&
+        Order("focus", node.GetComponent<Position>().v2), "点中实际分念并聚焦原编号");
+    Check(!Order("follow_focused", enemy.current_position, enemy), "跟随指令拒绝实际敌方");
+    Check(Order("follow_focused", ally.current_position, ally) &&
+        node.GetComponent<YuanshenNodeTask>().target_object_id == ally.id, "跟随指令保留实际友方身份",
+        new { friend = ally.id, bodyKingdom = body.kingdom?.id, allyKingdom = ally.kingdom?.id, friendly = SkillTargetRelationResolver.IsFriendly(body, ally),
+            task = node.GetComponent<YuanshenNodeTask>().kind, target = node.GetComponent<YuanshenNodeTask>().target_object_id });
+    await Advance(.40f);
+    Place(ally, 70f);
+    await Advance(.45f);
+    Check(node.GetComponent<YuanshenNodeTask>().kind == YuanshenNodeTaskKind.FollowActor &&
+        Vector2.Distance(node.GetComponent<YuanshenNodeState>().move_target, ally.current_position) < .05f,
+        "友方位置改变后同一分念更新目标");
+
+    enemy.setAttackTarget(body);
+    Check(YuanshenThoughtService.TryCreateThought(rival, enemy.current_position), "实际对手产生可锁定的节点");
+    var targetNode = rival.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenNodeLockService.TryResolve(targetNode, out Entity tracked), "读取实际对手节点位置");
+    Vector2 at = tracked.GetComponent<Position>().v2;
+    Check(!Order("track_focused", at) && YuanshenNodeLockService.GrantLock(body, targetNode) &&
+        Order("track_focused", at) && node.GetComponent<YuanshenNodeTask>().target_node == targetNode,
+        "只有已经锁定的敌方稳定节点可以成为追踪目标");
+    Check(YuanshenThoughtService.TryAssignMove(rival, targetNode, at + Vector2.right), "实际对手节点接受移动");
+    await Advance(.75f);
+    Vector2 moved = tracked.GetComponent<Position>().v2;
+    Vector2 following = node.GetComponent<YuanshenNodeState>().move_target;
+    float sampleLag = Vector2.Distance(following, moved);
+    // 世界每 0.2 秒刷新目标，期间它仍可能正常移动。
+    Check(Vector2.Distance(at, moved) > .5f && Vector2.Distance(at, following) > .5f &&
+        sampleLag <= tracked.GetComponent<YuanshenNodeState>().move_speed * .23f,
+        "敌节点移动后，原分念在正常刷新间隔内继续追踪它的实际位置", new { sampleLag });
+
+    Check(Order("create", new Vector2(66f, 72f)) && YuanshenThoughtService.CountThoughts(owner) == 2,
+        "同一修士有第二道真实分念");
+    float previous = Balance();
+    Check(Order("return_all") && Balance() == previous, "归返全部命令不重复收取开念费");
+    await Advance(3f);
+    Check(YuanshenThoughtService.CountThoughts(owner) == 0 &&
+        !YuanshenThoughtService.TryGetFocused(owner, out _, out _) &&
+        Mathf.Abs(owner.GetComponent<YuanshenRuntimeState>().main_soul_share - 100f) < .001f &&
+        YuanshenThoughtService.CountThoughts(rival) == 1,
+        "真实归返回收同一修士的两道分念，归还份额并保留对手节点");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

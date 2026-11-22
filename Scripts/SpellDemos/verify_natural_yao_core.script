@@ -20,6 +20,92 @@ Check(new HashSet<string>(entries.Keys).SetEquals(YaoCorePatterns.Fire.SkillIds)
     handles.All(handle => handle.ProviderId != "content.creature_phenotype"),
     "加载世界后，实际火行妖丹提供两项使用妖力的神通", entries);
 
+if (section == "core-sources")
+{
+    owner.GetCultisys<Yao>().yao_power = 1000f;
+    var original = handles.Single(handle => handle.ProviderId == "content.yao_core" &&
+        handle.Source.GetComponent<SkillContainer>().Asset.id == "Cultiway.FireBlade");
+    var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos());
+    float balance = owner.GetCultisys<Yao>().yao_power;
+    YaoCore initial = owner.GetComponent<YaoCore>();
+    owner.E.RemoveComponent<YaoCore>();
+    wolf.attack_timer = 0f;
+    var state = ActiveAbilityService.ResolveControlState(owner, original).BlockReason;
+    bool acceptedWithoutCore = ActiveAbilityService.TryUse(owner, original, target, ActiveAbilityUseOrigin.Script);
+    Check(state == ActiveAbilityControlBlockReason.Unavailable && !acceptedWithoutCore &&
+        owner.GetCultisys<Yao>().yao_power == balance, "失去妖丹后，已拿到的旧神通入口拒绝并不扣妖力",
+        new { state, acceptedWithoutCore, paid = balance - owner.GetCultisys<Yao>().yao_power });
+
+    owner.E.AddComponent(initial);
+    const long cancelled = 101602;
+    Check(ActiveAbilityService.TryUse(owner, original, new ActiveAbilityTarget(enemy, enemy.GetSimPos(),
+            runtimeData: new SkillCastRuntimeData { CorrelationId = cancelled }), ActiveAbilityUseOrigin.Script),
+        "原妖丹可以按正式入口开始施放");
+    float paid = balance - owner.GetCultisys<Yao>().yao_power;
+    Check(Mathf.Abs(paid - entries["Cultiway.FireBlade"]) < .004f, "在原受理时点实际支付一次", paid);
+    var additionalPayments = new List<float>();
+    void WatchPayment(ActorExtend actor, YaoPowerMutation mutation)
+    {
+        if (actor == owner && mutation.Kind == YaoPowerMutationKind.Spend) additionalPayments.Add(-mutation.Delta);
+    }
+    var oldStarts = new List<ConstructedCastStarted>();
+    void Observe(ConstructedCastStarted fact)
+    {
+        if (fact.SourceId == wolf.id && fact.CorrelationId == cancelled) oldStarts.Add(fact);
+    }
+    ConstructedAbilityService.CastStarted += Observe;
+    YaoResourceService.MutationCommitted += WatchPayment;
+    try
+    {
+        foreach (var pattern in YaoCorePatterns.All)
+        {
+            owner.GetComponent<YaoCore>().CorePatternId = pattern.Id;
+            handles.Clear();
+            ActiveAbilityService.Collect(owner, handles);
+            var current = handles.Where(handle => handle.ProviderId == "content.yao_core")
+                .Select(handle => handle.Source.GetComponent<SkillContainer>().Asset.id).ToArray();
+            Check(current.SequenceEqual(pattern.SkillIds), "当前方向只列自己的正式神通 " + pattern.Id, current);
+        }
+        Check(owner.GetComponent<YaoCore>().CorePatternId != initial.CorePatternId, "改成另一实际妖丹方向");
+        await Advance(.65f);
+        Check(oldStarts.Count == 0 && additionalPayments.Count == 0 &&
+            !Cultiway.ModClass.I.W.Query<SkillCastSequence>().Entities.Any(entity =>
+                !entity.Tags.Has<TagRecycle>() && entity.GetComponent<SkillCastSequence>().RuntimeData.CorrelationId == cancelled),
+            "换丹前等待的旧神通停止发射，同次计划不重复收费");
+
+        string patternId = owner.GetComponent<YaoCore>().CorePatternId;
+        long wolfId = wolf.id;
+        World.world.units.checkContainer();
+        foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+        string archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        var previous = Cultiway.ModClass.I.WorldSaves.LastReport;
+        World.world.save_manager.loadWorld(archive);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+            !ReferenceEquals(previous, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+        ActorExtend restored = World.world.units.get(wolfId)?.GetExtend();
+        Check(restored != null && report.BackupError == null && report.Skipped.Count == 0 &&
+            restored.TryGetComponent(out YaoCore savedCore) && savedCore.CorePatternId == patternId,
+            "同一正式档读回当前妖丹方向，没有丢弃资料", new { patternId, report.BackupError, report.Skipped });
+        handles.Clear();
+        ActiveAbilityService.Collect(restored, handles);
+        var restoredIds = handles.Where(handle => handle.ProviderId == "content.yao_core")
+            .Select(handle => handle.Source.GetComponent<SkillContainer>().Asset.id).ToArray();
+        Check(restoredIds.SequenceEqual(YaoCorePatterns.Get(patternId).SkillIds),
+            "读回后由当前妖丹重新授予正确的能力", restoredIds);
+        return new { passed = true, section, archive, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Observe;
+        YaoResourceService.MutationCommitted -= WatchPayment;
+        Config.paused = true;
+    }
+}
+
 var starts = new List<ConstructedCastStarted>();
 var hits = new List<ConstructedContact>();
 var ends = new List<ConstructedCastEnded>();

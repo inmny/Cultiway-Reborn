@@ -4,6 +4,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -116,7 +117,7 @@ public sealed class YuanshenNodeTaskSystem
         ref YuanshenNodeTask task)
     {
         Actor target = World.world?.units?.get(task.target_object_id);
-        if (target == null || target.isRekt() || !target.isAlive() || owner.Base.canAttackTarget(target) ||
+        if (target == null || !target.isAlive() || !SkillTargetRelationResolver.IsFriendly(owner.Base, target) ||
             !YuanshenAnchorNetworkService.IsNodeWithinTether(owner, node, target.current_position))
         {
             YuanshenThoughtService.SetReturning(ref state, ref task);
@@ -161,7 +162,7 @@ public sealed class YuanshenNodeTaskSystem
         Vector2 position)
     {
         Actor target = World.world?.units?.get(task.target_object_id);
-        if (target == null || target.isRekt() || !target.isAlive() || !owner.Base.canAttackTarget(target) ||
+        if (!SkillTargetRelationResolver.IsHostile(owner.Base, target) ||
             !YuanshenAnchorNetworkService.IsNodeWithinTether(owner, node, target.current_position))
         {
             task = new YuanshenNodeTask

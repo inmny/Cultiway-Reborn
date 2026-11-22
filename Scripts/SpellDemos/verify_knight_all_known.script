@@ -1,0 +1,51 @@
+ConstructedAbilityService.ContactConfirmed -= Hit;
+ConstructedAbilityService.CastEnded -= Ended;
+Actor source = Make(64.35f);
+long sourceId = source.id;
+ActorExtend owner = source.GetExtend();
+int level = KnightTechniqueCatalog.All.Max(technique => technique.MinimumKnightLevel);
+owner.AddComponent(new Knight { level = level });
+await Advance(.18f);
+
+string[] Known(ActorExtend knight)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(knight, handles);
+    return handles.Where(handle => handle.ProviderId == "content.knight_techniques")
+        .Select(handle => handle.Source.GetComponent<SkillContainer>().Asset.id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+}
+
+int learned = 0;
+var styles = KnightTechniqueCatalog.All.Select(technique => technique.Style).Distinct().ToArray();
+foreach (var style in styles)
+{
+    KnightStyleMasteryService.Master(owner, style);
+    learned += KnightTechniqueSkills.LearnStyle(owner, style);
+}
+string[] expected = KnightTechniqueCatalog.All.Select(technique => technique.id + ".Execution")
+    .OrderBy(id => id, StringComparer.Ordinal).ToArray();
+string[] before = Known(owner);
+Check(learned == expected.Length && before.SequenceEqual(expected), "经原学习入口取得每个正式战技", before);
+
+World.world.units.checkContainer();
+foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+string archive = Path.Combine(folder, "archive");
+SaveManager.saveWorldToDirectory(archive);
+Check(File.Exists(Path.Combine(archive, "map.wbox")), "确实写入由原版读回的正式世界");
+var previous = Cultiway.ModClass.I.WorldSaves.LastReport;
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+    !ReferenceEquals(previous, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+Actor restored = World.world.units.get(sourceId);
+Check(restored != null && report.BackupError == null && report.Skipped.Count == 0,
+    "同一人物从正式档读回，恢复没有丢弃资料", new { report.BackupError, report.Skipped });
+ActorExtend knight = restored.GetExtend();
+string[] after = Known(knight);
+Check(after.SequenceEqual(before) && knight.GetCultisys<Knight>().CurrLevel == level &&
+    styles.All(style => KnightStyleMasteryService.IsMastered(knight, style)),
+    "原流派和全部执行编号逐项原样恢复", after);
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, executions = after, archive };

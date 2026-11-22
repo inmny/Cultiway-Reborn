@@ -27,7 +27,7 @@ FILM_SECTIONS = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', default='source',
-                        choices=('source', 'natural-source', 'natural-core', 'horn', 'mouth', 'torso', 'poison', *SURVIVAL_SECTIONS,
+                        choices=('source', 'natural-source', 'natural-core', 'core-sources', 'horn', 'mouth', 'torso', 'poison', *SURVIVAL_SECTIONS,
                                  *PASSIVE_SECTIONS, *ARCHIVE_SECTIONS, *FILM_SECTIONS))
     parser.add_argument('--archive', type=Path, help='冷读档使用 prepare 的输出目录')
     args = parser.parse_args()
@@ -48,7 +48,7 @@ def main():
     name = 'verify_organ_outlets.script'
     if args.section in ('source', 'natural-source'):
         name = 'verify_organ_ability.script'
-    elif args.section == 'natural-core':
+    elif args.section in ('natural-core', 'core-sources'):
         name = 'verify_natural_yao_core.script'
     elif args.section in SURVIVAL_SECTIONS:
         name = 'verify_organ_survival.script'

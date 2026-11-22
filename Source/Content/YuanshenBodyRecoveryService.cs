@@ -2,6 +2,7 @@ using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -42,8 +43,9 @@ public static class YuanshenBodyRecoveryService
     /// <returns>宿主资格、友方关系和接收者状态均有效时返回真。</returns>
     public static bool TryOfferBody(Actor host, Actor recipient)
     {
-        if (!IsEligibleHost(host) || recipient == null || recipient.isRekt() ||
-            host.canAttackTarget(recipient) || !YuanshenLifecycleService.IsBodiless(recipient.GetExtend()))
+        if (!IsEligibleHost(host) || recipient == null || !recipient.isAlive() ||
+            !SkillTargetRelationResolver.IsFriendly(host, recipient) ||
+            !YuanshenLifecycleService.IsBodiless(recipient.GetExtend()))
             return false;
         ActorExtend recipientExtend = recipient.GetExtend();
         if (!recipientExtend.TryGetComponent(out Yuanshen yuanshen) || !yuanshen.formation.IsValid) return false;
@@ -59,9 +61,13 @@ public static class YuanshenBodyRecoveryService
     /// <param name="source">无身元神本体和资源支付者。</param>
     /// <param name="target">明确宿主人物。</param>
     /// <returns>全部资格、距离、冷却、资源和排他锁均满足时返回真。</returns>
-    public static bool TryStartPossession(ActorExtend source, Actor target)
+    public static bool TryStartPossession(ActorExtend source, Actor target) =>
+        TryStartPossession(source, target, requireConsent: false);
+
+    internal static bool TryStartPossession(ActorExtend source, Actor target, bool requireConsent)
     {
-        if (!CanStartPossession(source, target, out PhysicalBodySnapshot body, out bool voluntary)) return false;
+        if (!CanStartPossession(source, target, out PhysicalBodySnapshot body, out bool voluntary) ||
+            requireConsent && !voluntary) return false;
         using var payment = WakanResourceService.BeginAbilityRatio(source, PossessionWakanRatio);
         if (payment == null) return false;
         ref Yuanshen yuanshen = ref source.GetComponent<Yuanshen>();
@@ -308,8 +314,8 @@ public static class YuanshenBodyRecoveryService
             !PhysicalBodyService.TryResolve(body, out _, out _, out _)) return false;
         ref YuanshenBodyRecoveryRuntime runtime = ref source.GetOrAddComponent<YuanshenBodyRecoveryRuntime>();
         if (runtime.possession_ready_at > Now) return false;
-        voluntary = HasConsent(target, source.Base.data.id);
-        return voluntary || source.Base.canAttackTarget(target);
+        voluntary = HasConsent(target, source.Base.data.id) && SkillTargetRelationResolver.IsFriendly(source.Base, target);
+        return voluntary || SkillTargetRelationResolver.IsHostile(source.Base, target);
     }
 
     /// <summary>计算化神夺舍的相性、攻防和成功率。</summary>

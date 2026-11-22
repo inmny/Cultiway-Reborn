@@ -1,0 +1,58 @@
+var actor = World.world.units.getSimpleList().Select(person => person.GetExtend())
+    .Single(person => person.HasComponent<YuanshenReconstructionState>());
+Actor spirit = actor.Base;
+long id = spirit.id;
+var started = actor.GetComponent<YuanshenReconstructionState>();
+Check(started.progress > 0d && started.paid_wakan > 0f &&
+    YuanshenLifecycleService.IsBodiless(actor) && YuanshenArtifactAnchorService.TryResolve(actor, out _, out _),
+    "使用实际中途正式档和同一在途塑体");
+var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = mutationField.GetValue(null);
+double charges = started.paid_wakan;
+void Observe(ActorExtend person, in WakanMutation mutation)
+{
+    if (person.Base.id == id && mutation.Kind == WakanMutationKind.Spend) charges -= mutation.Delta;
+}
+WakanResourceService.RegisterMutationCommitted(Observe);
+foreach (Actor other in World.world.units.getSimpleList().Where(person => person != spirit).ToArray())
+{
+    CombatStatusEffects.ApplyStatus(other, hold, 10000f, other);
+    Place(other, 12f, 12f);
+}
+Ready(spirit);
+CombatStatusEffects.ApplyStatus(spirit, hold, 10000f, spirit);
+spirit.updateStats();
+spirit.attack_timer = 999f;
+try
+{
+    Config.setWorldSpeed("x5", false);
+    double deadline = World.world.getCurWorldTime() + YuanshenBodyRecoveryService.ReconstructionDuration + 8d;
+    var progress = new List<object>();
+    while (actor.HasComponent<YuanshenReconstructionState>() && World.world.getCurWorldTime() < deadline)
+    {
+        // 给同一验收人物补足可用真元，实际塑体系统仍按进度逐次支付。
+        WakanResourceService.Gain(actor, ref actor.GetCultisys<Xian>(), spirit.stats[BaseStatses.MaxWakan.id]);
+        await Advance(8f);
+        bool active = actor.TryGetComponent(out YuanshenReconstructionState current);
+        bool resolves = YuanshenArtifactAnchorService.TryResolve(actor, out _, out Vector3 origin);
+        progress.Add(new { active, current.progress, current.paid_wakan, resolves,
+            distance = Vector2.Distance(spirit.current_position, origin), now = World.world.getCurWorldTime() });
+    }
+    Actor result = World.world.units.get(id);
+    Check(result != null && result.isAlive() && !result.GetExtend().HasComponent<YuanshenReconstructionState>() &&
+        !YuanshenLifecycleService.IsBodiless(result.GetExtend()) &&
+        PhysicalBodyService.MatchesSnapshot(result, started.body),
+        "正常世界系统完成塑体，仍为原人物并恢复本相",
+        new { actual = result?.asset.id, expected = started.body.actor_asset_id, progress });
+    double stepCost = started.required_wakan * .2d / YuanshenBodyRecoveryService.ReconstructionDuration;
+    Check(charges + .02d >= started.required_wakan && charges <= started.required_wakan + stepCost,
+        "实际支付达到原档总额，没有把已支付部分再次计费", new { charges, required = started.required_wakan });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    mutationField.SetValue(null, previous);
+    Config.setWorldSpeed("x1", false);
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

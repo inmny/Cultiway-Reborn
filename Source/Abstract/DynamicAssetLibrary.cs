@@ -8,6 +8,7 @@ public interface IDynamicAssetLibrary
     public void ClearDynamicAssets();
     public IEnumerable<Asset> GetDynamicAssets();
     public void RemoveAll(IEnumerable<string> ids);
+    public void RecycleUnknownAssets();
 }
 public class DynamicAssetLibrary<T> : AssetLibrary<T>, IDynamicAssetLibrary where T : Asset
 {
@@ -33,6 +34,18 @@ public class DynamicAssetLibrary<T> : AssetLibrary<T>, IDynamicAssetLibrary wher
         }
         yield break;
     }
+
+    public void RecycleUnknownAssets()
+    {
+        using var candidates = new ListPool<string>();
+        foreach (T asset in DynamicDict.Values)
+            if (asset is IDeleteWhenUnknown { Current: <= 0 })
+                candidates.Add(asset.id);
+
+        if (candidates.Count > 0) RemoveUnknownAssets(candidates);
+    }
+
+    protected virtual void RemoveUnknownAssets(IEnumerable<string> candidates) => RemoveAll(candidates);
 
     public void RemoveAll(IEnumerable<string> ids)
     {

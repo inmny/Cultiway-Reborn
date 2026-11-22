@@ -1,0 +1,46 @@
+owner.GetComponent<Yuanshen>().stage = 8;
+Actor ally = Make(68f);
+ally.joinKingdom(body.kingdom);
+body.addAggro(enemy);
+enemy.addAggro(body);
+Cultivation().wakan = 9000f;
+bool Order(string entry, Vector2 point = default, Actor target = null) =>
+    ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.yuanshen_advanced", owner.E, entry),
+        new ActiveAbilityTarget(target, (Vector3)point), ActiveAbilityUseOrigin.Script);
+Ready(body);
+Place(body, 64.5f);
+body.attack_timer = 999f;
+try
+{
+    float before = Balance();
+    Check(Order("dharma", new Vector2(68f, 72f)) && Balance() < before,
+        "法相通过原能力入口实际启动并付费");
+    var handle = owner.GetComponent<YuanshenRuntimeState>().advanced_nodes.Single();
+    Check(YuanshenNodeLockService.TryResolve(handle, out Entity node) &&
+        node.GetComponent<YuanshenNodeState>().role == YuanshenNodeRole.DharmaForm &&
+        YuanshenThoughtService.TryGetFocused(owner, out var focused, out _) && focused == handle,
+        "实际法相保持原人物归属并自动聚焦");
+    Check(SkillTargetRelationResolver.IsFriendly(body, ally) && SkillTargetRelationResolver.IsHostile(body, enemy),
+        "已安排一个同阵营角色和一个实际敌人");
+    bool allyAccepted = Order("engage", ally.current_position, ally);
+    Check(!allyAccepted && node.GetComponent<YuanshenNodeTask>().kind != YuanshenNodeTaskKind.EngageActor,
+        "法相拒绝把友方作为指定敌人", new { allyAccepted, friend = ally.id });
+    Check(Order("engage", enemy.current_position, enemy) &&
+        node.GetComponent<YuanshenNodeTask>().target_object_id == enemy.id, "同一道法相接收真实敌方目标");
+    await Advance(.45f);
+    Check(node.GetComponent<YuanshenNodeTask>().kind == YuanshenNodeTaskKind.EngageActor &&
+        Vector2.Distance(node.GetComponent<YuanshenNodeState>().move_target, enemy.current_position) < .12f,
+        "世界推进把任务用于目标的实际位置");
+    before = Balance();
+    Check(Order("return_dharma") && Balance() == before, "正式收回不重复启动费用");
+    await Advance(3f);
+    Check(!YuanshenNodeLockService.TryResolve(handle, out _) &&
+        YuanshenAdvancedNodeService.CountRole(owner, YuanshenNodeRole.DharmaForm) == 0,
+        "原法相归来后回收节点和占用");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

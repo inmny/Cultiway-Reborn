@@ -120,8 +120,7 @@ public static class ElixirEffectGenerator
     private static void ApplyRestore(ElixirAsset elixir)
     {
         elixir.consumable_check_action = (ActorExtend actor, Entity _, ref Elixir _) =>
-            actor.HasCultisys<Xian>() && actor.GetCultisys<Xian>().wakan <
-            actor.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
+            actor.HasCultisys<Xian>() && actor.GetCultisys<Xian>().wakan < actor.GetWakanRestoreLimit();
         elixir.SetupRestore((ActorExtend actor, Entity _, ref Elixir component) =>
             actor.RestoreWakan(component.value));
     }

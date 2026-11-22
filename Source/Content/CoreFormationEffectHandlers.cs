@@ -233,11 +233,16 @@ internal static class CoreFormationEffectHandlers
             return;
         }
         if (stored.secondary_value <= 0f) stored.secondary_value = 5f;
-        float healed = Mathf.Min(stored.value,
-            stored.value * evt.DeltaTime / Mathf.Max(evt.DeltaTime, stored.secondary_value));
+        float remaining = stored.value;
+        float healed = Mathf.Min(remaining,
+            remaining * evt.DeltaTime / Mathf.Max(evt.DeltaTime, stored.secondary_value));
         stored.value -= healed;
         stored.secondary_value = Mathf.Max(0f, stored.secondary_value - evt.DeltaTime);
-        CombatResourceEffects.RestoreHealth(owner.Base, healed);
+        // 普通生命按剩余总量跨过的整数结算，读回后仍用同一份剩余量。
+        float recovery = owner.HasComponent<YuanshenSoulCarrierState>()
+            ? healed
+            : Mathf.RoundToInt(remaining) - Mathf.RoundToInt(stored.value);
+        CombatResourceEffects.RestoreHealth(owner.Base, recovery);
         if (stored.value <= 0f)
             CoreFormationStateService.Remove(owner, effect);
         else

@@ -1,0 +1,96 @@
+Actor spirit = Make(64.5f, Actors.BodilessYuanshen.id);
+ActorExtend recipient = spirit.GetExtend();
+owner.GetOrAddComponent<ElementRoot>() = new ElementRoot(new[] { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f });
+Check(PhysicalBodyService.TryCapture(body, out PhysicalBodySnapshot original), "以原人物实际肉身记录本相");
+Yuanshen soul = owner.GetComponent<Yuanshen>();
+soul.stage = 9;
+soul.original_body = original;
+recipient.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Huashen, wakan = 9000f });
+recipient.AddComponent(soul);
+recipient.AddComponent(new BodylessYuanshenState());
+CombatStatusEffects.ApplyStatus(spirit, boost, 10000f, spirit);
+recipient.MarkCultiwayStatsDirty();
+spirit.setStatsDirty();
+spirit.updateStats();
+
+var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword,
+    Atoms = new[] { ArtifactAtoms.SwordBreaker, ArtifactAtoms.Iron, ArtifactAtoms.SoulCore },
+    Level = new ItemLevel { Stage = 1, Level = 3 },
+    Name = "验收本命寄托原剑"
+}));
+Entity item = ArtifactBlueprintCodec.Materialize(recipe, spirit.getName());
+recipient.AddSpecialItem(item);
+ArtifactControlRules.BindAttunement(item, spirit.id);
+ArtifactControlRules.AdvanceAttunement(item, ArtifactControlState.Operating, 10000f);
+Check(recipient.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100) &&
+    item.GetComponent<ArtifactAttunement>().mastery >= 99.999f, "装备经同一祭炼规则完成的实际法宝");
+
+bool Command(string entry) => ActiveAbilityService.TryUse(recipient,
+    new ActiveAbilityHandle("content.yuanshen_body_recovery", recipient.E, entry),
+    new ActiveAbilityTarget(null, spirit.GetSimPos()), ActiveAbilityUseOrigin.Script);
+
+Ready(spirit);
+Place(spirit, 64.5f);
+spirit.attack_timer = 999f;
+try
+{
+    await Advance(.23f);
+    Check(Command("bind_anchor") && YuanshenArtifactAnchorService.TryResolve(recipient, out Entity anchor, out _) &&
+        anchor == item && item.GetComponent<ArtifactAttunement>().life_bound,
+        "本命寄托正式绑定原人物和原件");
+    spirit.addAggro(enemy);
+    spirit.setAttackTarget(enemy);
+    YuanshenArtifactAnchorService.TryResolve(recipient, out _, out Vector3 position);
+    Check(Command("rest_anchor") && !spirit.has_attack_target &&
+        spirit.current_tile == World.world.GetTileSimple(Mathf.RoundToInt(position.x), Mathf.RoundToInt(position.y)),
+        "归往真实本命寄托使用原件位置并退出攻击指令");
+    spirit.finishAngryStatus();
+    recipient.GetCultisys<Xian>().wakan = 0f;
+    Check(!Command("reconstruct") && !recipient.HasComponent<YuanshenReconstructionState>(), "资源不足时不会启动塑体");
+    recipient.GetCultisys<Xian>().wakan = spirit.stats[BaseStatses.MaxWakan.id];
+    Check(Command("reconstruct") &&
+        recipient.GetComponent<YuanshenReconstructionState>().anchor_artifact_entity_id == item.Id,
+        "同一无身人物开始真正的本相塑体");
+    await Advance(.65f);
+    var frozen = recipient.GetComponent<YuanshenReconstructionState>();
+    Check(frozen.progress > 0d && frozen.paid_wakan > 0f && frozen.paid_wakan < frozen.required_wakan,
+        "自然推进时按实际进度支付塑体费用", new { frozen.progress, frozen.paid_wakan });
+
+    long subject = spirit.id;
+    World.world.units.checkContainer();
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.RemoveStatus(spirit, boost, spirit);
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    var previous = Cultiway.ModClass.I.WorldSaves.LastReport;
+    World.world.save_manager.loadWorld(archive);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+        !ReferenceEquals(previous, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    spirit = World.world.units.get(subject);
+    recipient = spirit.GetExtend();
+    Check(report.BackupError == null && report.Skipped.Count == 0 &&
+        YuanshenArtifactAnchorService.TryResolve(recipient, out item, out _) &&
+        recipient.TryGetComponent(out YuanshenReconstructionState current) &&
+        current.anchor_artifact_entity_id == item.Id && current.anchor_token == frozen.anchor_token &&
+        current.progress >= frozen.progress && current.progress < frozen.progress + .12d &&
+        Math.Abs(current.paid_wakan - frozen.paid_wakan -
+            (current.progress - frozen.progress) * frozen.required_wakan / YuanshenBodyRecoveryService.ReconstructionDuration) < .01d,
+        "同一正式档读回本命原件和未完成塑体，原进度与费用可继续", new { report.BackupError, report.Skipped });
+    Ready(spirit);
+    Check(Command("cancel_reconstruction") && !recipient.HasComponent<YuanshenReconstructionState>() &&
+        YuanshenLifecycleService.IsBodiless(recipient), "主动中止结束塑体并保有当前无身角色");
+    Check(Command("unbind_anchor") && !YuanshenArtifactAnchorService.TryResolve(recipient, out _, out _) &&
+        item.GetComponent<ArtifactAttunement>().life_bound && !Command("rest_anchor"),
+        "解除寄托后原件的祭炼关系保留，旧归往入口失效");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, archive };
+}
+finally
+{
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

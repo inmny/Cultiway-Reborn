@@ -1,0 +1,77 @@
+Actor spirit = Make(64.5f, Actors.BodilessYuanshen.id);
+Actor host = Make(66f);
+var recipient = spirit.GetExtend();
+var donor = host.GetExtend();
+recipient.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Huashen, wakan = 9000f });
+recipient.AddComponent(owner.GetComponent<Yuanshen>());
+recipient.AddComponent(new BodylessYuanshenState());
+donor.GetOrAddComponent<ElementRoot>() = new ElementRoot(new[] { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f });
+CombatStatusEffects.ApplyStatus(spirit, boost, 10000f, spirit);
+recipient.MarkCultiwayStatsDirty();
+spirit.setStatsDirty();
+spirit.updateStats();
+await Advance(.2f);
+spirit.joinKingdom(host.kingdom);
+recipient.GetCultisys<Xian>().wakan = 9000f;
+var known = new List<ActiveAbilityHandle>();
+bool Command(ActorExtend actor, string entry, Actor target = null)
+{
+    ActiveAbilityService.Collect(actor, known);
+    var handle = known.Single(item => item.ProviderId == "content.yuanshen_body_recovery" && item.EntryId == entry);
+    return ActiveAbilityService.TryUse(actor, handle, new ActiveAbilityTarget(target, target == null ? Vector3.zero : target.GetSimPos()),
+        ActiveAbilityUseOrigin.Script);
+}
+float BalanceOfSpirit() => recipient.GetCultisys<Xian>().wakan;
+Check(YuanshenLifecycleService.IsBodiless(recipient) && YuanshenBodyRecoveryService.IsEligibleHost(host) &&
+    SkillTargetRelationResolver.IsFriendly(host, spirit),
+    "原世界中有真实的无身元神及同阵营有效宿主");
+float previous = BalanceOfSpirit();
+if (section == "body-hostile")
+{
+    spirit.addAggro(host);
+    host.addAggro(spirit);
+    Check(SkillTargetRelationResolver.IsHostile(spirit, host) &&
+        !Command(donor, "offer_body", spirit) && !Command(recipient, "accept_body", host) &&
+        !donor.HasComponent<YuanshenBodyConsent>() && !recipient.HasComponent<YuanshenPossessionState>() &&
+        previous == BalanceOfSpirit(), "实际敌对时拒绝伪装成自愿承载，没有支付");
+    Check(Command(recipient, "possess", host) && !recipient.GetComponent<YuanshenPossessionState>().voluntary &&
+        YuanshenBodyRecoveryService.TryValidatePossession(recipient, recipient.GetComponent<YuanshenPossessionState>(), out Actor actual) &&
+        actual == host && previous > BalanceOfSpirit(), "原敌对夺舍仍能按实际对象一次支付");
+    float paid = BalanceOfSpirit();
+    Check(Command(recipient, "cancel_possession") && !donor.HasComponent<YuanshenBodyTransferLock>() &&
+        BalanceOfSpirit() == paid, "真实敌对夺舍取消后清理宿主锁");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+bool admittedWithoutConsent = Command(recipient, "accept_body", host);
+Check(!admittedWithoutConsent && !recipient.HasComponent<YuanshenPossessionState>() && previous == BalanceOfSpirit(),
+    "未获宿主同意时，接受承载命令不启动身体转移也不付费",
+    new { admitted = admittedWithoutConsent, paid = previous - BalanceOfSpirit() });
+Check(!Command(recipient, "possess", host) && previous == BalanceOfSpirit(),
+    "同阵营且没有同意时，主动夺舍命令也拒绝");
+Check(Command(donor, "offer_body", spirit) && donor.GetComponent<YuanshenBodyConsent>().recipient_actor_id == spirit.id,
+    "宿主的正式承载声明绑定原无身人物");
+Check(Command(recipient, "accept_body", host) && recipient.GetComponent<YuanshenPossessionState>().voluntary &&
+    donor.GetComponent<YuanshenBodyTransferLock>().source_actor_id == spirit.id &&
+    YuanshenBodyRecoveryService.TryValidatePossession(recipient, recipient.GetComponent<YuanshenPossessionState>(), out Actor agreed) &&
+    agreed == host && Mathf.Abs(previous - BalanceOfSpirit() - spirit.stats[BaseStatses.MaxWakan.id] * .1f) < .02f,
+    "先有真实同意，再一次付费并建立自愿身体转移");
+if (section == "body-consent-finish")
+{
+    var agreedState = recipient.GetComponent<YuanshenPossessionState>();
+    long originalId = spirit.id, hostId = host.id;
+    await Advance((float)YuanshenBodyRecoveryService.PossessionChannelDuration + .25f);
+    Actor restored = World.world.units.get(originalId);
+    Actor oldHost = World.world.units.get(hostId);
+    Check(restored != null && restored.isAlive() &&
+        !YuanshenLifecycleService.IsBodiless(restored.GetExtend()) &&
+        PhysicalBodyService.MatchesSnapshot(restored, agreedState.body) &&
+        !restored.GetExtend().HasComponent<YuanshenPossessionState>() &&
+        (oldHost == null || !oldHost.isAlive()),
+        "同意的身体转移由正常世界周期完成，原元神采用实际宿主肉身");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+previous = BalanceOfSpirit();
+Check(Command(recipient, "cancel_possession") && !recipient.HasComponent<YuanshenPossessionState>() &&
+    !donor.HasComponent<YuanshenBodyTransferLock>() && BalanceOfSpirit() == previous,
+    "中止归还双方控制与锁，不重复扣除费用");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };

@@ -11,15 +11,8 @@ from common import PROJECT
 from verify_legacy_variants import run
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('archive', 'cold'), required=True)
-    parser.add_argument('--archive', type=Path)
-    args = parser.parse_args()
-    if args.case == 'cold' and (args.archive is None or not
-            all((args.archive / name).is_file() for name in ('expected.json', 'archive/map.wbox'))):
-        parser.error('需要含正式世界及预期资料的输出目录')
-
+def read_base_variants():
+    """清单中的旧索引必须与实际登记和正式档逐项对应。"""
     variants = defaultdict(list)
     catalog_path = PROJECT / 'Doc/技能系统全面重构/制作与验证条目.csv'
     with catalog_path.open(encoding='utf-8-sig', newline='') as catalog:
@@ -29,7 +22,19 @@ def main():
                 variants[identifier].append(int(row['旧变体索引']))
     if not variants or any(sorted(indices) != list(range(len(indices))) for indices in variants.values()):
         raise ValueError('旧索引清单必须从零连续列出，每种法术的索引各出现一次')
+    return variants
 
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--case', choices=('archive', 'cold'), required=True)
+    parser.add_argument('--archive', type=Path)
+    args = parser.parse_args()
+    if args.case == 'cold' and (args.archive is None or not
+            all((args.archive / name).is_file() for name in ('expected.json', 'archive/map.wbox'))):
+        parser.error('需要含正式世界及预期资料的输出目录')
+
+    variants = read_base_variants()
     folder = Path(__file__).parent
     common = (folder / 'verify_projectile_variants.script').read_text().split('var casts = ', 1)[0]
     start, end = common.index('var catalog ='), common.index('bool CanTestTracking')

@@ -78,11 +78,13 @@ public static class ActorExtendTools
         if (value <= 0) return false;
         if (!ae.HasCultisys<Xian>()) return false;
         ref Xian xian = ref ae.GetCultisys<Xian>();
-        float limit = Mathf.Max(xian.wakan,
-            ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit);
-        return WakanResourceService.Gain(
-            ae, ref xian, Mathf.Min(value, Mathf.Max(0f, limit - xian.wakan))) > 0f;
+        float available = Mathf.Max(0f, ae.GetWakanRestoreLimit() - xian.wakan);
+        return WakanResourceService.Gain(ae, ref xian, Mathf.Min(value, available)) > 0f;
     }
+
+    // 储存值只能保留单精度，服用判断和实际恢复用同一个可存储的上限。
+    internal static float GetWakanRestoreLimit(this ActorExtend ae) =>
+        (float)((double)ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit);
 
     public static bool HasCultibook(this ActorExtend ae)
     {
