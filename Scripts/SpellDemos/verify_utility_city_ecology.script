@@ -1,0 +1,123 @@
+const string prefix = "test.city-ecology.";
+Actor worker = World.world.units.get(sourceId);
+City city = worker.city;
+var owner = worker.GetExtend();
+var receipts = new List<ConstructedWorldContact>();
+var finished = new List<ConstructedCastEnded>();
+void WorldChange(ConstructedWorldContact fact)
+{
+    if (fact.SourceId == worker.id && fact.AbilityId.StartsWith(prefix, StringComparison.Ordinal) && fact.Result.Changed)
+        receipts.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == worker.id && fact.AbilityId.StartsWith(prefix, StringComparison.Ordinal)) finished.Add(fact);
+}
+
+bool buildEnabled = DebugConfig.isOn(DebugOption.SystemBuildTick);
+bool resourcesInfinite = DebugConfig.isOn(DebugOption.CityInfiniteResources);
+Building priorTarget = worker.beh_building_target;
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+DebugConfig.setOption(DebugOption.CityInfiniteResources, false);
+ConstructedAbilityService.WorldContactConfirmed += WorldChange;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    var center = new Vector2Int(69, 69);
+    WorldTile site = city.zones.SelectMany(zone => zone.tiles)
+        .Where(tile => !tile.hasBuilding() && tile.Type.ground && !tile.Type.road)
+        .OrderBy(tile => Math.Abs(tile.x - center.x) + Math.Abs(tile.y - center.y)).FirstOrDefault();
+    Check(site != null && city.hasSpaceForResourceInStockpile(AssetManager.resources.get("wood")),
+        "复用同一城市的空林地、原修士和原仓库");
+    site.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    Building tree = World.world.buildings.addBuilding("tree_green_1", site);
+    await Advance(.3f);
+    int max = tree.getMaxHealth();
+    long oldId = tree.id;
+    tree.getHit(Math.Max(1, max / 4), pFlash: false, pSkipIfShake: false);
+    int damaged = tree.getHealth();
+    Check(tree.isUsable() && damaged > 0 && damaged < max, "原版伤害只降低同一棵活树的生命", new { max, damaged, oldId });
+
+    Place(worker, site.x - 2f, site.y + .5f);
+    worker.setMana(worker.getMaxMana(), false);
+    var target = new ActiveAbilityTarget(null, new Vector3(site.x + .5f, site.y + .5f, 0));
+    var known = new Dictionary<string, ActiveAbilityHandle>();
+    foreach (string action in new[] { "nature.repair", "nature.wither", "nature.renew" })
+    {
+        string id = prefix + action;
+        ConstructedAbilityService.Register(new AbilityDefinition
+        {
+            Id = id, Name = action, Resource = "mana", Cost = 3f, Power = 0f,
+            TargetRange = 14f, Cooldown = .1f, Lifetime = .4f,
+            Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point, Channels = ActiveAbilityChannel.World },
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+            Impact = new ConstructionImpact
+            {
+                DamageScale = 0f,
+                WorldEffects = new[] { new ConstructionWorldEffect { Action = action, TileCentreOnly = true, MaximumTiles = 1 } }
+            },
+            Root = new ConstructionNode { Id = "roots", Form = "world_domain", Matter = "wood", Scale = .45f, ActiveFrom = .1f }
+        });
+        ConstructedAbilityService.Learn(owner, id);
+        known.Add(action, new ActiveAbilityHandle("content.constructed", owner.E, id));
+    }
+
+    async Task Use(string action, int expected)
+    {
+        int count = receipts.Count, ends = finished.Count;
+        float before = worker.getMana();
+        bool used = ActiveAbilityService.TryUse(owner, known[action], target, ActiveAbilityUseOrigin.Script);
+        float paid = before - worker.getMana();
+        Check(used && Math.Abs(paid - 3f) < .001f, "正式施放与支付 " + action, new { paid, before });
+        await Advance(.6f);
+        Check(finished.Count == ends + 1 && !finished.Last().Cancelled && finished.Last().WorldChanges == expected &&
+              receipts.Count == count + expected &&
+              receipts.Skip(count).All(contact => contact.X == site.x && contact.Y == site.y),
+            "结束后核对实际根部收益 " + action, new { expected, health = site.building?.getHealth(), changes = receipts.Count - count });
+    }
+
+    await Use("nature.repair", 1);
+    int repaired = tree.getHealth();
+    Check(site.building == tree && tree.id == oldId && repaired == damaged + Math.Max(1, max / 8) &&
+          receipts.Last().Result.Flags == SkillEffectOutcomeFlags.LivingPlantRepaired,
+        "原树真实修补，生命与木材来源保持同一株", new { damaged, repaired, oldId });
+    await Use("nature.wither", 1);
+    Check(site.building == tree && tree.getHealth() < repaired, "原树先实际枯损");
+    await Use("nature.wither", 1);
+    Check(!site.hasBuilding() && receipts.Last().Result.Flags == SkillEffectOutcomeFlags.FloraWithered,
+        "树实际枯死并腾出原版地块");
+    await Use("nature.repair", 0);
+    Check(!site.hasBuilding(), "空根可以正常结束修复");
+
+    await Use("nature.renew", 1);
+    Building young = site.building;
+    int woodYield = young?.asset.resources_given?.Where(item => item.id == "wood").Sum(item => item.amount) ?? 0;
+    Check(young != null && young.id != oldId && young.isUsable() && young.getHealth() > 0 &&
+          young.asset.flora_type == FloraType.Tree && woodYield > 0, "实际复生的新树能提供原版木材",
+        new { oldId, newId = young?.id, woodYield });
+    long newId = young.id;
+    int InHand() => worker.inventory?.getResources()?.TryGetValue("wood", out var wood) == true ? wood.amount : 0;
+    int inventoryBefore = InHand();
+    worker.beh_building_target = young;
+    new ai.behaviours.BehExtractResourcesFromBuilding().execute(worker);
+    int carried = InHand();
+    Check(carried - inventoryBefore == woodYield, "原采集动作从新树取得真实木材", new { woodYield, carried });
+    int stored = city.amount_wood;
+    new ai.behaviours.BehUnloadResources().execute(worker);
+    Check(city.amount_wood - stored == carried && InHand() == 0, "原入库动作把采到的木材交给同一城市",
+        new { stored, after = city.amount_wood, carried });
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, city = city.id,
+        actor = worker.id, x = site.x, y = site.y, oldId, newId, max, damaged, repaired, woodYield,
+        stockBefore = stored, stockAfter = city.amount_wood, receipts, checks };
+}
+finally
+{
+    worker.beh_building_target = priorTarget;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldChange;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildEnabled);
+    DebugConfig.setOption(DebugOption.CityInfiniteResources, resourcesInfinite);
+    Config.paused = true;
+}

@@ -3083,3 +3083,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 水路落差与分流（11.05）
 
 在独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_world_water_channel.py --view native`。安装 Worldfall 的环境用 `--view worldfall`。同一旧地图上核对实际落差、一次付费和转交、两侧从近到远的水路、北沟抬高后的南侧前进，以及余水和支付份额。每次复验输出原始前沿和各路水量 `fronts.json`。
+
+### 活木修复、枯萎及复生（11.06）
+
+在独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --section ecology --archive 功能术准备目录`。复用 10.13 的正式档和原仓库。检查同一株树的修复、实际枯死、空地正常结束及复生后的木材采集入库。
