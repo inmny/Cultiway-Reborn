@@ -1,0 +1,211 @@
+// 通过真实发射队列验证原规则容器的移动领域。编辑器的轨迹许可仍由原资料决定。
+Actor source = Make(60);
+var owner = source.GetExtend();
+var manager = Cultiway.ModClass.I.SkillV3;
+var birth = new Vector3(60, 72, 0);
+var starts = new Dictionary<long, (ConstructedCastStarted Event, AbilityCast Cast)>();
+var ends = new List<ConstructedCastEnded>();
+var hits = new List<ConstructedWorldContact>();
+var legacy = new List<long>();
+var containers = new List<Entity>();
+
+bool IsTest(long correlation) => correlation >= 101341 && correlation <= 101349;
+void Started(ConstructedCastStarted fact)
+{
+    if (!IsTest(fact.CorrelationId)) return;
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    starts.Add(fact.CorrelationId, (fact, (AbilityCast)Field(running, "Cast")));
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (starts.Values.Any(value => value.Event.CastId == fact.CastId)) ends.Add(fact);
+}
+void Contact(ConstructedWorldContact fact)
+{
+    if (starts.Values.Any(value => value.Event.CastId == fact.CastId)) hits.Add(fact);
+}
+void Legacy(Entity execution)
+{
+    long correlation = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
+    if (IsTest(correlation)) legacy.Add(correlation);
+}
+
+Entity FieldSkill(TrajectoryAsset trajectory, float duration, bool chaos = false)
+{
+    var builder = new SkillContainerBuilder(SkillEntities.CleanLandField).UseAnimation(0);
+    builder.AddModifier(new Trajectory { ID = trajectory.id });
+    builder.AddModifier(new CleanLandModifier { Duration = duration });
+    if (chaos) builder.AddModifier(new ChaosModifier { AngleVariance = 40, SpeedVariance = .25f });
+    Entity skill = builder.Build(SkillContainerBuildMode.RuleOnly);
+    containers.Add(skill);
+    Check(SkillOwnershipService.Learn(owner, skill) == SkillOwnershipResult.Added, "保留原容器直到复验结束");
+    Check(SkillBlueprintTrajectory.ResolveEffectiveId(skill) == trajectory.id, "原容器保留实际发射轨迹");
+    return skill;
+}
+
+float Formation(Entity skill)
+{
+    var container = skill.GetComponent<SkillContainer>();
+    var clip = container.Asset.GetAnimation(container.AnimationIndex).Appearance;
+    return clip.Frames.Length * clip.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+}
+
+void Emit(Entity skill, long correlation, Vector3 point, BaseSimObject target = null, bool world = false)
+{
+    var plan = new SkillCastPlan();
+    plan.Steps.Add(SkillCastStep.FromSource(birth, target, point, 0f));
+    var runtime = new SkillCastRuntimeData { Origin = ActiveAbilityUseOrigin.Script, CorrelationId = correlation };
+    bool queued = world ? !manager.StartSourcelessSkillSequence(owner, skill, plan, 1f, 0f, runtime_data: runtime).IsNull :
+        manager.StartSkillSequence(owner, skill, plan, 1f, 0f, SkillCastFundingSource.Prepaid, runtime_data: runtime);
+    Check(queued, "原发射队列接受当前容器与目标");
+}
+
+WorldTile Tile(int x) => World.world.GetTileSimple(x, 72);
+void Pollute(int x)
+{
+    WorldTile tile = Tile(x);
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.heat = 50;
+    tile.burned_stages = 2;
+}
+
+Vector2 Position(long correlation) => starts[correlation].Cast.ContactOrigin(0);
+bool Changed(long correlation, int x) => hits.Any(hit =>
+    hit.CastId == starts[correlation].Event.CastId && hit.X == x && hit.Y == 72 && hit.Result.Changed);
+bool EndedNormally(long correlation) => ends.Any(end => end.CastId == starts[correlation].Event.CastId);
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+ConstructedAbilityService.WorldContactConfirmed += Contact;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
+try
+{
+    if (section is "advance" or "all")
+    {
+        Entity skill = FieldSkill(SkillTrajectories.FieldAdvance, 2.2f);
+        Vector3 aim = new Vector3(70, 72, 0);
+        var profile = skill.GetComponent<SkillContainer>().MotionProfile;
+        float cruise = profile.ResolveSpeed(Vector2.Distance(birth, aim)) * .25f * profile.CruiseMultiplier;
+        Pollute(68);
+        Pollute(73);
+        Emit(skill, 101341, aim);
+        await Advance(Formation(skill) * .6f);
+        Check(Vector2.Distance(Position(101341), birth) < .05f && !Changed(101341, 68),
+            "领域成形时留在出生点，尚未净化前方");
+        await Advance(Formation(skill) * .4f + .45f);
+        var cast = starts[101341].Cast;
+        Vector2 initial = Position(101341);
+        float firstAge = cast.Age;
+        float excess = initial.x - birth.x - (firstAge - Formation(skill)) * cruise;
+        Check(excess > .005f && Mathf.Abs(initial.y - birth.y) < .01f,
+            "由出生点沿原方向推进，起步比直用巡航速度更远", new { firstAge, initial.x, excess });
+        await Advance(1.12f);
+        float observed = (Position(101341).x - initial.x) / (cast.Age - firstAge);
+        Check(Mathf.Abs(observed - cruise) < .06f && Changed(101341, 68) && !Changed(101341, 73),
+            "巡航速度符合原倍率，地块效果沿移动后的实际范围结算", new { observed, cruise });
+        await Advance(1.8f);
+        Check(EndedNormally(101341), "推进领域自然结束");
+
+        Entity altered = FieldSkill(SkillTrajectories.FieldAdvance, 1.7f, chaos: true);
+        Vector2 firstVelocity = Vector2.zero;
+        for (int i = 0; i < 2; i++)
+        {
+            long correlation = 101342 + i;
+            Emit(altered, correlation, aim);
+            await Advance(Formation(altered) + .45f);
+            var sample = starts[correlation].Cast;
+            Vector2 start = Position(correlation);
+            float age = sample.Age;
+            await Advance(.3f);
+            Vector2 velocity = (Position(correlation) - start) / (sample.Age - age);
+            float angle = Vector2.Angle(Vector2.right, velocity);
+            Check(velocity.magnitude >= cruise * .749f && velocity.magnitude <= cruise * 1.251f && angle <= 40.1f,
+                "混沌改变逐发方向和速度且沿用原上下限", new { velocity.x, velocity.y, angle });
+            if (i == 0) firstVelocity = velocity;
+            else Check(Vector2.Distance(velocity, firstVelocity) > .001f, "再发独立抽取本发参数");
+            start = Position(correlation);
+            age = sample.Age;
+            await Advance(.3f);
+            Check(Vector2.Distance((Position(correlation) - start) / (sample.Age - age), velocity) < .07f,
+                "同一发巡航时保持已抽取方向和速度");
+            await Advance(1.45f);
+            Check(EndedNormally(correlation), "混沌推进可自然结束后再次发射");
+        }
+    }
+
+    if (section is "vortex" or "all")
+    {
+        Entity skill = FieldSkill(SkillTrajectories.SlowVortex, 1.3f);
+        Pollute(67);
+        Emit(skill, 101344, new Vector3(70, 72, 0), world: true);
+        await Advance(Formation(skill) + .15f);
+        Vector2 first = Position(101344);
+        var heights = new List<float> { first.y };
+        for (int i = 0; i < 4; i++)
+        {
+            await Advance(.15f);
+            heights.Add(Position(101344).y);
+        }
+        Vector2 last = Position(101344);
+        Check(last.x > first.x + 5f && heights.Max() - heights.Min() > .4f && Changed(101344, 67),
+            "涡旋沿中线推进并横摆，实际改变经过的地块", new { first.x, last = last.x, heights });
+        await Advance(1.7f);
+        Check(EndedNormally(101344) && starts[101344].Event.SourceId == 0, "原无施法者涡旋自然结束");
+    }
+
+    if (section is "follow" or "all")
+    {
+        Entity skill = FieldSkill(SkillTrajectories.FieldFollowTarget, 2.2f);
+        Actor followed = Make(64);
+        foreach (int x in new[] { 60, 64, 69, 74 }) Pollute(x);
+        Emit(skill, 101345, birth, followed, world: true);
+        await Advance(Formation(skill) + .64f);
+        Check(Changed(101345, 64) && Mathf.Abs(Position(101345).x - 64f) < .05f && !Changed(101345, 60),
+            "无施法者领域从活目标实际位置开始", new { x = Position(101345).x, y = Position(101345).y,
+                target = followed.current_position.x, age = starts[101345].Cast.Age,
+                near = Changed(101345, 64), original = Changed(101345, 60), heat = Tile(64).heat });
+        Place(followed, 74);
+        await Advance(.51f);
+        Check(Changed(101345, 74) && Mathf.Abs(Position(101345).x - 74f) < .05f && !Changed(101345, 69),
+            "随目标转移只净化新位置，没有扫过中间地块", new { x = Position(101345).x,
+                near = Changed(101345, 74), between = Changed(101345, 69) });
+        followed.dieAndDestroy(AttackType.None);
+        await Advance(.51f);
+        Check(Changed(101345, 60) && Mathf.Abs(Position(101345).x - 60f) < .05f,
+            "目标死亡后回到原提交点，继续实际地块周期", new { x = Position(101345).x, changed = Changed(101345, 60) });
+        await Advance(1.5f);
+        Check(EndedNormally(101345), "跟随失效后的领域仍自然结束");
+    }
+
+    if (section is "building" or "all")
+    {
+        Entity skill = FieldSkill(SkillTrajectories.FieldFollowTarget, 1.75f);
+        Pollute(60);
+        Pollute(71);
+        Building building = World.world.buildings.addBuilding("house_human_0", Tile(72), pCheckForBuild: false);
+        Check(building != null && building.isAlive(), "使用现成地图的原版建筑作为目标");
+        Vector2 buildingPoint = building.GetSimPos();
+        Emit(skill, 101346, birth, building);
+        await Advance(Formation(skill) + .63f);
+        Check(Vector2.Distance(Position(101346), buildingPoint) < .05f && Changed(101346, 71),
+            "人物发出的领域使用原建筑位置和附近地块");
+        building.removeBuildingFinal();
+        await Advance(.52f);
+        Check(Vector2.Distance(Position(101346), birth) < .05f && Changed(101346, 60),
+            "建筑移除后回原坐标继续结算");
+        await Advance(1.5f);
+        Check(EndedNormally(101346), "建筑目标分段自然结束");
+    }
+    Check(legacy.Count == 0, "本次真实发射都只使用共同构造执行");
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, checks };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.WorldContactConfirmed -= Contact;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
+    foreach (Entity skill in containers)
+        if (!skill.IsNull) SkillOwnershipService.Forget(owner, skill);
+}

@@ -3009,3 +3009,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section motion` 检查实际击退及落地、施法载体换位和回生、空中条件及两种位移组合。`--section carrier` 或 `--section combo` 可单独复验代施或组合。
 
 `--section affixes` 检查随机附加、爆炸、终焉及轮回。`--section branches` 只复验范围伤害、地面元素、生命阈值、代施身体的反噬和恢复，沿用相同的已学抬地入口和测试世界。
+
+### 功能法术的移动领域（10.13 A2c1）
+
+在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_motion.py`。可用 `--section advance` 单独检查起步、巡航、逐发混沌和再用，用 `--section vortex` 检查世界来源的涡旋与实际净化。用 `--section follow` 或 `--section building` 分别检查人物跟随及建筑落点，包括移除目标后回到原坐标继续净化。场景沿用正式旧发射队列和现成地图。

@@ -36,7 +36,8 @@ internal static class UtilityConstructionMigration
         typeof(NatureGrowthModifier), typeof(CleanLandModifier), typeof(SummonRainCloudModifier),
         typeof(FertilizeModifier),
         typeof(Trajectory), typeof(BurstCount), typeof(SalvoCount), typeof(HugeModifier), typeof(HasteModifier),
-        typeof(ProficiencyModifier), typeof(ComboModifier), typeof(VolleyModifier), typeof(EmpowerModifier)
+        typeof(ProficiencyModifier), typeof(ComboModifier), typeof(VolleyModifier), typeof(EmpowerModifier),
+        typeof(ChaosModifier)
     };
 
     /// <summary>保留同次落地的地块结果处理窗口。</summary>
@@ -53,9 +54,18 @@ internal static class UtilityConstructionMigration
         var caster = emission.Sourceless ? null : emission.Source.a.GetExtend();
         AbilityDefinition definition = Convert(emission, caster, out LegacyAreaImpact landing);
         if (definition == null) return SkillEmissionResult.Unhandled;
-        var target = new ActiveAbilityTarget(
-            definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
-            emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
+        Func<Vector3> trackTarget = null;
+        Vector3 point = emission.TargetPos;
+        if (definition.Binding.Follow && emission.Target != null && !emission.Target.isRekt())
+        {
+            BaseSimObject followed = emission.Target;
+            long id = followed.getID();
+            Vector3 fallback = point;
+            trackTarget = () => !followed.isRekt() && followed.getID() == id ? followed.GetSimPos() : fallback;
+            point = trackTarget();
+        }
+        var target = new ActiveAbilityTarget(null, point, attackKingdom: emission.AttackKingdom,
+            runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
         GetHitEvent? source = null;
@@ -68,10 +78,11 @@ internal static class UtilityConstructionMigration
         }
         bool accepted = emission.Sourceless
             ? ConstructedAbilityService.StartWorld(definition, target, emission.SourcePos, source.GetValueOrDefault(),
-                sourceInstance: skill.Id, sourceIsWorld: emission.SourceIsWorld, legacyArea: landing) != 0
+                sourceInstance: skill.Id, sourceIsWorld: emission.SourceIsWorld, legacyArea: landing,
+                trackTarget: trackTarget) != 0
             : ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos,
                 emission.Payment, source, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing);
+                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing, trackTarget: trackTarget);
         return accepted ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
@@ -90,12 +101,12 @@ internal static class UtilityConstructionMigration
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool follow = trajectory == SkillTrajectories.FieldFollowTarget.id;
         bool advance = trajectory == SkillTrajectories.FieldAdvance.id;
-        bool targetActor = follow && emission.Target?.isActor() == true && !emission.Target.isRekt();
-        if (emission.Sourceless && targetActor) return null;
-        if (!follow && !advance && trajectory != SkillTrajectories.AppearAtTarget.id &&
-            trajectory != SkillTrajectories.GroundEruptAtTarget.id && trajectory != SkillTrajectories.FieldAtTarget.id)
-            return null;
+        bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
+        bool manifest = trajectory == SkillTrajectories.AppearAtTarget.id || trajectory == SkillTrajectories.GroundEruptAtTarget.id;
         SkillEntityAsset asset = container.Asset;
+        bool field = asset == SkillEntities.NatureGrowthField || asset == SkillEntities.CleanLandField;
+        if (!manifest && (!field || !follow && !advance && !vortex && trajectory != SkillTrajectories.FieldAtTarget.id))
+            return null;
         float radius = SkillEffectRadius.ResolveForCaster(caster, skill,
             asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
         // 共同地块预算覆盖最多一百万格；超过当前已实现的根尺寸留给旧来源，避免改小原术。
@@ -104,9 +115,8 @@ internal static class UtilityConstructionMigration
             asset.ResolveRuntimeLifetime(skill, asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier);
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.Duration > 0f) lifetime = settings.Duration;
-        bool field = asset == SkillEntities.NatureGrowthField || asset == SkillEntities.CleanLandField;
-        bool instantPulse = !field && (trajectory == SkillTrajectories.AppearAtTarget.id ||
-            trajectory == SkillTrajectories.GroundEruptAtTarget.id);
+        bool instantPulse = !field;
+        float duration = lifetime;
         float formation = 0f;
         float activeEnd = lifetime;
         if (instantPulse || field)
@@ -158,25 +168,9 @@ internal static class UtilityConstructionMigration
             : null);
         if (effects.Count == 0) return null;
         var operations = new List<ConstructionOperation>();
+        float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float angle, out float speedScale);
         if (advance)
-        {
-            float speed = container.MotionProfile.ResolveSpeed(
-                Vector2.Distance(emission.SourcePos, emission.TargetPos)) * .25f;
-            if (skill.TryGetComponent(out HasteModifier haste))
-                speed *= Mathf.Clamp(1f + haste.SpeedMultiplier, .1f, 10f);
-            Vector3 direction = emission.TargetPos - emission.SourcePos;
-            direction.z = 0f;
-            direction = direction.sqrMagnitude > .000001f ? direction.normalized : Vector3.right;
-            direction = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * direction;
-            operations.Add(new ConstructionOperation
-            {
-                Kind = ConstructionOperationKind.Fly,
-                At = formation,
-                Vector = new[] { direction.x * speed, direction.y * speed, 0f },
-                WorldVelocity = true,
-                InheritVelocity = false
-            });
-        }
+            AddAdvance(operations, emission, formation, duration, angle, speedScale);
 
         var offset = new[] { .5f, .5f, 0f };
         if (radius <= 0f)
@@ -225,19 +219,21 @@ internal static class UtilityConstructionMigration
                     lifetime = Mathf.Max(lifetime, landingAt + .001f);
                 }
                 // 原逐发强度只给附加词条使用。地块范围不携带这份攻击强度，也不参与法术相撞。
-                float strength = emission.Strength;
+                float strength = emission.Strength * setupScale;
                 if (configured) strength *= settings.PowerMultiplier;
                 if (skill.TryGetComponent(out EmpowerModifier empower)) strength *= 1f + Mathf.Clamp(empower.SetupBonus, 0f, 10f);
                 if (skill.TryGetComponent(out VolleyModifier volley)) strength *= Mathf.Clamp(volley.DamageMultiplier, .05f, 2f);
                 if (skill.TryGetComponent(out ComboModifier combo)) strength *= Mathf.Clamp(combo.DamageMultiplier, .05f, 2f);
-                if (skill.TryGetComponent(out MercyModifier mercy)) strength *= Mathf.Clamp(mercy.DamageMultiplier, .05f, 1f);
                 var element = landingImpact.Spreads.Length > 0 || skill.HasComponent<ReincarnationTrialModifier>()
                     ? ModClass.I.SkillV3.ResolveGroundEffectElement(skill, emission.RuntimeData) : null;
                 landing = LegacyAreaImpact.ForUtility(radius, strength * effectScale, element, steps);
             }
         }
 
-        return new AbilityDefinition
+        if (advance || vortex)
+            operations.Add(new ConstructionOperation
+                { Kind = ConstructionOperationKind.ChangeSpeed, At = formation + duration, Speed = 0f });
+        var definition = new AbilityDefinition
         {
             Id = asset.id,
             Name = skill.HasName ? skill.Name.value : asset.id.Localize(),
@@ -248,23 +244,17 @@ internal static class UtilityConstructionMigration
             Lifetime = lifetime,
             ConcurrentLimit = asset.ImpactProfile.PersistentLimit,
             TargetRange = 10000f,
-            Use = new ConstructionUse
-            {
-                Channels = ActiveAbilityChannel.World,
-                Target = targetActor ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point
-            },
+            Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
             Impact = new ConstructionImpact
             {
                 DamageScale = 0f,
-                Targets = targetActor && SkillTargetRelationResolver.Matches(SkillUseTargetRelation.Hostile,
-                    emission.Source, emission.Target)
-                    ? SkillUseTargetRelation.Hostile
-                    : SkillUseTargetRelation.Friendly
+                Targets = SkillUseTargetRelation.Friendly
             },
             Binding = new ConstructionBinding
             {
                 Anchor = advance ? AbilityAnchor.Source : AbilityAnchor.Target,
-                Follow = follow && targetActor
+                Follow = follow,
+                ContactAtDestination = follow
             },
             Root = new ConstructionNode
             {
@@ -277,6 +267,46 @@ internal static class UtilityConstructionMigration
                 Operations = operations.ToArray()
             }
         };
+        if (vortex)
+        {
+            AbilityDefinition motion = ProjectileConstructionMigration.Motion(
+                emission, definition.Root.Form, 1f, true, duration, angle, speedScale, out _);
+            if (motion == null) return null;
+            foreach (ConstructionOperation operation in motion.Root.Operations) operation.At += formation;
+            ProjectileConstructionMigration.BindMotion(definition, motion);
+            definition.Lifetime = lifetime;
+        }
+        return definition;
+    }
+
+    /// <summary>展开原领域的二次缓出起步曲线，成形后才开始移动。</summary>
+    private static void AddAdvance(List<ConstructionOperation> operations, in SkillEmission emission,
+        float formation, float duration, float angle, float speedScale)
+    {
+        var motion = emission.SkillContainer.GetComponent<SkillContainer>().MotionProfile;
+        float speed = motion.ResolveSpeed(Vector2.Distance(emission.SourcePos, emission.TargetPos));
+        if (emission.SkillContainer.TryGetComponent(out HasteModifier haste))
+            speed *= Mathf.Clamp(1f + haste.SpeedMultiplier, .1f, 10f);
+        speed = (speed > 0f ? speed : 28f) * .25f * (speed > 0f ? speedScale : 1f);
+        Vector3 heading = emission.TargetPos - emission.SourcePos;
+        heading = heading.sqrMagnitude >= .0001f ? heading.normalized : Vector3.right;
+        heading = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + angle, Vector3.forward) * heading;
+        float launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier, ramp = motion.RampDuration;
+        Vector3 velocity = heading * speed * (ramp > .001f ? launch : cruise);
+        operations.Add(new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Fly, At = formation,
+            Vector = new[] { velocity.x, velocity.y, velocity.z }, WorldVelocity = true, InheritVelocity = false
+        });
+        if (ramp <= .001f) return;
+        for (int i = 1; i <= 8; i++)
+        {
+            float at = ramp * i / 8f;
+            if (at >= duration) break;
+            float remaining = 1f - i / 8f;
+            operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = formation + at,
+                Speed = speed * (cruise + (launch - cruise) * remaining * remaining) });
+        }
     }
 
     /// <summary>四种瞬时地貌术使用旧落点时机和已变化地块的立体收势。</summary>

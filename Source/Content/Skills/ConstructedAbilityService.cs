@@ -470,6 +470,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="selectionAlreadyChecked">已从原入口按原射程核对选择，实际作用范围仍由构造接触决定。</param>
     /// <param name="artifactArea">原法宝圆面确认接触时兑现的状态、伤害或净化。</param>
     /// <param name="commitEffect">资料和位置通过核对后，提交必须成功的来源动作。</param>
+    /// <param name="trackTarget">原领域提供的实时地图落点，可在对象失效后返回原坐标。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3? sourcePosition, SkillCastPayment payment = null,
         GetHitEvent? damage = null, Vector3? direction = null, int sourceInstance = 0, BaseSimObject spatialSource = null,
@@ -477,7 +478,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillVfxElementAsset groundContact = null, LegacyBuildingContact buildingContact = null,
         string formationFamily = null, FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
-        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null)
+        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, Func<Vector3> trackTarget = null)
     {
         if (spatialSource != null && (!spatialSource.isActor() || spatialSource.isRekt())) return false;
         CompiledAbility plan = ValidateDefinition(definition);
@@ -495,7 +496,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
             formationFamily: formationFamily, formationArea: formationArea, explicitReactionTarget: explicitReactionTarget,
             formationTarget: formationTarget, selectionAlreadyChecked: selectionAlreadyChecked,
-            artifactArea: artifactArea, commitEffect: commitEffect);
+            artifactArea: artifactArea, commitEffect: commitEffect, trackTarget: trackTarget);
     }
 
     /// <summary>固定环境位置直接进入共同执行，零编号表示未受理，不借人物提供身份或资源。</summary>
@@ -504,14 +505,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="sourceInstance">原环境容器，供同来源并存计数。</param>
     /// <param name="sourceIsWorld">该出生位置是否已包含地形高度。</param>
     /// <param name="legacyArea">旧来源按落地中心结算的额外作用。</param>
+    /// <param name="trackTarget">原领域提供的实时地图落点，可在对象失效后返回原坐标。</param>
     internal static long StartWorld(AbilityDefinition definition, in ActiveAbilityTarget target,
-        Vector3 position, GetHitEvent damage, int sourceInstance = 0, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null)
+        Vector3 position, GetHitEvent damage, int sourceInstance = 0, bool sourceIsWorld = false,
+        LegacyAreaImpact legacyArea = null, Func<Vector3> trackTarget = null)
     {
         CompiledAbility plan = ValidateDefinition(definition);
         if (plan.Body != null || plan.Binding?.Anchor == AbilityAnchor.Carrier || damage.HasAttacker) return 0;
         return Start(null, plan, target, target.RuntimeData.Origin, out long castId,
             position, prepaid: true, sourceDamage: damage, sourceInstance: sourceInstance,
-            sourceIsWorld: sourceIsWorld, legacyArea: legacyArea) ? castId : 0;
+            sourceIsWorld: sourceIsWorld, legacyArea: legacyArea, trackTarget: trackTarget) ? castId : 0;
     }
 
     /// <summary>发起来源主动撤销自己保存的施放；实际退出和额度归还仍由共同推进完成。</summary>
@@ -580,7 +583,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
         ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, float effectScale = 1f,
-        Func<Vector3?> trackSource = null)
+        Func<Vector3?> trackSource = null, Func<Vector3> trackTarget = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -775,6 +778,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 SpatialSource = spatialSource,
                 SpatialSourceId = spatialSourceId,
                 TrackSource = trackSource,
+                TrackTarget = trackTarget,
                 Target = targetActor,
                 TargetId = targetActor?.id ?? 0,
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
@@ -1218,6 +1222,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>元神等独立的非人物载体，失效不回落到肉身。</summary>
         internal Func<Vector3?> TrackSource;
+
+        /// <summary>原功能领域独立跟随人物或建筑，返回地图位置和离地高度。</summary>
+        internal Func<Vector3> TrackTarget;
 
         /// <summary>实际载体仍是原来源且能够提供位置。</summary>
         internal bool SpatialSourceLive => InitialOwner.SpatialLive;

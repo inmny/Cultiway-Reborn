@@ -629,7 +629,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         int work = 0;
         foreach (RunningCast running in active)
         {
-            if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
+            if (refresh && running.TrackTarget == null && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
                 !changedActors.ContainsKey(running.TargetId) && !changedActors.ContainsKey(running.SpatialSourceId) &&
                 !(running.WeaponConstraint?.Active == true &&
                   changedActors.ContainsKey(running.WeaponConstraint.Owner.SourceId))) continue;
@@ -648,7 +648,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.LastSourceFoot = foot;
             running.LastSourceHeight = height;
             running.InitialOwner.LastFoot = foot;
-            if (running.Target?.data?.id == running.TargetId && running.Target.isAlive() &&
+            if (running.TrackTarget != null)
+            {
+                Vector3 target = running.TrackTarget();
+                target.z += terrain?.Sample(target.x, target.y) ?? 0f;
+                running.LastTargetFoot = running.LastTarget = target;
+            }
+            else if (running.Target?.data?.id == running.TargetId && running.Target.isAlive() &&
                 running.Target.hasHealth() &&
                 actorIndices.TryGetValue(running.TargetId, out int targetIndex))
             {
