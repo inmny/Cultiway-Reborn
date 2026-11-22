@@ -8,6 +8,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -38,7 +39,7 @@ public static class YuanshenNodeCastingService
         if (caster == null ||
             !YuanshenThoughtService.TryGetFocused(caster, out YuanshenNodeHandle handle, out _) ||
             !YuanshenNodeLockService.TryResolve(handle, out Entity node)) return true;
-        if (!AllowsSkillFromNode(skill, node)) return false;
+        if (!HasUsableResidence(caster, node) || !AllowsSkillFromNode(skill, node)) return false;
         return skill.IsNull || !skill.TryGetComponent(out SkillContainer container) ||
                container.Asset?.CarrierRequirement != SkillCarrierRequirement.PhysicalBody ||
                !IsReady(caster, node);
@@ -52,9 +53,10 @@ public static class YuanshenNodeCastingService
     {
         if (caster == null || caster.HasComponent<YuanshenBodilessTransitState>()) return false;
         if (!YuanshenThoughtService.TryGetFocused(caster, out YuanshenNodeHandle handle, out _) ||
-            !YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
-            !node.TryGetComponent(out YuanshenAdvancedNodeState advanced) || !advanced.support_only) return true;
-        return profile.offensive <= 0f;
+            !YuanshenNodeLockService.TryResolve(handle, out Entity node)) return true;
+        return HasUsableResidence(caster, node) &&
+               (!node.TryGetComponent(out YuanshenAdvancedNodeState advanced) ||
+                !advanced.support_only || profile.offensive <= 0f);
     }
 
     /// <summary>判断技能是否符合当前节点的护持限制。</summary>
@@ -81,6 +83,7 @@ public static class YuanshenNodeCastingService
             container.Asset?.CarrierRequirement == SkillCarrierRequirement.PhysicalBody ||
             !YuanshenThoughtService.TryGetFocused(caster, out YuanshenNodeHandle handle, out Vector2 position) ||
             !YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
+            !HasUsableResidence(caster, node) ||
             !IsReady(caster, node) ||
             !AllowsSkillFromNode(skill, node))
             return null;
@@ -101,6 +104,7 @@ public static class YuanshenNodeCastingService
         if (context.Carrier != caster ||
             !YuanshenThoughtService.TryGetFocused(caster, out YuanshenNodeHandle focused, out Vector2 point) ||
             !YuanshenNodeLockService.TryResolve(focused, out Entity node)) return true;
+        if (!HasUsableResidence(caster, node)) return false;
         if (node.TryGetComponent(out YuanshenAdvancedNodeState advanced) && advanced.support_only &&
             (plan.Impact.Targets == SkillUseTargetRelation.Hostile || plan.ActorImpacts.Any(Harms))) return false;
         if (!IsReady(caster, node)) return true;
@@ -137,12 +141,24 @@ public static class YuanshenNodeCastingService
         return budget.AutomaticPreparedLimit >= budget.TotalLoadCapacity * 0.1f;
     }
 
-    /// <summary>让已发出的法术跟随原节点。聚焦切换时始终读取受理的那一个。</summary>
+    /// <summary>依附设施的节点只在原建筑仍可使用时提供施法来源。</summary>
+    /// <param name="caster">节点所属施法者。</param><param name="node">实际出手节点。</param>
+    private static bool HasUsableResidence(ActorExtend caster, Entity node) =>
+        !node.TryGetComponent(out YuanshenAnchorResidence residence) ||
+        YuanshenAnchorNetworkService.TryGetUsableAuthorized(caster, residence.anchor, out _, out _);
+
+    /// <summary>让已发出的法术跟随原节点。建筑失效时直接结束依附，无需等待定期清理。</summary>
     /// <param name="handle">原节点所属会话及代次。</param>
     internal static Func<Vector3?> TrackNode(YuanshenNodeHandle handle) => () =>
-        YuanshenNodeLockService.TryResolve(handle, out Entity node) &&
-        node.TryGetComponent(out YuanshenNodeState state) && state.IntegrityRatio > 0f &&
-        node.TryGetComponent(out Position position) ? SpellPosition(position.v2) : null;
+    {
+        if (!YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
+            !node.TryGetComponent(out YuanshenNodeState state) || state.IntegrityRatio <= 0f ||
+            !node.TryGetComponent(out Position position)) return null;
+        if (node.TryGetComponent(out YuanshenAnchorResidence residence) &&
+            !YuanshenAnchorNetworkService.TryGetUsableAuthorized(
+                World.world?.units.get(handle.OwnerActorId)?.GetExtend(), residence.anchor, out _, out _)) return null;
+        return SpellPosition(position.v2);
+    };
 
     /// <summary>节点施法沿用原本相对地面的高度。</summary>
     /// <param name="position">实际节点地面位置。</param>

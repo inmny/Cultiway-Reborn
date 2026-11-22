@@ -23,7 +23,7 @@ FILMS = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
+    parser.add_argument('--section', choices=('soul', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit', 'facility',
                                               'prepare', 'cold', *FILMS), default='soul')
     parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
     args = parser.parse_args()
@@ -59,6 +59,8 @@ def main():
     elif section in FILMS:
         scene += Path(__file__).with_name('record_independent_casting_camera.script').read_text()
         body = 'record_independent_casting.script'
+    elif section == 'facility':
+        body = 'verify_facility_nodes.script'
     else:
         body = 'verify_independent_casting.script' if section == 'soul' else 'verify_independent_sources.script'
     script.write_text(IMPORTS + 'using Cultiway.Core.SkillLibV3.Utils;\n' + helpers

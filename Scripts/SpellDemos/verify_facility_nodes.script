@@ -1,0 +1,136 @@
+// 同一角色沿实际元神台连接迁移，再验证依附场所的显圣护持。
+owner.GetComponent<Yuanshen>().stage = 9;
+Cultivation().wakan = 9800f;
+ControllableUnit.setControllableCreature(body);
+var sect = Cultiway.WorldboxGame.I.Sects.get(901);
+Check(sect.JoinSect(body), "原修士实际加入原宗门");
+Building Site(BuildingAsset asset, int x, int y)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    var building = World.world.buildings.addBuilding(asset.id, tile, pCheckForBuild: false);
+    Check(building != null, "实际建成可用场所", asset.id);
+    building.completeConstruction();
+    building.data.set(Cultiway.Const.BuildingDataKeys.SectID_Long, sect.getID());
+    Cultiway.WorldboxGame.I.Sects.setDirtyBuildings(sect);
+    return building;
+}
+
+var begin = Site(Buildings.SectHall, 62, 75);
+var end = Site(Buildings.SectTreasurePavilion, 76, 75);
+Vector2 start = begin.current_position, destination = end.current_position;
+void Stand(Vector2 point) => Place(body, point.x, point.y);
+bool Near(Vector2 first, Vector2 second) => Vector2.Distance(first, second) < .35f;
+YuanshenAnchorHandle Consecrate(Vector2 point)
+{
+    Stand(point);
+    Check(YuanshenAnchorNetworkService.TryConsecrate(owner, point, YuanshenAnchorKind.SectPlatform),
+        "从实际建筑和原资源设立元神台", point.ToString());
+    Check(YuanshenAnchorNetworkService.TryGetAuthorizedAtPoint(owner, point, out var handle, out _),
+        "取得实际设施身份");
+    return handle;
+}
+
+var payments = new List<float>();
+var mutations = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object previous = mutations.GetValue(null);
+void Paid(ActorExtend source, in WakanMutation mutation)
+{
+    if (source == owner && mutation.Kind == WakanMutationKind.Spend) payments.Add(-mutation.Delta);
+}
+
+ActiveAbilityHandle Ward(string id)
+{
+    var definition = NewAbility(id, AbilityAnchor.Source, 9f);
+    definition.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    definition.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f };
+    definition.Binding.Follow = true;
+    definition.Root.ContactRole = ConstructionContactRole.Barrier;
+    definition.Root.Form = "guard_seal";
+    return Learn(definition);
+}
+bool Aim(ActiveAbilityHandle handle, Vector2 point, long key) =>
+    ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, point,
+        runtimeData: new SkillCastRuntimeData { CorrelationId = key }), ActiveAbilityUseOrigin.Script);
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Exited;
+WakanResourceService.RegisterMutationCommitted(Paid);
+try
+{
+    var sourceAnchor = Consecrate(start);
+    var oldEnd = Consecrate(destination);
+    Stand(start);
+    Check(YuanshenThoughtService.TryCreateThought(owner, start), "从本人位置实际创建分念");
+    var thought = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenThoughtService.TryFocus(owner, thought) &&
+        YuanshenNodeLockService.TryResolve(thought, out Entity _), "聚焦同一分念");
+    Check(YuanshenNodeLockService.TryResolve(thought, out Entity node), "取得原分念");
+    Stand(start + new Vector2(0f, -12f));
+    float before = Balance();
+    Check(!YuanshenAdvancedNodeService.TryTransitFocused(owner, destination) && Balance() == before,
+        "未连通时远离肉身的分念不能迁移且费用不变");
+
+    Stand(start);
+    Check(YuanshenAnchorNetworkService.TryConnectSelected(owner, start), "通过正式入口建立两端连接");
+    Stand(start + new Vector2(0f, -12f));
+    int charges = payments.Count;
+    Check(YuanshenAdvancedNodeService.TryTransitFocused(owner, destination) &&
+        node.TryGetComponent(out YuanshenAnchorTransitState transit) && transit.source == sourceAnchor &&
+        transit.destination == oldEnd && payments.Count == charges + 1,
+        "迁移由原修士付费，从原分念到指定终点", payments.LastOrDefault());
+    Stand(destination);
+    Check(YuanshenAnchorNetworkService.TryDismantle(owner, destination), "通过正式解除设施切断原路线");
+    await Advance(.22f);
+    Check(!node.HasComponent<YuanshenAnchorTransitState>() && Near(node.GetComponent<Position>().v2, start) &&
+        node.GetComponent<YuanshenAnchorResidence>().anchor == sourceAnchor && payments.Count == charges + 1,
+        "中断后仍在原设施，费用未再次扣除，终点未迁入");
+
+    var newEnd = Consecrate(destination);
+    Stand(start);
+    Check(newEnd != oldEnd && YuanshenAnchorNetworkService.TryConnectSelected(owner, start),
+        "重新设立实际设施并建立新连接");
+    Stand(start + new Vector2(0f, -12f));
+    charges = payments.Count;
+    Check(YuanshenAdvancedNodeService.TryTransitFocused(owner, destination), "同一分念可以再次迁移");
+    await Advance(1.15f);
+    Check(!node.HasComponent<YuanshenAnchorTransitState>() &&
+        node.GetComponent<YuanshenAnchorResidence>().anchor == newEnd &&
+        Near(node.GetComponent<Position>().v2, destination) && payments.Count == charges + 1,
+        "同一分念经新路线实际抵达，只支付一次");
+
+    Stand(destination);
+    Check(YuanshenAdvancedNodeService.TryCreateManifestation(owner, destination) &&
+        YuanshenThoughtService.TryGetFocused(owner, out _, out Vector2 _), "在同一设施实际建立并聚焦显圣");
+    var projection = owner.GetComponent<YuanshenRuntimeState>().advanced_nodes.Single();
+    var held = Ward("facility-held");
+    var retry = Ward("facility-retry");
+    Stand(destination + Vector2.down * 6f);
+    before = Balance();
+    Check(Aim(held, destination, 10101) && Balance() < before && unit[10101].Fact.SourceId == body.id &&
+        Near((Vector3)Field(unit[10101].Run, "LastSourceFoot"), destination),
+        "原修士支付，护持确实从显圣所在设施出手");
+    await Advance(.08f);
+    typeof(Building).GetMethod("removeBuildingFinal", F).Invoke(end, null);
+    before = Balance();
+    Check(YuanshenNodeLockService.TryResolve(projection, out _) &&
+        ((Func<Vector3?>)Field(unit[10101].Run, "TrackSource"))() == null &&
+        !Aim(retry, destination, 10102) && Balance() == before && !unit.ContainsKey(10102),
+        "移除建筑后清理前，原节点已停止提供位置，新施放被拒绝且未扣费");
+    await Advance(.12f);
+    Check(exits.Any(fact => fact.CastId == unit[10101].Fact.CastId && fact.Cancelled && fact.Age < 1f),
+        "原护持随物质设施失效立即停止");
+    await Advance(1.1f);
+    Check(!YuanshenNodeLockService.TryResolve(projection, out _) && Aim(retry, body.current_position, 10103) &&
+        Near((Vector3)Field(unit[10103].Run, "LastSourceFoot"), body.current_position),
+        "失效显圣清理后从实际肉身恢复施展");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = body.id,
+        start = begin.id, sect = sect.getID(), charges = payments.ToArray() };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Exited;
+    mutations.SetValue(null, previous);
+    ControllableUnit.clear(false);
+}

@@ -2981,3 +2981,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 宗门护持的实际场所（10.12）
 
 用 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_artifact_sect_vein.py --venue --skip-views`，复用原镇宗宝脉配方和宗门。脚本拆除实际大殿、改用新藏宝阁，再用原宗门入口离开和返回，核对护持和地脉变化、原印物权与库存关系。
+
+### 元神台连接与依附护持（10.12）
+
+用 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_independent_casting.py --section facility`。在真实宗门场所建立两个元神台，检查断开和重连后的迁移、费用、原节点护持、拆除建筑及肉身恢复施展。

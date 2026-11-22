@@ -346,13 +346,25 @@ public static class YuanshenAnchorNetworkService
         out YuanshenAnchorHandle source)
     {
         source = default;
-        if (!TryGetUsableAuthorized(actor, destination, out _, out _)) return false;
+        if (!TryGetUsableAuthorized(actor, destination, out Entity destinationEntity, out _)) return false;
         if (destination.OwnerActorId == actor.Base.data.id &&
             YuanshenTravelService.TryGetMainSoulPosition(actor, out Vector3 mainPosition) &&
             Vector2.Distance(nodePosition, mainPosition) <= PresenceRange) return true;
         if (!TryGetAnchorNearPosition(actor, nodePosition, PresenceRange, out source, out Entity sourceEntity) ||
             source == destination) return source == destination;
-        return HasDirectLink(sourceEntity, destination);
+        return HasDirectLink(sourceEntity, destination) && HasDirectLink(destinationEntity, source);
+    }
+
+    /// <summary>继续使用受理时的原路线，两个锚点和双向连接仍须同时有效。</summary>
+    /// <param name="actor">原迁移者。</param><param name="source">原入阵锚点，命魂主位置直达时为空。</param>
+    /// <param name="destination">原点选锚点。</param><param name="position">终点建筑的实际位置。</param>
+    internal static bool TryResolveTransitRoute(ActorExtend actor, YuanshenAnchorHandle source,
+        YuanshenAnchorHandle destination, out Vector2 position)
+    {
+        if (!TryGetUsableAuthorized(actor, destination, out Entity end, out position)) return false;
+        return !source.IsValid || source == destination ||
+               TryGetUsableAuthorized(actor, source, out Entity begin, out _) &&
+               HasDirectLink(begin, destination) && HasDirectLink(end, source);
     }
 
     /// <summary>判断一处锚点当前容量能否再承载指定心神份额。</summary>
@@ -651,7 +663,7 @@ public static class YuanshenAnchorNetworkService
     /// <summary>判断锚点物质建筑当前是否仍属于建立时集体。</summary>
     private static bool IsMaterialOwnershipValid(in YuanshenAnchorState identity, Building building)
     {
-        if (building == null || building.isRekt() || !building.isAlive() || building.isUnderConstruction())
+        if (building == null || building.isRekt() || !building.isAlive() || !building.isUsable() || building.isUnderConstruction())
             return false;
         if (identity.kind == YuanshenAnchorKind.SectPlatform)
         {
@@ -801,15 +813,10 @@ public static class YuanshenAnchorNetworkService
         state.link_handles.Add(target);
     }
 
-    /// <summary>判断锚点是否与目标直接连接。</summary>
-    private static bool HasDirectLink(Entity anchor, YuanshenAnchorHandle target)
-    {
-        if (!anchor.TryGetComponent(out YuanshenAnchorState state) || state.link_handles == null) return false;
-        for (var i = 0; i < state.link_handles.Count; i++)
-            if (state.link_handles[i] == target && TryResolve(target, out _))
-                return true;
-        return false;
-    }
+    /// <summary>检查已解析的一端是否仍登记另一端。</summary>
+    /// <param name="anchor">已经核对的实际锚点。</param><param name="target">另一端的原句柄。</param>
+    private static bool HasDirectLink(Entity anchor, YuanshenAnchorHandle target) =>
+        anchor.GetComponent<YuanshenAnchorState>().link_handles?.Contains(target) == true;
 
     /// <summary>从指定锚点删除一条反向连接。</summary>
     private static void RemoveLink(YuanshenAnchorHandle anchorHandle, YuanshenAnchorHandle target)

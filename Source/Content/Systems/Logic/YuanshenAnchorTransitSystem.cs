@@ -108,13 +108,10 @@ public sealed class YuanshenAnchorTransitSystem : BaseSystem, IWorldStateClearab
                     return;
                 }
                 ActorExtend owner = ownerBase.GetExtend();
-                bool sourceValid = !transit.source.IsValid ||
-                                   YuanshenAnchorNetworkService.TryGetUsableAuthorized(
-                                       owner, transit.source, out _, out _);
-                bool destinationValid = transit.return_to_root ||
-                                        YuanshenAnchorNetworkService.TryGetUsableAuthorized(
-                                            owner, transit.destination, out _, out _);
-                if (!sourceValid || !destinationValid ||
+                bool routeValid = transit.return_to_root
+                    ? YuanshenAnchorNetworkService.TryGetUsableAuthorized(owner, transit.source, out _, out _)
+                    : YuanshenAnchorNetworkService.TryResolveTransitRoute(owner, transit.source, transit.destination, out _);
+                if (!routeValid ||
                     state.integrity_current + 0.001f < transit.starting_integrity)
                     interruptedTransits.Add(new TransitRequest(owner, node, transit));
                 else if (transit.completes_at <= now)
@@ -137,12 +134,8 @@ public sealed class YuanshenAnchorTransitSystem : BaseSystem, IWorldStateClearab
             ownerBase.cancelAllBeh();
             ownerBase.clearAttackTarget();
             ownerBase.clearTileTarget();
-            bool sourceValid = !transit.source.IsValid ||
-                               YuanshenAnchorNetworkService.TryGetUsableAuthorized(
-                                   owner, transit.source, out _, out _);
-            bool destinationValid = YuanshenAnchorNetworkService.TryGetUsableAuthorized(
-                owner, transit.destination, out _, out _);
-            if (!YuanshenLifecycleService.IsBodiless(owner) || !sourceValid || !destinationValid ||
+            if (!YuanshenLifecycleService.IsBodiless(owner) ||
+                !YuanshenAnchorNetworkService.TryResolveTransitRoute(owner, transit.source, transit.destination, out _) ||
                 ownerBase.data.health + 0.001f < transit.starting_health)
                 interruptedBodilessTransits.Add(new BodilessTransitRequest(owner, transit));
             else if (transit.completes_at <= now)

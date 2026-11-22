@@ -323,8 +323,8 @@ public static class YuanshenAdvancedNodeService
     {
         if (actor == null || !actor.HasComponent<YuanshenBodilessTransitState>() ||
             !YuanshenLifecycleService.IsBodiless(actor) ||
-            !YuanshenAnchorNetworkService.TryGetUsableAuthorized(
-                actor, transit.destination, out _, out Vector2 destination)) return false;
+            !YuanshenAnchorNetworkService.TryResolveTransitRoute(
+                actor, transit.source, transit.destination, out Vector2 destination)) return false;
         WorldTile tile = World.world?.GetTileSimple(Mathf.RoundToInt(destination.x), Mathf.RoundToInt(destination.y));
         if (tile == null) return false;
         actor.E.RemoveComponent<YuanshenBodilessTransitState>();
@@ -403,8 +403,8 @@ public static class YuanshenAdvancedNodeService
             return YuanshenThoughtService.CompleteReturn(actor, node);
         }
 
-        if (!YuanshenAnchorNetworkService.TryGetUsableAuthorized(actor, transit.destination,
-                out _, out Vector2 destination) ||
+        if (!YuanshenAnchorNetworkService.TryResolveTransitRoute(actor, transit.source, transit.destination,
+                out Vector2 destination) ||
             !YuanshenAnchorNetworkService.TrySetResidence(node, transit.destination)) return false;
         ref Position position = ref node.GetComponent<Position>();
         position.v2 = destination;
