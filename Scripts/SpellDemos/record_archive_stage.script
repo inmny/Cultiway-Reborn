@@ -1,0 +1,54 @@
+var archiveFrames = new List<object>();
+var archiveEvents = new List<object>();
+Vector2 archiveCentre = default;
+float archiveZoom = 0f;
+bool archiveOpened = false;
+
+double ArchiveTime() => World.world.getCurWorldTime();
+
+async Task OpenArchiveFilm(Actor actor, Vector2 centre, float zoom)
+{
+    if (!recordArchive) return;
+    Check(view == "native", "存读录像使用独立原版游戏");
+    archiveCentre = centre;
+    archiveZoom = zoom;
+    archiveOpened = true;
+    await OpenView(actor, centre);
+}
+
+void ArchiveFrame(string stage)
+{
+    if (!archiveOpened) return;
+    ReadFrame(archiveFrames.Count, archiveCentre, archiveZoom);
+    archiveFrames.Add(new { frame = archiveFrames.Count, time = ArchiveTime(), stage });
+}
+
+void ArchiveEvent(string name)
+{
+    if (archiveOpened) archiveEvents.Add(new { name, time = ArchiveTime() });
+}
+
+async Task FilmAdvance(float seconds, Func<string> stage)
+{
+    if (!archiveOpened)
+    {
+        await Advance(seconds);
+        return;
+    }
+    double end = ArchiveTime() + seconds;
+    while (ArchiveTime() < end)
+    {
+        await WaitForView();
+        ArchiveFrame(stage());
+        await Advance(Mathf.Min(.055f, (float)(end - ArchiveTime())));
+    }
+}
+
+void CloseArchiveFilm(object definition)
+{
+    if (!archiveOpened) return;
+    CloseView();
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition));
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(
+        new { view, frames = archiveFrames, events = archiveEvents }, Formatting.Indented));
+}
