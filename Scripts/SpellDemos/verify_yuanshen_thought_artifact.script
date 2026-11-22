@@ -1,0 +1,56 @@
+owner.GetComponent<Yuanshen>().stage = 5;
+Cultivation().wakan = 9000f;
+string provider = "content.yuanshen_thought";
+bool Order(string entry, Vector2 point = default) =>
+    ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle(provider, owner.E, entry),
+        new ActiveAbilityTarget(null, (Vector3)point), ActiveAbilityUseOrigin.Script);
+
+var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword,
+    Atoms = new[] { ArtifactAtoms.SwordBreaker, ArtifactAtoms.Iron, ArtifactAtoms.SoulCore, ArtifactAtoms.SpiritAwakeningScript },
+    Level = new ItemLevel { Stage = 1, Level = 3 },
+    Name = "分念控宝原剑"
+}));
+var item = ArtifactBlueprintCodec.Materialize(recipe, body.getName());
+owner.AddSpecialItem(item);
+ArtifactControlRules.BindAttunement(item, body.id);
+Check(owner.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "从正式入口装备同一件已认主原剑");
+
+Ready(body);
+Place(body, 64.5f);
+body.attack_timer = 999f;
+try
+{
+    await Advance(.3f);
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0f);
+    float before = Balance();
+    Check(!Order("control_artifact") && !item.HasComponent<ArtifactYuanshenControl>() && Balance() == before,
+        "没有正式聚焦时不会划给分念或支付");
+    var destination = new Vector2(69f, 72f);
+    Check(Order("create", destination), "实际创建本次控宝分念");
+    var handle = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    Check(YuanshenNodeLockService.TryResolve(handle, out Entity node), "取得本人同一分念身份");
+    await Advance(.88f);
+    Vector2 nodePosition = node.GetComponent<Position>().v2;
+    Check(Vector2.Distance(nodePosition, body.current_position) > 2f && Order("focus", nodePosition),
+        "选择已经移离肉身的同一道分念");
+    before = Balance();
+    Check(Order("control_artifact") && item.GetComponent<ArtifactYuanshenControl>().node == handle &&
+        node.GetComponent<YuanshenNodeTask>().kind == YuanshenNodeTaskKind.ControlArtifact &&
+        ArtifactYuanshenControlService.TryResolveOrigin(body, item, out Vector3 from) &&
+        Vector2.Distance(from, nodePosition) < .01f && Balance() == before,
+        "原法宝由实际分念接管空间起点，仍属原人物", new { item = item.Id, body = body.id, node = node.Id });
+    Check(Order("release_artifact") && !item.HasComponent<ArtifactYuanshenControl>() &&
+        node.GetComponent<YuanshenNodeTask>().kind == YuanshenNodeTaskKind.Idle &&
+        !ArtifactYuanshenControlService.TryResolveOrigin(body, item, out _) &&
+        owner.GetItems().Contains(item) && owner.E.GetRelation<EquippedArtifactRelation, Entity>(item).artifact == item,
+        "正式解除后恢复同一原件的正常持用");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
