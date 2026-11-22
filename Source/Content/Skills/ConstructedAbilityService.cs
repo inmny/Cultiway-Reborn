@@ -229,6 +229,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void RegisterBuiltInDefinitions()
     {
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
+        MartialWorkConstruction.Register();
         GroundScaleConstruction.Register();
         WorldUtilityConstructions.Register();
     }
