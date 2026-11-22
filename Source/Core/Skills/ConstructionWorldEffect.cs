@@ -28,6 +28,10 @@ public sealed class ConstructionWorldEffect
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? Duration;
 
+    /// <summary>只交给支持局部时间的实际过程，空安排恢复常速。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionProcessWindow[] TimeWindows;
+
     /// <summary>本部位此操作最多接受的不同地块数，达到后不再接受新地块。</summary>
     public int MaximumTiles = 4096;
 
@@ -54,17 +58,23 @@ public readonly struct ConstructionWorldContext
     /// <summary>已经解析的持续秒数，零表示该原理没有持续参数。</summary>
     public readonly float Duration;
 
+    /// <summary>由地块规则编译的局部时间安排。</summary>
+    internal readonly CompiledProcessTime ProcessTime;
+
     /// <summary>在实际接触处提供原理需要的来源和参数。</summary>
     /// <param name="tile">实际地块。</param><param name="sourceId">实际来源。</param>
     /// <param name="abilityId">实际构造。</param><param name="duration">已检查的持续秒数。</param>
     /// <param name="worldTime">实际接触时点。</param>
-    internal ConstructionWorldContext(WorldTile tile, long sourceId, string abilityId, float duration, double worldTime)
+    /// <param name="processTime">通过检查的原过程安排。</param>
+    internal ConstructionWorldContext(WorldTile tile, long sourceId, string abilityId, float duration, double worldTime,
+        CompiledProcessTime processTime = null)
     {
         Tile = tile;
         SourceId = sourceId;
         AbilityId = abilityId;
         Duration = duration;
         WorldTime = worldTime;
+        ProcessTime = processTime;
     }
 }
 
@@ -83,6 +93,9 @@ public sealed class ConstructionWorldAction
     /// <summary>原理默认的持续秒数；零表示不接受持续参数。</summary>
     public readonly float DefaultDuration;
 
+    /// <summary>原理是否接收可编辑的过程时间窗。</summary>
+    internal readonly bool AcceptsProcessTime;
+
     /// <summary>登记一个实际操作，不登记整招。</summary>
     /// <param name="id">稳定编号。</param><param name="canApply">只读实际预检。</param>
     /// <param name="apply">主线程世界提交。</param>
@@ -96,6 +109,13 @@ public sealed class ConstructionWorldAction
     /// <param name="apply">主线程世界提交。</param><param name="defaultDuration">默认持续秒数，零表示没有持续参数。</param>
     public ConstructionWorldAction(string id, Func<WorldTile, bool> canApply,
         Func<ConstructionWorldContext, SkillEffectResult> apply, float defaultDuration)
+        : this(id, canApply, apply, defaultDuration, false)
+    {
+    }
+
+    /// <summary>登记接受过程时间窗的原理。</summary>
+    public ConstructionWorldAction(string id, Func<WorldTile, bool> canApply,
+        Func<ConstructionWorldContext, SkillEffectResult> apply, float defaultDuration, bool acceptsProcessTime)
     {
         if (string.IsNullOrWhiteSpace(id) || canApply == null || apply == null ||
             float.IsNaN(defaultDuration) || float.IsInfinity(defaultDuration) || defaultDuration < 0 ||
@@ -105,6 +125,7 @@ public sealed class ConstructionWorldAction
         CanApply = canApply;
         Apply = apply;
         DefaultDuration = defaultDuration;
+        AcceptsProcessTime = acceptsProcessTime;
     }
 }
 
@@ -148,6 +169,9 @@ public sealed class CompiledConstructionWorldEffect
     /// <summary>从原资料或原理默认值解析的持续秒数。</summary>
     public float Duration { get; }
 
+    /// <summary>原过程接收的有限时间安排。</summary>
+    internal CompiledProcessTime ProcessTime { get; }
+
     /// <summary>本次成功必须交出的真实生成材料体积。</summary>
     public double MaterialVolume { get; }
 
@@ -174,6 +198,10 @@ public sealed class CompiledConstructionWorldEffect
                                          source.Duration.Value <= 0 || source.Duration.Value > 3600))
             throw new InvalidDataException(path + "：此原理不接受持续参数，或持续时间不是大于零且不超过3600秒");
         Duration = source.Duration ?? Action.DefaultDuration;
+        if (source.TimeWindows != null && !Action.AcceptsProcessTime)
+            throw new InvalidDataException(path + "/TimeWindows：原理不接收过程时间窗");
+        if (source.TimeWindows is { Length: > 0 } windows)
+            ProcessTime = new CompiledProcessTime(windows, 3600, path + "/TimeWindows");
         MaximumTiles = source.MaximumTiles;
         TileCentreOnly = source.TileCentreOnly;
         RequireScope = source.RequireScope;

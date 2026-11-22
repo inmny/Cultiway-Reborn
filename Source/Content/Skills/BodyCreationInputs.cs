@@ -24,7 +24,7 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules <= 6) return common;
         var forms = inspiration.Rules >= 30 ? common.Forms.Append(CaptureSynthesisForm("fireball")).ToArray() : common.Forms;
         SynthesisWorldAction[] worldActions = inspiration.Rules >= 17
-            ? ConstructionWorldActions.All.OrderBy(action => action.Id, StringComparer.Ordinal)
+            ? ConstructionWorldActions.All.Where(action => !action.AcceptsProcessTime).OrderBy(action => action.Id, StringComparer.Ordinal)
                 .Select(action => new SynthesisWorldAction(action.Id, action.DefaultDuration)).ToArray()
             : null;
         var materials = inspiration.Rules >= 26 ? CaptureInventoryMaterials(actor) : null;

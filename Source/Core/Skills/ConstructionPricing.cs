@@ -73,6 +73,10 @@ public sealed class ConstructionMeasure
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
+    private static double WorldContactWork(CompiledConstructionWorldEffect effect) =>
+        1d + effect.Duration * .1d +
+        (effect.ProcessTime is { } time ? time.AdjustmentWork(time.LastWindowEnd) * .1d : 0d);
+
     /// <summary>只在编译边界统计已展开的真实资料，不读取人物或分配运行状态。</summary>
     /// <param name="plan">同一版本的完整计划。</param><param name="power">明确的整招作用倍率。</param>
     internal ConstructionMeasure(CompiledAbility plan, float power)
@@ -112,8 +116,7 @@ public sealed class ConstructionMeasure
                 CompiledConstructionImpact impact = stage.Impact ?? plan.Impact;
                 AddGroup(plan.Nodes.Length + i, stage.From, stage.Until, impact, 1f);
                 foreach (var effect in impact.WorldEffects)
-                    work += effect.MaximumTiles * .001d * (1d + effect.Duration * .1d) *
-                            Repeat(effect.Contact, stage.Until - stage.From);
+                    work += effect.MaximumTiles * .001d * WorldContactWork(effect) * Repeat(effect.Contact, stage.Until - stage.From);
             }
         }
 
@@ -275,7 +278,7 @@ public sealed class ConstructionMeasure
             if (node.AffectsActors)
                 foreach (var effect in (node.Impact ?? plan.Impact).WorldEffects)
                     work += Math.Min(effect.MaximumTiles, area > 0 ? Math.Ceiling(area) : effect.MaximumTiles) * .001d *
-                            (1d + effect.Duration * .1d) * Repeat(effect.Contact, span);
+                            WorldContactWork(effect) * Repeat(effect.Contact, span);
 
             void Movement(CompiledFlight flight, float at)
             {

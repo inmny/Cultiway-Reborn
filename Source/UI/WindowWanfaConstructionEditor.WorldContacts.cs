@@ -34,7 +34,13 @@ public sealed partial class WindowWanfaConstructionEditor
         Choice(prefix + "WorldAction", T("WorldAction." + effect.Action), () => menu.Show(T(prefix + "WorldAction"), actions.Select(action => new UiOptionMenuOption
         {
             Label = T("WorldAction." + action.Id), Selected = action.Id == effect.Action,
-            Select = () => Change(() => { effect.Action = action.Id; effect.Duration = null; })
+            Select = () => Change(() =>
+            {
+                if (effect.Action == action.Id) return;
+                effect.Action = action.Id;
+                effect.Duration = null;
+                effect.TimeWindows = null;
+            })
         }).ToArray()));
         Toggle(prefix + "WorldTileCentre", effect.TileCentreOnly, next => effect.TileCentreOnly = next);
         ContactInteger(prefix + "WorldMaximumTiles", effect.MaximumTiles, next => effect.MaximumTiles = next);
@@ -45,6 +51,19 @@ public sealed partial class WindowWanfaConstructionEditor
             float duration = actions.Single(action => action.Id == effect.Action).DefaultDuration;
             Toggle(prefix + "WorldDurationOverride", effect.Duration.HasValue, next => effect.Duration = next ? duration : null);
             if (effect.Duration.HasValue) Number(prefix + "WorldDuration", effect.Duration.Value, next => effect.Duration = next);
+        }
+        if (actions.Any(action => action.Id == effect.Action && action.AcceptsProcessTime))
+        {
+            int index = worldContactSelection;
+            string path = prefix == "Node" ? NodePath(parts[part]) : null;
+            BodyActionStage[] stages = session.Draft.Body?.Stages;
+            int stage = stages == null ? -1 : Array.FindIndex(stages, item => item.Impact == impact);
+            ProcessTimeRows(effect, 3600f, "CropTimeWindowsHint",
+                candidate => (path != null
+                    ? ConstructionContactEdits.Parts(candidate.Root).Single(item => item.Path == path).Node.Impact
+                    : stage >= 0 ? candidate.Body.Stages[stage].Impact
+                    : prefix == "Body" ? candidate.Body.Impact : candidate.Impact).WorldEffects[index],
+                target => target.TimeWindows, (target, windows) => target.TimeWindows = windows.Length == 0 ? null : windows);
         }
         Toggle(prefix + "WorldContactPolicy", effect.Contact != null, next => effect.Contact = next ? new ConstructionContactPolicy() : null);
         if (effect.Contact == null) return;

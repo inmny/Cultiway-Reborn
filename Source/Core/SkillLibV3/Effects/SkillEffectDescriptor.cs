@@ -99,6 +99,9 @@ public enum SkillEffectOutcomeFlags : ulong
 
     /// <summary>原城市建筑的生命值实际增加。</summary>
     BuildingRepaired = 1UL << 20,
+
+    /// <summary>已实际登记或解除一块原版麦田的生长安排。</summary>
+    CropPaceChanged = 1UL << 21,
 }
 
 /// <summary>一次结构化效果的不可变结算结果。</summary>

@@ -1,0 +1,231 @@
+var design = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var caster = World.world.units.get(56);
+Check(caster?.city != null, "复用已验证的原城及原施术者");
+foreach (var resident in World.world.units.getSimpleList().Where(actor => actor != caster))
+    CombatStatusEffects.ApplyStatus(resident, hold, 10000, resident);
+var city = caster.city;
+WorldTile chosen = null, control = null;
+var empty = World.world.GetTileSimple(65, 74);
+var reported = new List<ConstructedWorldContact>();
+void Applied(ConstructedWorldContact value)
+{
+    if (value.Action == "crop.pace" && value.Result.Changed) reported.Add(value);
+}
+ConstructedAbilityService.WorldContactConfirmed += Applied;
+var pacing = service.Assembly.GetType("Cultiway.Content.Skills.CropGrowthPacing", true);
+var active = (IDictionary)pacing.GetField("paces", F).GetValue(null);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ObservedSignal.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ObservedSignal.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(caster, mana, 10000, caster);
+caster.updateStats();
+
+Building Plant(WorldTile tile)
+{
+    Check(tile.zone.city == caster.city, "测试田位于原城的授权区域");
+    tile.heat = 0;
+    tile.burned_stages = 0;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.field);
+    var wheat = World.world.buildings.addBuilding("wheat", tile);
+    Check(wheat?.component_wheat != null && wheat.current_tile == tile && wheat.isNormal(),
+        "实际原版麦田位于准备的田块", new { tile.pos.x, tile.pos.y });
+    return wheat;
+}
+float GrowTime(Building crop) => crop.data.grow_time;
+int Stage(Building crop) => crop.component_wheat.getCurrentLevel();
+float FromBaseline(Building first, Building second, float t0, float c0) =>
+    (GrowTime(first) - t0) / (GrowTime(second) - c0);
+async Task Send(AbilityDefinition definition, WorldTile tile)
+{
+    caster.setMana(80);
+    await Fire(definition, caster, null, aim: new Vector3(tile.pos.x + .5f, tile.pos.y + .5f, 0), aggro: false);
+    Check(Mathf.Abs(80f - caster.getMana() - definition.Cost) < .01f,
+        "按正式入口支付真实一次施放费用", new { balance = caster.getMana() });
+    caster.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+}
+bool cityBuilding = DebugConfig.isOn(DebugOption.SystemBuildTick);
+try
+{
+    // 沿用城市功能术对练的场景做法，只暂停新铺路，麦田组件仍照常更新。
+    DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+    var mill = city.getBuildingOfType("type_windmill");
+    if (mill == null)
+    {
+        var asset = AssetManager.buildings.get("windmill_human_0");
+        var site = city.zones.SelectMany(zone => zone.tiles)
+            .OrderBy(tile => Math.Abs(tile.x - 72) + Math.Abs(tile.y - 75))
+            .First(tile => !tile.hasBuilding() && World.world.buildings.canBuildFrom(tile, asset, city, BuildPlacingType.Load));
+        mill = World.world.buildings.addBuilding(asset, site, pCheckForBuild: false);
+        mill.completeConstruction();
+        await Advance(.25f);
+    }
+    CityBehCheckFarms.check(city);
+    Check(city.getBuildingOfType("type_windmill") == mill, "使用真实风车维持原城麦田");
+    var farmSites = city.calculated_place_for_farms
+        .Where(tile => !tile.hasBuilding() && tile.x >= 65 && tile.x <= 74 && tile.y >= 70 && tile.y <= 78)
+        .OrderBy(tile => Math.Abs(tile.x - 68) + Math.Abs(tile.y - 74)).ToArray();
+    chosen = farmSites.First(tile => tile != empty);
+    control = farmSites.First(tile => tile != empty && Math.Abs(tile.x - chosen.x) + Math.Abs(tile.y - chosen.y) >= 2);
+
+    ConstructedAbilityService.Register(design);
+    ConstructedAbilityService.Learn(caster.GetExtend(), design.Id);
+    LocalizedTextManager.instance.setLanguage("cz");
+    WindowWanfaConstructionEditor.Open(design.Id, caster);
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    Button Named(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name);
+    Named("Page4").onClick.Invoke();
+    string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    var panel = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(row =>
+        ((Text)Field(row, "_title")).text == T("ContactPanel"));
+    ((Button)Field(panel, "_action")).onClick.Invoke();
+    editor.GetComponentsInChildren<Button>(false).Single(button => button.name.StartsWith("Option") &&
+        button.GetComponentInChildren<Text>().text == T("ContactPanel.4")).onClick.Invoke();
+    void Set(string name, string value)
+    {
+        var input = editor.GetComponentsInChildren<InputField>(false).Single(field => field.name == name);
+        input.text = value;
+        input.onEndEdit.Invoke(value);
+    }
+    var session = (ConstructionEditSession)Field(editor, "session");
+    Set("ProcessWindowRate", ".25");
+    session = (ConstructionEditSession)Field(editor, "session");
+    Check(session.Draft.Impact.WorldEffects[0].TimeWindows[0].Rate == .25f, "真实时间窗表单可改麦田倍率");
+    var edited = JsonConvert.SerializeObject(session.Draft);
+    Set("ProcessWindowSeconds", "2");
+    Check(JsonConvert.SerializeObject(((ConstructionEditSession)Field(editor, "session")).Draft) == edited,
+        "重叠时间窗被拒绝且保留完整编辑草稿");
+    Named("Undo").onClick.Invoke();
+    Named("Replace").onClick.Invoke();
+    var saved = ConstructionEditing.Access.Read(((ConstructionEditSession)Field(editor, "session")).SourceId);
+    Check(saved.Impact.WorldEffects[0].TimeWindows.Length == 3 && saved.Impact.WorldEffects[0].TimeWindows[0].Rate == 0f,
+        "撤销并正式保存三段原规则");
+    File.WriteAllText(Path.Combine(folder, "edited-definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    Named("Close").onClick.Invoke();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+
+    Ready(caster);
+    Place(caster, 64);
+    await Send(saved, empty);
+    await Advance(.65f);
+    Check(reported.Count == 0 && active.Count == 0, "空地正常施放未制造麦田或节奏结果");
+    var crop = Plant(chosen);
+    var comparison = Plant(control);
+    CityBehCheckFarms.check(city);
+    Check(city.calculated_farm_fields.Contains(chosen) && city.calculated_farm_fields.Contains(control),
+        "两处麦田由原版农田计算确认", new { chosen = chosen.pos, control = control.pos, mill = mill.id });
+    Check(World.world_era.flag_crops_grow, "现成世界当前季节允许原版生长");
+    foreach (var wheat in new[] { crop, comparison })
+    {
+        float growth = wheat.asset.growth_time;
+        int maxStage = wheat.asset.building_sprites.animation_data.Count - 1;
+        for (int i = 1; i < maxStage; i++) wheat.component_wheat.update(growth);
+        wheat.data.grow_time = maxStage * growth - Mathf.Min(4.9f, growth * .85f);
+    }
+    Check(Stage(crop) == Stage(comparison) && !crop.component_wheat.isMaxLevel(), "同种麦田从同一实际生长阶段起步",
+        new { stage = Stage(crop), accumulated = GrowTime(crop), growthTime = crop.asset.growth_time });
+    await Send(saved, chosen);
+    await Advance(.43f);
+    Check(reported.Count == 1 && reported[0].X == chosen.pos.x && reported[0].Y == chosen.pos.y &&
+        (reported[0].Result.Flags & SkillEffectOutcomeFlags.CropPaceChanged) != 0 &&
+        active.Count == 1 && active.Contains(crop.id) && !active.Contains(comparison.id),
+        "实际地块接触仅登记选中麦田时间安排", new { received = reported.Count, tracked = active.Count });
+
+    double start = reported[0].WorldTime;
+    Task To(float relative) => Advance((float)(start + relative - World.world.getCurWorldTime()));
+    float paused = GrowTime(crop), comparisonStart = GrowTime(comparison);
+    int startingStage = Stage(crop);
+    await To(.92f);
+    Check(GrowTime(crop) == paused && Stage(crop) == startingStage && GrowTime(comparison) > comparisonStart,
+        "暂停保护选中田实际进度和阶段，同龄邻田照常", new { paused, control = GrowTime(comparison) });
+    await To(1.34f);
+    float t0 = GrowTime(crop), c0 = GrowTime(comparison);
+    await To(1.91f);
+    float slower = FromBaseline(crop, comparison, t0, c0);
+    Check(slower > .30f && slower < .70f, "延缓阶段真实进度约是同龄田的一半", new { slower });
+    await To(2.27f);
+    t0 = GrowTime(crop); c0 = GrowTime(comparison);
+    await To(2.84f);
+    float faster = FromBaseline(crop, comparison, t0, c0);
+    Check(faster > 3.1f && faster < 4.9f, "加速阶段真实进度约是同龄田的四倍", new { faster });
+    await To(3.6f);
+    Check(crop.component_wheat.isMaxLevel() && Stage(crop) > startingStage &&
+        chosen.building == crop && crop.data.grow_time >= crop.asset.growth_time * Stage(crop),
+        "麦田自己跨过阈值成熟并保留原建筑", new { stage = Stage(crop), grow = GrowTime(crop), other = Stage(comparison) });
+    await To(4f);
+    t0 = GrowTime(crop); c0 = GrowTime(comparison);
+    await Advance(.48f);
+    float restored = FromBaseline(crop, comparison, t0, c0);
+    Check(active.Count == 0 && restored > .8f && restored < 1.2f,
+        "自然结束后两块田恢复相同的实际时速", new { restored });
+
+    var focused = ConstructionEditing.Copy(saved);
+    focused.Id = saved.Id + ".Pause";
+    focused.Impact.WorldEffects[0].TimeWindows = new[] { new ConstructionProcessWindow { Seconds = 6, Rate = 0 } };
+    crop.startRemove();
+    await Advance(.5f);
+    var replaced = Plant(chosen);
+    CityBehCheckFarms.check(city);
+    await Send(focused, chosen);
+    await Advance(.39f);
+    Check(active.Contains(replaced.id), "新麦田可以独立接受暂停");
+    long removedId = replaced.id;
+    replaced.startRemove();
+    await Advance(.6f);
+    var final = Plant(chosen);
+    CityBehCheckFarms.check(city);
+    float begin = GrowTime(final);
+    await Advance(.45f);
+    Check(final.id != removedId && !active.Contains(removedId) && !active.Contains(final.id) && GrowTime(final) > begin,
+        "原田移除解除效果，同地新田自然生长");
+
+    await Send(focused, chosen);
+    await Advance(.38f);
+    Check(active.Contains(final.id), "清空前同一真实麦田确实处于暂停中");
+    var normal = ConstructionEditing.Copy(focused);
+    normal.Id = saved.Id + ".Normal";
+    normal.Impact.WorldEffects[0].TimeWindows = null;
+    float frozen = GrowTime(final);
+    await Send(normal, chosen);
+    await Advance(.47f);
+    Check(active.Count == 0 && GrowTime(final) > frozen,
+        "接触提交空时间窗后原田恢复自然生长", new { frozen, resumed = GrowTime(final) });
+    await Advance(.17f);
+    await Send(focused, chosen);
+    await Advance(.38f);
+    Check(active.Contains(final.id), "正式保存发生时仍有临时安排");
+    long finalId = final.id, casterId = caster.id;
+    float written = GrowTime(final);
+    ConstructedAbilityService.Learn(caster.GetExtend(), saved.Id);
+    var archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(archive);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restoredWheat = World.world.buildings.get(finalId);
+    var reader = World.world.units.get(casterId);
+    CityBehCheckFarms.check(reader.city);
+    var record = ConstructionEditing.Access.Read(saved.Id);
+    Check(restoredWheat?.component_wheat != null && GrowTime(restoredWheat) == written &&
+        reader.GetExtend().E.GetComponent<ConstructedKnowledge>().Ids.Contains(saved.Id) &&
+        record.Impact.WorldEffects[0].TimeWindows.Select(window => window.Rate).SequenceEqual(new[] { 0f, .5f, 4f }) &&
+        active.Count == 0, "正式重读保留原麦田实际生长进度、学到的三个时间窗并清除临时安排");
+    await Advance(.42f);
+    Check(GrowTime(restoredWheat) > written, "读回原田按自然时间继续，无旧暂停");
+    return new { passed = true, slower, faster, restored, restoredGrow = GrowTime(restoredWheat), written };
+}
+finally
+{
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    if (editor != null && Field(editor, "session") != null)
+        typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    DebugConfig.setOption(DebugOption.SystemBuildTick, cityBuilding);
+    ConstructedAbilityService.WorldContactConfirmed -= Applied;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

@@ -1,0 +1,32 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WheatPace",
+  "Name": "借时育禾",
+  "Resource": "mana",
+  "Cost": 4,
+  "Cooldown": 0.5,
+  "Lifetime": 1.0,
+  "Power": 1,
+  "TargetRange": 14,
+  "Use": {"Channels": "World", "Target": "Point"},
+  "Binding": {"Anchor": "Target"},
+  "Impact": {
+    "Targets": "Friendly",
+    "DamageScale": 0,
+    "WorldEffects": [{
+      "Action": "crop.pace",
+      "MaximumTiles": 1,
+      "TileCentreOnly": true,
+      "TimeWindows": [
+        {"At": 0, "Seconds": 1.1, "Rate": 0},
+        {"At": 1.1, "Seconds": 1, "Rate": 0.5},
+        {"At": 2.1, "Seconds": 1.6, "Rate": 4}
+      ]
+    }]
+  },
+  "Root": {
+    "Id": "mark", "Form": "rejuvenation_ground", "Matter": "spirit", "State": "energy",
+    "Scale": 0.30, "Volume": 0, "IgnoreFormClashes": true,
+    "ActiveFrom": 0.12, "ActiveUntil": 0.62
+  }
+}

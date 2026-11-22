@@ -962,6 +962,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         terrainChanges.Clear();
         worldUtilityVisuals.Clear();
         timeWear.Clear();
+        CropGrowthPacing.Clear();
         ClearShadows();
         soulPacts.Clear();
         soulPactTransfers.Clear();

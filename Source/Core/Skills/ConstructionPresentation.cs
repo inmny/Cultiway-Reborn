@@ -148,6 +148,10 @@ public static class ConstructionPresentation
         lines.AddRange(plan.Nodes.SelectMany(node => (node.Impact ?? plan.Impact).WorldEffects
             .Where(effect => effect.MaterialVolume > 0).Select(effect => F("WorldMaterial", Form(node.Resource.Description.Id),
                 L("Cultiway.Construction.WorldAction." + effect.Action.Id), effect.MaterialVolume))).Distinct());
+        lines.AddRange(plan.ActorImpacts.SelectMany(impact => impact.WorldEffects)
+            .Where(effect => effect.Action.AcceptsProcessTime).Select(effect =>
+                L("Cultiway.Construction.WorldAction." + effect.Action.Id) +
+                (effect.ProcessTime == null ? " " + T("RestoreProcessTime") : ProcessTimeDescription(effect.ProcessTime))).Distinct());
         string[] distributions = plan.Nodes.Where(node => node.DistributionSource.HasValue)
             .Select(node => L("Cultiway.Construction.DistributionSource." + node.DistributionSource.Value)).Distinct().ToArray();
         if (distributions.Length > 0) lines.Add(F("Distributions", string.Join("、", distributions)));
