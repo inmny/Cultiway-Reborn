@@ -1,6 +1,13 @@
 // 连续画面只取自原游戏世界时间和真实主动入口。
 bool threeDimensional = view == "worldfall";
-Check(threeDimensional == (fall != null), "录像使用对应的独立游戏环境");
+if (threeDimensional) Check(fall != null, "独立游戏已加载 Worldfall");
+else if (fall != null)
+{
+    external.GetMethod("ViewForTest", F).Invoke(fall, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(fall, new object[] { false });
+    await Game.WaitUntil(() => !(bool)Read(fall, "GodShown") && !(bool)Read(fall, "IsFirstPerson") &&
+        MapBox.isRenderGameplay(), 1800);
+}
 PrepareArtifactArena(47, 110, 49, 95);
 Actor caster = Make(64.35f), enemy = Make(70f, "wolf");
 var casterExtend = caster.GetExtend();
@@ -183,7 +190,7 @@ try
         double finished = 0d;
         while (World.world.getCurWorldTime() < begin + 5d)
         {
-            await Advance(.053f);
+            await Advance(threeDimensional ? .045f : .053f);
             double now = World.world.getCurWorldTime();
             bool active = Entry(artifact, abilityId).activity_kind != ArtifactAbilityActivityKind.None;
             activeSeen |= active;

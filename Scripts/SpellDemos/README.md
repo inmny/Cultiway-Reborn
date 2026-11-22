@@ -2921,3 +2921,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 法宝结构正式存读（10.07）
 
 用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_artifact_actives_archive.py --case structure --section prepare` 写正式世界，再在新游戏进程以 `--case structure --section cold --archive <prepare 输出目录>` 读取同一份档。核对四件原物的组合、参数、冷却、部署与剩余容量，并实测读回的金钟。
+
+### 法宝结构连续实录（10.07）
+
+在同一独立游戏环境可分别用 `--view native` 和 `--view worldfall` 录像。原版录像会切回游戏俯视图，Worldfall 录像要求已加载 Worldfall。用 `record_artifact_actives.py --ability HeavenSwallowingGourd --ability FiveEssenceOutpouring --ability TruthRevealingMirror` 录器口和镜面，用 `record_weapon_flight.py --move flying-sword --move sword-array` 录真实刃面，用 `record_artifact_passives.py --case shield` 录金钟拦截。分别指定视角和输出目录。

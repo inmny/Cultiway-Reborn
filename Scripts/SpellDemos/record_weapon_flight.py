@@ -63,10 +63,6 @@ def main():
 
         folder = Path(tempfile.mkdtemp(prefix=f'weapon-flight-film-{args.view}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
         connection = baseline.connect(False, validate_runtime=False)
-        installed = baseline.call('eval', 'return System.Linq.Enumerable.Any(System.AppDomain.CurrentDomain.GetAssemblies(), '
-                                  'a => a.GetType("FirstPerson.WorldBoxMod", false) != null);')
-        if installed != (args.view == 'worldfall'):
-            parser.error('请选择与录像视角对应的独立游戏环境')
         version = version_stamp()[0]
         chosen = args.move or list(MOVES)
         settings = f'\nconst string view = "{args.view}";\n'
