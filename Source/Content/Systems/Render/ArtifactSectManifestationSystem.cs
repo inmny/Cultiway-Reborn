@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Visuals;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -17,6 +19,10 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
 {
     private readonly List<InstallationPose> poses = new();
     private readonly List<Entity> artifacts = new();
+    private readonly HashSet<Entity> guardians = new();
+
+    /// <summary>由同一轮供奉位置生成，原版和 Worldfall 共用。</summary>
+    internal static readonly List<SpatialVisualMeshInstance> Veins = new();
 
     public ArtifactSectManifestationSystem()
     {
@@ -26,6 +32,7 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
     protected override void OnUpdate()
     {
         poses.Clear();
+        Veins.Clear();
         Query.ForEachEntity((ref SectInventoryBinder binder, Entity inventory) =>
         {
             Sect sect = binder.Sect;
@@ -35,6 +42,7 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
             {
                 if (relations[i].artifact.IsAvailable()) artifacts.Add(relations[i].artifact);
             }
+            if (artifacts.Count == 0) return;
             artifacts.Sort((left, right) => left.Id.CompareTo(right.Id));
 
             Building building = sect == null || sect.isRekt()
@@ -49,10 +57,21 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
                 return;
             }
 
+            guardians.Clear();
+            using ListPool<ArtifactSectService.SectAbilityCandidate> activeAbilities = new();
+            int activeCount = ArtifactSectService.CollectActiveAbilities(sect, activeAbilities);
+            for (int i = 0; i < activeCount; i++)
+            {
+                var active = activeAbilities[i];
+                if (active.ability.ability_id == ArtifactAbilities.SectGuardianTreasure.id)
+                    guardians.Add(active.artifact);
+            }
+
             int count = artifacts.Count;
+            float now = (float)World.world.getCurWorldTime();
             for (int i = 0; i < count; i++)
             {
-                float angle = (float)World.world.getCurWorldTime() * 0.35f + i * Mathf.PI * 2f / Math.Max(1, count);
+                float angle = now * 0.35f + i * Mathf.PI * 2f / Math.Max(1, count);
                 Vector3 position = building.cur_transform_position + new Vector3(
                     Mathf.Cos(angle) * (0.62f + count * 0.025f),
                     0.72f + Mathf.Sin(angle) * 0.12f,
@@ -62,6 +81,8 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
                     position,
                     Mathf.Sin(angle) * 4f,
                     building.is_visible));
+                if (guardians.Contains(artifacts[i]))
+                    ArtifactSectVeinVisual.Append(Veins, building.current_position, position.x, now, angle);
             }
         });
 

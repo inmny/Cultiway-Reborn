@@ -30,6 +30,27 @@ public static class ArtifactSectService
         if (sect == null || sect.isRekt()) return;
 
         using ListPool<SectAbilityCandidate> candidates = new();
+        int activeCount = CollectActiveAbilities(sect, candidates);
+        if (activeCount == 0) return;
+
+        var baselineStats = (BaseStats)stats.Clone();
+        for (int i = 0; i < activeCount; i++)
+        {
+            SectAbilityCandidate candidate = candidates[i];
+            candidate.profile.ContributeMemberStats(
+                new ArtifactSectAbilityContext(sect, candidate.artifact, baselineStats),
+                candidate.ability,
+                stats);
+        }
+    }
+
+    /// <summary>按原供奉、优先级和数量规则选出生效能力，人物属性和表现共用。</summary>
+    /// <param name="sect">已确认存在的宗门。</param>
+    /// <param name="candidates">供本次调用复用的列表，生效项集中在开头。</param>
+    /// <returns>列表开头实际生效的数量。</returns>
+    internal static int CollectActiveAbilities(Sect sect, ListPool<SectAbilityCandidate> candidates)
+    {
+        candidates.Clear();
         foreach (Entity artifact in sect.Treasures.GetStoredItems())
         {
             if (!artifact.IsAvailable() || !IsInstalledFor(sect, artifact)) continue;
@@ -49,24 +70,25 @@ public static class ArtifactSectService
         }
 
         candidates.Sort(CompareCandidates);
-        var baselineStats = (BaseStats)stats.Clone();
-        Dictionary<string, int> groupCounts = new(StringComparer.Ordinal);
+        string currentGroup = null;
+        int groupCount = 0, activeCount = 0;
         for (int i = 0; i < candidates.Count; i++)
         {
             SectAbilityCandidate candidate = candidates[i];
             string group = candidate.profile.stacking_group;
             if (!string.IsNullOrEmpty(group))
             {
-                groupCounts.TryGetValue(group, out int count);
-                if (count >= Math.Max(1, candidate.profile.max_active)) continue;
-                groupCounts[group] = count + 1;
+                if (group != currentGroup)
+                {
+                    currentGroup = group;
+                    groupCount = 0;
+                }
+                if (groupCount >= Math.Max(1, candidate.profile.max_active)) continue;
+                groupCount++;
             }
-
-            candidate.profile.ContributeMemberStats(
-                new ArtifactSectAbilityContext(sect, candidate.artifact, baselineStats),
-                candidate.ability,
-                stats);
+            candidates[activeCount++] = candidate;
         }
+        return activeCount;
     }
 
     public static Building ResolveInstallationBuilding(Sect sect)
@@ -112,7 +134,8 @@ public static class ArtifactSectService
         return string.CompareOrdinal(left.ability.instance_id, right.ability.instance_id);
     }
 
-    private readonly struct SectAbilityCandidate
+    /// <summary>用于属性计算和供奉表现的原件能力。</summary>
+    internal readonly struct SectAbilityCandidate
     {
         public readonly Entity artifact;
         public readonly ArtifactAbilityInstance ability;

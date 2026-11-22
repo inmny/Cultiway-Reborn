@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Systems.Render;
 using Cultiway.Content.Visuals;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
@@ -80,6 +81,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             SampleGroundSpikes(ref detailBudget);
             GoldenBellSpatialVisualCue.AppendMeshes(Meshes, World.world.getCurWorldTime(), ref detailBudget);
             ArtifactSpatialVisualRuntime.Append(Meshes, ref detailBudget);
+            Meshes.AddRange(ArtifactSectManifestationSystem.Veins);
             MagicShieldVfx.Append(mages, Meshes);
             TalismanVfxManager.Append(Meshes);
             Meshes.AddRange(Core.Systems.Render.RenderStatusAnimationSystem.Meshes);

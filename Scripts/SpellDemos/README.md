@@ -2893,3 +2893,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 御器载行（10.06）
 
 用 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_artifact_riding.py` 检查原控制入口起飞、近旁搭载、实际速度与座位跟随、悬停和落地。同一飞行时刻采集原版与 Worldfall 画面，用 `--skip-views` 可只检查游戏行为。
+
+### 镇宗宝脉（10.06）
+
+用 `dev.py exec --timeout 155 -- python3 Scripts/SpellDemos/verify_artifact_sect_vein.py` 检查实际入库供奉、成员属性、原印取回和重新入库。同一供奉时刻采集原版与 Worldfall 画面，用 `--skip-views` 可只检查游戏行为。

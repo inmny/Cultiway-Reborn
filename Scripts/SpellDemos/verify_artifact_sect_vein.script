@@ -1,0 +1,93 @@
+// 一件原配方法印入库、取回再入库，护持只给实际成员。
+PrepareArtifactArena(58, 82, 64, 83);
+Actor source = Make(68.2f), outsider = Make(73f);
+var owner = source.GetExtend();
+const long sectId = 901;
+Sect sect = WorldboxGame.I.Sects.get(sectId);
+owner.SetSect(sect);
+owner.AddComponent(new PermanentStats { Stats = new BaseStats { [S.health] = 600f } });
+Building hall = World.world.buildings.addBuilding(Buildings.SectHall.id, World.world.GetTileSimple(68, 74));
+hall.data.set(BuildingDataKeys.SectID_Long, sectId);
+WorldboxGame.I.Sects.setDirtyBuildings(sect);
+Place(source, 68.2f, 72.5f);
+Place(outsider, 73f, 72.5f);
+await Advance(.29f);
+Check(ArtifactSectService.ResolveInstallationBuilding(sect) == hall &&
+      sect.GetLivingMembers().Contains(source) && outsider.GetExtend().sect != sect,
+    "宗门识别真实供奉大殿和成员");
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var asset = ArtifactAbilities.SectGuardianTreasure;
+var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Seal,
+    Atoms = [ArtifactAtoms.HeavySeal, ArtifactAtoms.FortuneVeinCore, ArtifactAtoms.AncestralGuardianVow],
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "镇宗宝脉原印"
+}));
+var abilities = recipe.AbilitySet.abilities.Select(value => value.ability_id).ToArray();
+Check(abilities.Contains(asset.id), "正式配方取得镇宗宝脉", abilities);
+Entity item = ArtifactBlueprintCodec.Materialize(recipe, source.getName());
+sect.Treasures.AddOwnership(item);
+var ability = item.GetComponent<ArtifactAbilitySet>().abilities.Single(value => value.ability_id == asset.id);
+float healthRatio = ability.GetNumber("sect_health_ratio");
+float armorBonus = ability.GetNumber("sect_armor_bonus");
+var scenes = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem")
+    .GetField("Meshes", F).GetValue(null);
+object vein = service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSectVeinVisual")
+    .GetField("surface", F).GetValue(null);
+object[] Veins() => scenes.Cast<object>().Where(mesh => ReferenceEquals(Field(mesh, "Model"), vein)).ToArray();
+int Installations() => item.GetIncomingLinks<ArtifactSectInstallationRelation>().Entities
+    .Count(entity => entity.GetComponent<SectInventoryBinder>().Sect == sect);
+(float health, float armor, float rawHealth, float rawArmor) Stats(Actor actor)
+{
+    actor.updateStats();
+    var raw = (BaseStats)Field(actor.GetExtend(), "_cached_cultiway_stats");
+    return (actor.stats[S.health], actor.stats[S.armor], raw[S.health], raw[S.armor]);
+}
+bool Close(float first, float second) => Mathf.Abs(first - second) < .03f;
+
+try
+{
+    var before = Stats(source);
+    var neutral = Stats(outsider);
+    Check(sect.Treasures.Owns(item) && !sect.Treasures.IsStored(item) && Installations() == 0 && Veins().Length == 0,
+        "只登记物权时没有供奉和地脉");
+    sect.AddSpecialItem(item);
+    await Advance(.31f);
+    var during = Stats(source);
+    object[] display = Veins();
+    bool anchored = display.Length == 1 &&
+        Vector2.Distance((Vector3)Field(display[0], "Position"), hall.current_position) < 1.5f;
+    Check(Installations() == 1 && sect.Treasures.IsStored(item) && anchored &&
+          Close(during.rawHealth - before.rawHealth, before.rawHealth * healthRatio) &&
+          Close(during.rawArmor - before.rawArmor, armorBonus) &&
+          during.health > before.health && during.armor > before.armor && Stats(outsider) == neutral,
+        "原印实际供奉时只给成员增加原配方的生命和护甲，地脉贴着大殿",
+        new { healthRatio, armorBonus, healthBefore = before.health, healthDuring = during.health,
+            cachedHealthGain = during.rawHealth - before.rawHealth, armorBefore = before.armor,
+            armorDuring = during.armor, anchored, veins = display.Length, installed = Installations() });
+
+    if (shots)
+        await CaptureArtifactViews("sect-vein-installed", hall.current_position + Vector2.down * .65f, 2.9f,
+            () => Installations() == 1 && Veins().Length == 1, nativeZoom: 3.2f, closeSubject: source);
+
+    sect.ExtractSpecialItem(item);
+    await Advance(.31f);
+    Check(Installations() == 0 && Veins().Length == 0 && Stats(source) == before && Stats(outsider) == neutral &&
+          sect.Treasures.Owns(item),
+        "取回原印后成员属性和地脉一起撤去，原物权仍在");
+    sect.AddSpecialItem(item);
+    await Advance(.31f);
+    Check(Installations() == 1 && Veins().Length == 1 && Stats(source) == during && Stats(outsider) == neutral,
+        "同一原印重新入库只恢复一份护持和一处地脉");
+
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sect = sectId,
+        artifact = item.Id, building = hall.id, source = source.id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+}
