@@ -41,6 +41,7 @@ internal static class CollectiveProjectSaveContent
             BaselineMetric = value.BaselineMetric,
             HasExecutionBaseline = value.HasExecutionBaseline,
             ConfirmedWorldChange = value.ConfirmedWorldChange,
+            Districts = value.Districts,
         }, JsonSerializer.Create(StableSaveJson.Settings));
     }
 
@@ -61,6 +62,15 @@ internal static class CollectiveProjectSaveContent
             (footprint.Length == 0) != (actions.Length == 0) ||
             !new HashSet<int>(actions).IsSubsetOf(footprint))
             throw new InvalidDataException("工程构造足迹超出当前地图或缺少主作用范围");
+        if (value.Districts is { } districts &&
+            (districts.SourceBuilding <= 0 || districts.Nodes == null ||
+             districts.Nodes.Length < 2 || districts.Nodes.Length > tileCount ||
+             districts.Completed < 0 || districts.Completed >= districts.Nodes.Length ||
+             districts.Nodes.Any(node => node == null || node.Target < 0 || node.Target >= tileCount ||
+                 node.Route == null || node.Route.Length > tileCount || node.Route.Any(id => id < 0 || id >= tileCount)) ||
+             districts.Nodes.Select(node => node.Target).Distinct().Count() != districts.Nodes.Length))
+            throw new InvalidDataException("城市分区工程的来源、进度或线路超出当前地图");
+
         return new CityMagicUtilityProjectPayload
         {
             EffectSemantic = semantic,
@@ -76,6 +86,7 @@ internal static class CollectiveProjectSaveContent
             BaselineMetric = value.BaselineMetric,
             HasExecutionBaseline = value.HasExecutionBaseline,
             ConfirmedWorldChange = value.ConfirmedWorldChange,
+            Districts = value.Districts,
         };
     }
 
@@ -126,5 +137,9 @@ internal static class CollectiveProjectSaveContent
         /// <summary>进入共同执行的项目已实际改变任务地块，没有该字段的旧档沿用原验收规则。</summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public bool? ConfirmedWorldChange;
+
+        /// <summary>城市分区及已经正式验收的数量。</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public CityDistrictPlan Districts;
     }
 }

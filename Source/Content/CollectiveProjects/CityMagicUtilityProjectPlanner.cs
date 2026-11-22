@@ -89,7 +89,7 @@ internal sealed class CityEmergencyMagicProjectPlanner : ICollectiveProjectPlann
 }
 
 /// <summary>按月规划常规净化，并在三种永久世界需求中只保留优先级最高的一项。</summary>
-internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
+internal sealed partial class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
 {
     public string Id => CityMagicUtilityProjectIds.RoutinePlanner;
     public string OwnerProviderId => CityCollectiveProjectOwnerAdapter.ProviderId;
@@ -154,6 +154,8 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
                 out MagicUtilityPlanCandidate best) ||
             best.Utility >= CityMagicUtilityProjectRules.EmergencyCleanThreshold) return;
 
+        if (TryPlanDistricts(city, options, centers, payload, allowed, out var first))
+            best = first;
         payload.SetPlan(best.Option);
         payload.ExpectedUtility = best.Utility;
         output.Add(new CollectiveProjectProposal

@@ -189,6 +189,12 @@ public sealed class CollectiveProjectDefinitionAsset : Asset
 
     /// <summary>执行完成后根据真实世界状态验收工程结果。</summary>
     public Func<CollectiveProjectView, bool> Verify;
+
+    /// <summary>当前部分验收成功后登记下一部分；返回真则保留工程并重新认领。</summary>
+    public Func<CollectiveProjectView, bool> AdvanceVerifiedStage;
+
+    /// <summary>已经冻结的分区计划不会被后来扫描重新排队或撤回。</summary>
+    public Func<CollectiveProjectView, bool> RetainsPlan;
 }
 
 /// <summary>规划器提交给生命周期服务的不可变工程候选。</summary>

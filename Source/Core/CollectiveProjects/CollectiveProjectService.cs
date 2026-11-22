@@ -305,7 +305,7 @@ public static partial class CollectiveProjectService
             CompletionHistory.Clear();
             ProjectSweepQueue.Clear();
             _nextProjectId = 0;
-            _nextExecutionToken = 0;
+            // 同一进程读档仍保留轮次编号，旧回调不能取得新的执行权。
             _nextHistoryPrune = 0d;
             _nextProjectSweep = 0d;
             _nextTerminalPrune = 0d;
@@ -389,7 +389,7 @@ public static partial class CollectiveProjectService
 
                 if (existing != null)
                 {
-                    if (existing.State == CollectiveProjectState.Planned)
+                    if (existing.State == CollectiveProjectState.Planned && definition.RetainsPlan?.Invoke(existing.ToView()) != true)
                     {
                         existing.Payload = proposal.Payload;
                         existing.TargetTileId = proposal.TargetTileId;
@@ -434,7 +434,8 @@ public static partial class CollectiveProjectService
             {
                 if (project.PlannerId != plannerId || project.Owner != owner ||
                     IsTerminal(project.State) || activeKeys.Contains(project.DeduplicationKey) ||
-                    project.State is CollectiveProjectState.Executing or CollectiveProjectState.Verifying) continue;
+                    project.State is CollectiveProjectState.Executing or CollectiveProjectState.Verifying ||
+                    Definitions.TryGetValue(project.DefinitionId, out var retained) && retained.RetainsPlan?.Invoke(project.ToView()) == true) continue;
                 CancelRecord(project, CollectiveProjectState.Cancelled, now, releases);
             }
         }
@@ -685,18 +686,19 @@ public static partial class CollectiveProjectService
 
             if (snapshot.State != CollectiveProjectState.Verifying || now < snapshot.VerifyAt) continue;
             bool completed = SafeEvaluate(definition.Verify, in view, false, definition.id, "验收");
-            if (completed)
+            bool advanced = completed && SafeEvaluate(definition.AdvanceVerifiedStage, in view, false, definition.id, "下一分区");
+            if (completed && !advanced)
             {
-                CompleteProject(snapshot.Id, now);
+                CompleteProject(snapshot.Id, snapshot.ExecutionToken, now);
                 continue;
             }
 
-            bool retry = SafeEvaluate(definition.Validate, in view, false, definition.id, "重试校验");
+            bool retry = advanced || SafeEvaluate(definition.Validate, in view, false, definition.id, "重试校验");
             ExecutionRelease verificationRelease = default;
             lock (Sync)
             {
                 if (Projects.TryGetValue(snapshot.Id, out ProjectRecord current) &&
-                    current.State == CollectiveProjectState.Verifying)
+                    current.State == CollectiveProjectState.Verifying && current.ExecutionToken == snapshot.ExecutionToken)
                 {
                     verificationRelease = CreateExecutionRelease(current);
                     ResetAfterExecution(current,
@@ -742,13 +744,13 @@ public static partial class CollectiveProjectService
     }
 
     /// <summary>完成工程、记录历史并释放去重槽位。</summary>
-    private static void CompleteProject(long projectId, double now)
+    private static void CompleteProject(long projectId, long token, double now)
     {
         ExecutionRelease release;
         lock (Sync)
         {
             if (!Projects.TryGetValue(projectId, out ProjectRecord project) ||
-                project.State != CollectiveProjectState.Verifying) return;
+                project.State != CollectiveProjectState.Verifying || project.ExecutionToken != token) return;
             release = CreateExecutionRelease(project);
             project.State = CollectiveProjectState.Completed;
             project.FinishedAt = now;

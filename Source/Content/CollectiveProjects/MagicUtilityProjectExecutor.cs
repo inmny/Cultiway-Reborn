@@ -133,11 +133,13 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         HashSet<int> footprint = learnedSkill ? pending.Footprint : new HashSet<int>(payload.PlannedFootprintTileIds);
         ConstructionWorldScope cityScope = CityConstructionWorldScope.Create(city.id,
             () => actor.Base.id == actorId && actor.Base.isAlive() && actor.Base.city == city &&
+                  (payload.Districts == null || payload.Districts.IsConnected(city, target)) &&
                   CollectiveProjectService.TryGetProject(projectId, out var current) &&
                   current.State == CollectiveProjectState.Executing &&
                   PendingByActor.TryGetValue(actorId, out var active) && ReferenceEquals(active, pending));
         var worldScope = new ConstructionWorldScope(cityScope.IsValid,
-            (action, tile) => footprint.Contains(tile.tile_id) && cityScope.Allows(action, tile));
+            (action, tile) => footprint.Contains(tile.tile_id) &&
+                (payload.Districts == null || tile.zone == target.zone) && cityScope.Allows(action, tile));
 
         var executionTarget = new ActiveAbilityTarget(
             null,
@@ -293,7 +295,8 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         option = default;
         utility = 0f;
         if (!CityMagicUtilityProjectRules.TryResolveProject(project, out city, out target, out payload) ||
-            actor == null || actor.Base.city != city) return false;
+            actor == null || actor.Base.city != city ||
+            payload.Districts is { } sequence && !sequence.IsConnected(city, target)) return false;
         HashSet<int> allowed = CityMagicUtilityProjectRules.CollectAllowedTileIds(city);
         return MagicUtilitySpellResolver.TrySelectForActor(
             actor,

@@ -83,6 +83,9 @@ internal sealed class CityMagicUtilityProjectPayload
 
     /// <summary>共同执行实际改变过任务地块。旧记录缺省移交原验收规则。</summary>
     public bool? ConfirmedWorldChange;
+
+    /// <summary>分区完成后的事实保留在同一城市工程内。</summary>
+    public CityDistrictPlan Districts;
 }
 
 /// <summary>永久地形候选在模拟一步变化后的新增与损失统计。</summary>
@@ -111,6 +114,8 @@ internal static partial class CityMagicUtilityProjectRules
     {
         if (!TryResolveProject(project, out City city, out WorldTile target,
                 out CityMagicUtilityProjectPayload payload)) return false;
+        if (payload.Districts is { } sequence)
+            return sequence.HasSource(city) && sequence.Current != null;
         HashSet<int> allowed = CollectAllowedTileIds(city);
         if (payload.PlannedFootprintTileIds.Length > 0)
             return ValidateConstructed(city, payload, allowed);
@@ -188,6 +193,7 @@ internal static partial class CityMagicUtilityProjectRules
     {
         if (!TryResolveProject(project, out City city, out WorldTile target,
                 out CityMagicUtilityProjectPayload payload)) return false;
+        if (payload.Districts is { } sequence && !sequence.IsConnected(city, target)) return false;
         payload.HasExecutionBaseline = false;
         payload.ExecutionFootprintTileIds = Array.Empty<int>();
         payload.BaselineUsefulTileIds = Array.Empty<int>();
@@ -198,6 +204,9 @@ internal static partial class CityMagicUtilityProjectRules
         else
             foreach (int id in exactFootprint)
                 area.Add(ResolveTile(id));
+        if (payload.Districts != null)
+            for (int i = area.Count - 1; i >= 0; i--)
+                if (area[i]?.zone != target.zone) area.RemoveAt(i);
         if (area.Count == 0) return false;
         for (int i = 0; i < area.Count; i++)
         {
@@ -506,7 +515,7 @@ internal static partial class CityMagicUtilityProjectRules
         if (payload == null || project.Owner.ProviderId != CityCollectiveProjectOwnerAdapter.ProviderId)
             return false;
         city = World.world?.cities?.get(project.Owner.OwnerId);
-        target = ResolveTile(project.TargetTileId);
+        target = ResolveTile(payload.Districts?.Current?.Target ?? project.TargetTileId);
         return city != null && city.isAlive() && target != null;
     }
 
@@ -602,7 +611,7 @@ internal static partial class CityMagicUtilityProjectRules
     }
 
     /// <summary>按世界地块稳定 ID 解析地块。</summary>
-    private static WorldTile ResolveTile(int tileId)
+    internal static WorldTile ResolveTile(int tileId)
     {
         WorldTile[] tiles = World.world?.tiles_list;
         return tiles != null && tileId >= 0 && tileId < tiles.Length ? tiles[tileId] : null;

@@ -1,0 +1,187 @@
+Actor worker = World.world.units.get(sourceId);
+ActorExtend owner = worker.GetExtend();
+City city = worker.city;
+long cityId = city.id;
+var bonfire = city.getBuildingOfType("type_bonfire");
+if (bonfire == null)
+{
+    var asset = AssetManager.buildings.get("bonfire");
+    var site = city.zones.SelectMany(zone => zone.tiles)
+        .OrderBy(tile => Vector2.Distance(tile.posV, worker.current_position))
+        .First(tile => !tile.hasBuilding() && World.world.buildings.canBuildFrom(tile, asset, city, BuildPlacingType.Load));
+    bonfire = World.world.buildings.addBuilding(asset, site, pCheckForBuild: false);
+    bonfire.completeConstruction();
+}
+Check(bonfire?.current_tile?.zone?.city == city && bonfire.isUsable(), "复用原城真实篝火及原有工作者");
+var assembly = service.Assembly;
+var sequenceType = assembly.GetType("Cultiway.Content.CollectiveProjects.CityDistrictPlan", true);
+var routeMap = (IDictionary)sequenceType.GetMethod("Routes", F).Invoke(null, new object[] { city, bonfire.current_tile.zone });
+var destinations = routeMap.Keys.Cast<TileZone>()
+    .Where(zone => ((int[])routeMap[zone]).Length >= 2)
+    .OrderBy(zone => Vector2.Distance(zone.centerTile.posV, bonfire.current_tile.posV)).ToArray();
+Check(destinations.Length > 0, "存在由原城中间分区连接的远端分区");
+WorldTile Spot(TileZone zone) => zone.tiles.Where(tile => !tile.hasBuilding() && !tile.Type.road)
+    .OrderBy(tile => Vector2.Distance(tile.posV, zone.centerTile.posV)).First();
+WorldTile first = Spot(bonfire.current_tile.zone), second = Spot(destinations[0]);
+int firstId = first.tile_id, secondId = second.tile_id;
+long fixedSource = bonfire.id;
+var breaks = (int[])routeMap[second.zone];
+int bridgeId = breaks[0];
+WorldTile Tile(int id) => World.world.tiles_list[id];
+var packType = assembly.GetType("Cultiway.Content.Persistence.CollectiveProjectSaveContent", true);
+JObject Pack(object value) => (JObject)packType.GetMethod("Capture", F).Invoke(null, new[] { value });
+var capture = typeof(CollectiveProjectService).GetMethod("CaptureWorldSave", F);
+JObject Projects() => JObject.FromObject(capture.Invoke(null, new object[] { (Func<object, JObject>)Pack }));
+int History() => Projects()["History"].Count(entry => (long)entry["OwnerId"] == cityId && (string)entry["Tag"] == "clean.routine");
+var executorType = assembly.GetType("Cultiway.Content.CollectiveProjects.MagicUtilityProjectExecutor", true);
+var pending = (IDictionary)executorType.GetField("PendingByActor", F).GetValue(null);
+const string ability = "test.city-district-clean";
+var definition = new AbilityDefinition
+{
+    Id = ability, Name = "分区净化验证", Resource = "mana", Cost = 3f,
+    Power = 0f, TargetRange = 24f, Lifetime = .5f, Cooldown = .25f,
+    Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point, Channels = ActiveAbilityChannel.World },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+    Impact = new ConstructionImpact
+    {
+        DamageScale = 0f,
+        WorldEffects = new[] { new ConstructionWorldEffect { Action = "land.cleanse", MaximumTiles = 12 } }
+    },
+    Root = new ConstructionNode { Id = "ground", Form = "world_domain", Matter = "wood", Scale = 1.3f, ActiveFrom = .10f }
+};
+var starts = new List<ConstructedCastStarted>();
+var balances = new List<float>();
+var touched = new List<(long Cast, int Tile)>();
+long projectId = 0;
+bool disconnected = false, staleRejected = false;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != sourceId || fact.AbilityId != ability || fact.Origin != ActiveAbilityUseOrigin.Autonomous ||
+        fact.CorrelationId <= 0 || pending[sourceId] == null) return;
+    object request = pending[sourceId];
+    projectId = (long)request.GetType().GetProperty("ProjectId").GetValue(request);
+    if (starts.Count == 1)
+        staleRejected = !CollectiveProjectService.TryBeginVerification(projectId, sourceId, starts[0].CorrelationId, 0);
+    starts.Add(fact);
+    balances.Add(worker.getMana());
+}
+void HitDistrict(ConstructedWorldContact fact)
+{
+    if (fact.Action == "land.cleanse" && fact.Result.Changed && starts.Any(row => row.CastId == fact.CastId))
+        touched.Add((fact.CastId, World.world.GetTileSimple(fact.X, fact.Y).tile_id));
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (disconnected || starts.Count != 1 || fact.CastId != starts[0].CastId ||
+        fact.Cancelled || !touched.Any(hit => hit.Cast == fact.CastId)) return;
+    // 已经发生真正净化，才从原版城市取下后续必经分区。
+    city.removeZone(Tile(bridgeId).zone);
+    disconnected = true;
+}
+int Completed(long id) => CollectiveProjectService.TryGetProject(id, out var view) ?
+    (int?)Pack(view.Payload)["Districts"]?["Completed"] ?? -1 : -1;
+bool Polluted(int id) => Tile(id).top_type?.wasteland == true || Tile(id).burned_stages > 0;
+void Pollute(WorldTile tile)
+{
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.wasteland_low);
+    tile.setBurnedStage(12);
+    World.world.burned_layer.setTileDirty(tile);
+}
+async Task Until(Func<bool> check, float limit)
+{
+    for (float elapsed = 0; elapsed < limit && !check(); elapsed += .20f) await Advance(.20f);
+}
+void RestoreWorker()
+{
+    worker = World.world.units.get(sourceId);
+    owner = worker.GetExtend();
+    city = worker.city;
+    worker.setMana(worker.getMaxMana(), false);
+}
+void BeginWork()
+{
+    if (!CollectiveProjectService.TryAssignRoutineJob(owner, out string job)) return;
+    worker.ai.setJob(job);
+    worker.setTask(ActorTasks.ExecuteCollectiveProject.id, pCleanJob: false, pForceAction: true);
+}
+
+bool buildEnabled = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += HitDistrict;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    var getSkills = typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F);
+    foreach (var skill in ((IReadOnlyList<Entity>)getSkills.Invoke(owner, null)).ToArray())
+        SkillOwnershipService.Forget(owner, skill);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, ability);
+    Place(worker, first.x - 1.5f, first.y - 1.5f);
+    var firstBalance = worker.getMaxMana();
+    worker.setMana(firstBalance, false);
+
+    int previousHistory = History();
+    Pollute(first);
+    Pollute(second);
+    await Until(() => starts.Count > 0 || CollectiveProjectService.HasAssignableProject(owner, false),
+        (float)Cultiway.Const.TimeScales.SecPerMonth + 2);
+    if (starts.Count == 0) BeginWork();
+    await Until(() => projectId != 0 && Completed(projectId) == 1, 8f);
+    Check(projectId > 0 && starts.Count == 1 && completedFirst() && disconnected && History() == previousHistory,
+        "第一次正式付费并验收当前分区，同一项目尚未写入整项完成历史",
+        new { starts = starts.Count, history = History(), clean = !Polluted(firstId), pending = Polluted(secondId), projectId, projects = Projects() });
+    bool completedFirst() => Completed(projectId) == 1 && !Polluted(firstId) && Polluted(secondId) &&
+        touched.Any(hit => hit.Tile == firstId) && touched.All(hit => Tile(hit.Tile).zone == Tile(firstId).zone) &&
+        Mathf.Abs(balances[0] - firstBalance + definition.Cost) < .02f;
+    Check(CollectiveProjectService.TryGetProject(projectId, out var stopped) &&
+        stopped.State == CollectiveProjectState.Planned && Tile(bridgeId).zone.city != city &&
+        Tile(secondId).zone.city == city && (long)Pack(stopped.Payload)["Districts"]["SourceBuilding"] == fixedSource,
+        "中间分区真实离开，待做分区仍属原城，工程保留原来源和验收序号");
+    await Advance(.48f);
+    Check(starts.Count == 1 && Completed(projectId) == 1 && Polluted(secondId),
+        "没有可用连接时保持等待，不再付费或补发净化");
+
+    string archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    bonfire.startDestroyBuilding();
+    await Advance(.37f);
+    Check(!CollectiveProjectService.TryGetProject(projectId, out var lost) ||
+        lost.State == CollectiveProjectState.Cancelled || lost.State == CollectiveProjectState.Failed,
+        "原主节点实际移除后待做部分终止");
+    Check(!Polluted(firstId) && Polluted(secondId) && starts.Count == 1, "来源失效保留已完成地块且不做下一段");
+
+    World.world.save_manager.loadWorld(archive);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    RestoreWorker();
+    Check(CollectiveProjectService.TryGetProject(projectId, out var restored) && Completed(projectId) == 1 &&
+        (long)Pack(restored.Payload)["Districts"]["SourceBuilding"] == fixedSource &&
+        !Polluted(firstId) && Polluted(secondId) && Tile(bridgeId).zone.city != city,
+        "正式读档保留原来源、完成序号、断开连接和两块地的真实变化");
+    long resumedProjectId = projectId;
+    city.addZone(Tile(bridgeId).zone);
+    var secondBalance = worker.getMaxMana();
+    worker.setMana(secondBalance, false);
+    BeginWork();
+    await Until(() => History() > previousHistory, 8f);
+    Check(projectId == resumedProjectId && starts.Count == 2 && staleRejected && starts[0].CorrelationId != starts[1].CorrelationId &&
+        Mathf.Abs(balances[1] - secondBalance + definition.Cost) < .02f &&
+        !Polluted(firstId) && !Polluted(secondId) && touched.Count(hit => hit.Tile == firstId) == 1 &&
+        touched.Any(hit => hit.Cast == starts[1].CastId && hit.Tile == secondId) && History() == previousHistory + 1,
+        "接通后同一工程只付费处理未完成分区，全部验收才记完成历史",
+        new { starts = starts.Count, balances, history = History(), projectId, touched, staleRejected, tokens = starts.Select(value => value.CorrelationId).ToArray() });
+    return new { passed = true, city = cityId, project = projectId, source = fixedSource, first = firstId, second = secondId, routeBreak = bridgeId, tokens = starts.Select(value => value.CorrelationId).ToArray(), staleRejected };
+}
+finally
+{
+    DebugConfig.setOption(DebugOption.SystemBuildTick, buildEnabled);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.WorldContactConfirmed -= HitDistrict;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
