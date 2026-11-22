@@ -3079,3 +3079,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_building_repair.py --section repair --archive 功能术准备目录`。复用 10.13 准备的正式档，在同一城市检查房屋满额无效、原版受损、实际材料消耗、一次修缮及原任务入住。
 
 停止独立游戏并启动新进程，改用 `--section cold --archive 修缮输出目录`。同一建筑的修复量、住户和角色已学法术应继续存在，旧施放不会重播。
+
+### 水路落差与分流（11.05）
+
+在独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_world_water_channel.py --view native`。安装 Worldfall 的环境用 `--view worldfall`。同一旧地图上核对实际落差、一次付费和转交、两侧从近到远的水路、北沟抬高后的南侧前进，以及余水和支付份额。每次复验输出原始前沿和各路水量 `fronts.json`。

@@ -247,6 +247,7 @@ public sealed partial class WorldMaterialService
     {
         double clock = from;
         long epoch = generation;
+        Dictionary<(int, int), float[]> nativeRelief = null;
         while (clock < until)
         {
             var active = rows.Values.Where(r =>
@@ -281,14 +282,9 @@ public sealed partial class WorldMaterialService
             foreach (var row in active) row.Material.RefreshGround(terrain);
             ApplySolidGround(active);
             float dt = (float)(until - clock);
-            var domains = active.GroupBy(r => (r.Material.Matter.Id, r.Material.Matter.State)).Select(g =>
-                new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Identity, r.Material.Flow)), WorldCell,
-                    new Vector2(MapBox.width, MapBox.height), dt)).ToArray();
+            var domains = BuildDomains(active, dt);
             float step = domains.Min(d => d.Seconds);
-            if (step < dt)
-                domains = active.GroupBy(r => (r.Material.Matter.Id, r.Material.Matter.State)).Select(g =>
-                    new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Identity, r.Material.Flow)),
-                        WorldCell, new Vector2(MapBox.width, MapBox.height), step)).ToArray();
+            if (step < dt) domains = BuildDomains(active, step);
             var tasks = domains.SelectMany(d => Enumerable.Range(0, d.Count).Select(i => (Domain: d, Index: i)))
                 .ToArray();
             int work = active.Length * 256;
@@ -325,6 +321,47 @@ public sealed partial class WorldMaterialService
 
             yield return false;
         }
+
+        AbilityWorldWater[] BuildDomains(WorldMaterialRecord[] active, float seconds)
+        {
+            var result = active.GroupBy(row => (row.Material.Matter.Id, row.Material.Matter.State)).Select(group =>
+                new AbilityWorldWater(group.Select(row => new AbilityWaterLayer(row.Id, row.Identity, row.Material.Flow)),
+                    WorldCell, new Vector2(MapBox.width, MapBox.height), seconds)).ToArray();
+            if (terrain != null) return result;
+
+            // 同一确认时段的各材料及重新拆分的短步共用原版地面读数。
+            nativeRelief ??= new Dictionary<(int, int), float[]>();
+            foreach (var domain in result) domain.AddGroundRelief(ReliefAt);
+            return result;
+        }
+
+        float[] ReliefAt((int X, int Y) region)
+        {
+            if (nativeRelief.TryGetValue(region, out var result)) return result;
+            const int side = AbilityWorldWater.Side;
+            float cell = WorldCell;
+            result = new float[side * side];
+            for (int y = 0; y < side; y++)
+            for (int x = 0; x < side; x++)
+                result[y * side + x] = NativeWaterRelief(
+                    Mathf.FloorToInt((region.X * side + x + .5f) * cell),
+                    Mathf.FloorToInt((region.Y * side + y + .5f) * cell));
+            nativeRelief.Add(region, result);
+            return result;
+        }
+    }
+
+    /// <summary>原版水力地面以沙地为基准。受地形级别约束，原版抬地立即改变落差。</summary>
+    internal static float NativeWaterRelief(int x, int y)
+    {
+        int shore = TileLibrary.sand.height_min;
+        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return -shore / 32f;
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        TileType type = tile.main_type;
+        int floor = Mathf.Max(0, type.height_min);
+        int next = type.increase_to?.height_min ?? -1;
+        int ceiling = next > floor ? next - 1 : 255;
+        return (Mathf.Clamp(tile.Height, floor, ceiling) - shore) / 32f;
     }
 
     /// <summary>小批直接计算，中批复用同步并行，大批才跨帧等待，避免微任务空等整帧。</summary>

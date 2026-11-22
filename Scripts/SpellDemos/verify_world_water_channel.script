@@ -1,0 +1,167 @@
+const string spell = "test.world-water.channel";
+var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+Check((ground != null) == (view == "worldfall"), "使用所选环境的实际地面入口", view);
+var nativeHeight = (Func<int, int, float>)typeof(WorldMaterialService).GetMethod("NativeWaterRelief", F)
+    .CreateDelegate(typeof(Func<int, int, float>));
+Check(MapBox.width <= 512 && MapBox.height <= 512, "复用一地图格宽的小世界");
+var bounds = new Rect(58, 62, 31, 21);
+void SetGround(int x, int y, TileType type, int height)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    tile.Height = height;
+    tile.setTileTypes(type, null);
+    World.world.setTileDirty(tile);
+}
+
+// 同一个上游向两条低沟排水。中脊及两侧的高地是实际地图地块。
+for (int y = 62; y <= 82; y++)
+for (int x = 58; x <= 88; x++)
+{
+    bool high = x < 61 || y < 65 || y > 79 || x > 85 ||
+                x >= 68 && y >= 70 && y <= 74;
+    if (high) SetGround(x, y, TileLibrary.mountains, 245);
+    else if (x < 68) SetGround(x, y, TileLibrary.soil_high, 160);
+    else if (x < 76) SetGround(x, y, TileLibrary.soil_low, 119);
+    else SetGround(x, y, TileLibrary.sand, 101);
+}
+float At(AbilityHeightField map, int x, int y) => map?.Sample(x + .5f, y + .5f) ?? nativeHeight(x, y);
+AbilityHeightField initial = ground?.Invoke(bounds);
+float upper = At(initial, 64, 72), near = At(initial, 72, 76), far = At(initial, 80, 76);
+float crest = At(initial, 72, 72);
+Check(upper > near && near > far && crest > upper + .5f, "两沟的实际落差与中央高脊",
+    new { upper, near, far, crest });
+
+var source = Make(60);
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Xian);
+owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+Ready(source);
+await Advance(.1f);
+Place(source, 61.5f, 72.5f);
+var proposal = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(flowDefinition));
+proposal.Id = spell;
+proposal.Impact.Targets = SkillUseTargetRelation.Self;
+proposal.Root.Offset = new[] { 2.5f, 0f, 0f };
+proposal.Root.Volume = 6;
+proposal.Root.Operations = proposal.Root.Operations.Where(op => op.Kind != ConstructionOperationKind.Fly).ToArray();
+proposal.Root.Operations.First(op => op.Flow != null).Flow.Size = 4f;
+ConstructedAbilityService.Register(proposal);
+ConstructedAbilityService.Learn(owner, spell);
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, spell);
+var target = new ActiveAbilityTarget(source, source.GetSimPos());
+
+var leaves = new List<WorldMaterialChange>();
+void MaterialChanged(WorldMaterialChange value)
+{
+    if (value.AbilityId == spell && value.Provider == source.id && value.Kind == "leave") leaves.Add(value);
+}
+var frames = new List<object>();
+var saves = Cultiway.ModClass.I.WorldSaves;
+const float wet = .008f;
+(float[,] Depth, double Volume, double Principal) ReadWater()
+{
+    var records = (JArray)JObject.Parse(saves.World.Capture(World.world, "water-channel"))
+        ["sections"]["world_materials"]["data"]["Records"];
+    var depths = new float[MapBox.width, MapBox.height];
+    double volume = 0, principal = 0;
+    foreach (var row in records.Where(r => (long)r["Provider"] == source.id && (bool)r["WorldGrid"]))
+    {
+        var material = row["Material"];
+        var flow = material["Flow"];
+        int ox = (int)flow["X"], oy = (int)flow["Y"];
+        var cells = (JArray)flow["Water"];
+        for (int i = 0; i < 256; i++) depths[ox + i % 16, oy + i / 16] += (float)cells[i * 3];
+        volume += (double)material["Volume"];
+        principal += (double)material["Resource"];
+    }
+    return (depths, volume, principal);
+}
+int Front(float[,] depth, int bottom, int top)
+{
+    for (int x = 87; x >= 64; x--)
+    for (int y = bottom; y <= top; y++)
+        if (depth[x, y] >= wet) return x;
+    return 63;
+}
+(int North, int South, double Volume, double Principal) Sample()
+{
+    var water = ReadWater();
+    int north = Front(water.Depth, 75, 79), south = Front(water.Depth, 65, 69);
+    float ridge = 0;
+    for (int y = 71; y <= 73; y++)
+    for (int x = 70; x <= 81; x++) ridge = Mathf.Max(ridge, water.Depth[x, y]);
+    double northWater = 0, southWater = 0;
+    for (int x = 68; x <= 85; x++)
+    for (int y = 0; y < 5; y++)
+    {
+        northWater += water.Depth[x, y + 75];
+        southWater += water.Depth[x, y + 65];
+    }
+    frames.Add(new { time = World.world.getCurWorldTime(), north, south, northWater, southWater, ridge,
+        water.Volume, water.Principal });
+    File.WriteAllText(Path.Combine(folder, "fronts.json"), JsonConvert.SerializeObject(frames, Formatting.Indented));
+    // 一格宽的共同水面低于这个深度即不绘制。
+    Check(ridge < .002f, "中央高脊低于实际水面的可见深度", ridge);
+    return (north, south, water.Volume, water.Principal);
+}
+
+WorldMaterialService.Changed += MaterialChanged;
+try
+{
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    bool used = ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script);
+    float paid = before - owner.GetCultisys<Xian>().wakan;
+    Check(used && Math.Abs(paid - proposal.Cost) < .001f, "共同入口正式支付并释放有限水量",
+        new { used, before, paid });
+    await Advance(.1f);
+    var start = Sample();
+    Check(leaves.Count == 1 && start.North < 75 && start.South < 75, "一次转交，远端尚干");
+    var open = start;
+    for (int i = 0; i < 14 && Math.Min(open.North, open.South) < 69; i++)
+    {
+        await Advance(.3f);
+        open = Sample();
+    }
+    var stopped = await BlockNorth(open);
+    Check(Math.Abs(stopped.Volume - proposal.Root.Volume.Value) < .015 && Math.Abs(stopped.Principal - proposal.Cost) < .001,
+        "结束后的残水与未用原支付份额仍可归属同一实际来源", stopped);
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, source = source.id, view,
+        start = new { start.North, start.South }, open = new { open.North, open.South },
+        stopped = new { stopped.North, stopped.South, stopped.Volume, stopped.Principal }, checks };
+}
+finally
+{
+    WorldMaterialService.Changed -= MaterialChanged;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
+
+async Task<(int North, int South, double Volume, double Principal)> BlockNorth(
+    (int North, int South, double Volume, double Principal) open)
+{
+    Check(Math.Min(open.North, open.South) >= 69 && Math.Max(open.North, open.South) < 75,
+        "同一来源的实际水面分别进入两侧低沟", new { open.North, open.South });
+    for (int y = 74; y <= 80; y++)
+    for (int x = 74; x <= 76; x++) SetGround(x, y, TileLibrary.mountains, 245);
+    Check(At(ground?.Invoke(bounds), 75, 77) > near + .5f, "原版升起的障碍已经进入实际地面采样");
+    return await ObserveAfterWall(open);
+}
+
+async Task<(int North, int South, double Volume, double Principal)> ObserveAfterWall(
+    (int North, int South, double Volume, double Principal) open)
+{
+    var stopped = open;
+    for (int i = 0; i < 24 && stopped.South < 75; i++)
+    {
+        await Advance(.4f);
+        stopped = Sample();
+    }
+    Check(stopped.South >= 75 && stopped.North < 75, "堵住北沟后，南沟越过同一远端截面",
+        new { stopped.North, stopped.South });
+    return stopped;
+}
