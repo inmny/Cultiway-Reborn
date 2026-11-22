@@ -3105,3 +3105,9 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 在独立游戏中运行 `dev.py exec --timeout 150 -- python3 Scripts/SpellDemos/verify_perception_relay.py --section cast`。用现成世界实际施放巡影传讯，核对隐匿与显影、两名圈内友方各自收信、移动后的旧方位、同一次连续施放内更新和到期。
 
 单独用 `--section editor` 查看中英编辑菜单、感知与显影切换、撤销及正式覆盖后的规则。截图和读回资料一起留在本次输出目录。构造在 [巡影传讯](../../Doc/技能系统全面重构/构造输入/巡影传讯.json)。
+
+## 元神承载与共同替负（11.11）
+
+在独立游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_shared_soul_pact.py --section cast`。由正式编辑器启用共同替负，再核对各人实际支付、单人排斥、对同一笔来伤的分账、承受者免伤或死亡时的接续，以及自然结束后旧单人术仍可使用。脚本同时保存正式世界。
+
+退出游戏并启动新进程后，用 `--section cold --archive <cast输出目录>` 复验两人正式学会的规则、保存时的生命和临时联系的清理。可编辑构造见 [同袍替负](../../Doc/技能系统全面重构/构造输入/同袍替负.json)。

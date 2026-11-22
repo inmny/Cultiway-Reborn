@@ -1,4 +1,5 @@
 using System.IO;
+using Newtonsoft.Json;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Usage;
 
@@ -9,12 +10,17 @@ public sealed class ConstructionSoulPact
 {
     public float Fraction = .5f;
     public float Capacity = 80f;
+
+    /// <summary>允许其他同样开启共同替负的承受者加入。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool AllowOtherBearers;
 }
 
 /// <summary>当次施放使用的固定份额和初始额度。</summary>
 internal sealed class CompiledSoulPact
 {
     internal readonly float Fraction, Capacity;
+    internal readonly bool AllowOtherBearers;
 
     internal CompiledSoulPact(ConstructionSoulPact source, ActiveAbilityTargetMode target, SkillUseTargetRelation relation)
     {
@@ -26,5 +32,6 @@ internal sealed class CompiledSoulPact
             throw new InvalidDataException("SoulPact/Capacity：额度须在1到1000000之间");
         Fraction = source.Fraction;
         Capacity = source.Capacity;
+        AllowOtherBearers = source.AllowOtherBearers;
     }
 }

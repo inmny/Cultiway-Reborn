@@ -15,6 +15,8 @@ public sealed partial class WindowWanfaConstructionEditor
         Row("SoulPactHint", T("SoulPactHint"));
         SoulPactNumber("SoulPactFraction", pact.Fraction, (rule, value) => rule.Fraction = value);
         SoulPactNumber("SoulPactCapacity", pact.Capacity, (rule, value) => rule.Capacity = value);
+        Toggle("SoulPactAllowOtherBearers", pact.AllowOtherBearers, value => pact.AllowOtherBearers = value);
+        if (pact.AllowOtherBearers) Row("SoulPactSharedRules", T("SoulPactSharedHint"));
         ActionRow("SoulPactRemove", "", () => EditSoulPact(candidate => candidate.SoulPact = null));
     }
 

@@ -379,7 +379,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         caster = context.Owner;
         Actor carrier = context.Carrier.Base;
         return TryResolveUseTarget(caster, plan, target, out Actor actor, out Vector3 point, out _, self: carrier) &&
-               (plan.SoulPact == null || CanBeginSoulPact(caster.Base, actor)) &&
+               (plan.SoulPact == null || CanBeginSoulPact(caster.Base, actor, plan.SoulPact)) &&
                (node.OwnerActorId != 0 ? Vector2.Distance(origin, point) : StartingDistance(carrier, point)) <=
                Range(caster, plan, actor, handle.Source);
     }
@@ -620,7 +620,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!practice && !TryResolveUseTarget(caster, plan, target, out targetActor, out point, out targetHeight,
                 explicitReactionTarget, self: prepaid ? null : spatialSource))
             return false;
-        if (plan.SoulPact != null && (practice || !CanBeginSoulPact(sourceActor, targetActor))) return false;
+        if (plan.SoulPact != null && (practice || !CanBeginSoulPact(sourceActor, targetActor, plan.SoulPact))) return false;
         if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
             (node.Correspondence.Target == ConstructionCorrespondenceTarget.Source ? sourceActor : targetActor) == null)) return false;
         if (caster != null && !selectionAlreadyChecked &&
@@ -813,14 +813,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
             running.LastSourceFoot = inputs.Source;
             running.LastSourceHeight = inputs.SourceHeight;
+            if (plan.SoulPact != null && !CanBeginSoulPact(sourceActor, targetActor, plan.SoulPact)) return false;
             if (commitEffect != null && (!commitEffect() || generation != worldGeneration)) return false;
             if (casts.Count == 0) simulation.RememberActors(startedAt);
             if (inventory != null) inventory.CastId = running.Id;
             casts.Add(running);
+            if (plan.SoulPact != null) RegisterSoulPact(running, plan.SoulPact);
             if (movement != null) Cultiway.Content.Persistence.ActorPositionSaveService.Remember(caster);
             if (payment != null && !payment.IsCommitted) payment.Commit();
             accepted = true;
-            if (plan.SoulPact != null) soulPacts[running.TargetId] = new SoulPact(running, plan.SoulPact);
             ReplaceExcessInstances(running);
             PublishBarriers();
             TrackWorldRecovery(running, true);
@@ -1031,8 +1032,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseMaterialVortices(running);
         ReleaseWeaponChambers(running);
         ReleaseMirrorImages(running);
-        if (running.Cast.Plan.SoulPact != null && soulPacts.TryGetValue(running.TargetId, out var pact) && pact.Cast == running)
-            soulPacts.Remove(running.TargetId);
+        RemoveSoulPact(running);
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         running.Inventory?.Dispose();
@@ -1120,6 +1120,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         /// <summary>在本次出手生效后提交一次的修炼来源。</summary>
         internal string FormationFamily;
+
+        /// <summary>本次实际承受者在受护者名下的独立份额。</summary>
+        internal SoulPact Pact;
 
         /// <summary>范围法相的后续人物结算，只由共用确认接触驱动。</summary>
         internal FormationAreaContact? FormationArea;
