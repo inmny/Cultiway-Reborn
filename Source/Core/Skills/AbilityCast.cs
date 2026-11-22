@@ -209,7 +209,8 @@ public sealed partial class AbilityCast
     public float Age { get; private set; }
 
     /// <summary>独立形体按原寿命结束；身体实际落地及收势完成后结束整次施放。</summary>
-    public bool Finished => cancelled || Age >= CastUntil || Plan.SoulPact == null && aliveNodes == 0 &&
+    public bool Finished => cancelled || Age >= CastUntil ||
+        Plan.SoulPact == null && Plan.WorldCondition == null && aliveNodes == 0 &&
         (Plan.Body == null || bodyInterrupted || Age >= BodyUntil);
 
     /// <summary>仍有自身显示或作用的部位数；空组织支点不拖延已经结束的施放。</summary>

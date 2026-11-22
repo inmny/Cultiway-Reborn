@@ -147,6 +147,8 @@
   "Cultiway.ConstructionText.MappingWait": "入口最多暂存{0:0.##}秒。",
   "Cultiway.ConstructionText.RetimeErosion": "调整真实范围内正在侵蚀的{0}，至多{1:0.##}立方格，{2}，保留已扣进度。",
   "Cultiway.ConstructionText.RestoreProcessTime": "恢复常速。",
+  "Cultiway.ConstructionText.WorldFireArea": "在本次选中位置周围{0:0.##}格内阻止新点火，最多维持{1:0.##}秒。",
+  "Cultiway.ConstructionText.WorldFireEntire": "在全图阻止新点火，最多维持{0:0.##}秒。",
   "Cultiway.ConstructionText.ProcessTime": "实际启动或调整后：{0}；其余时间常速。",
   "Cultiway.ConstructionText.ProcessTimePause": "第{0:0.##}秒起暂停{1:0.##}秒",
   "Cultiway.ConstructionText.ProcessTimeRate": "第{0:0.##}秒起以{2:0.##}倍推进{1:0.##}秒",

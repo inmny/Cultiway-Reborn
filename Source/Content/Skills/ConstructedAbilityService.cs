@@ -621,6 +621,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 explicitReactionTarget, self: prepaid ? null : spatialSource))
             return false;
         if (plan.SoulPact != null && (practice || !CanBeginSoulPact(sourceActor, targetActor, plan.SoulPact))) return false;
+        if (plan.WorldCondition != null && (practice || sourceActor == null || !sourceActor.isAlive())) return false;
         if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
             (node.Correspondence.Target == ConstructionCorrespondenceTarget.Source ? sourceActor : targetActor) == null)) return false;
         if (caster != null && !selectionAlreadyChecked &&
@@ -819,6 +820,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (inventory != null) inventory.CastId = running.Id;
             casts.Add(running);
             if (plan.SoulPact != null) RegisterSoulPact(running, plan.SoulPact);
+            if (plan.WorldCondition != null) RegisterWorldCondition(running, point);
             if (movement != null) Cultiway.Content.Persistence.ActorPositionSaveService.Remember(caster);
             if (payment != null && !payment.IsCommitted) payment.Commit();
             accepted = true;
@@ -965,6 +967,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CropGrowthPacing.Clear();
         ClearShadows();
         soulPacts.Clear();
+        worldFireConditions.Clear();
+        regionalFireConditions.Clear();
         soulPactTransfers.Clear();
         simulation.observedSignals.Clear();
         ClearConductionVisuals();
@@ -1034,6 +1038,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseWeaponChambers(running);
         ReleaseMirrorImages(running);
         RemoveSoulPact(running);
+        RemoveWorldCondition(running);
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         running.Inventory?.Dispose();
@@ -1124,6 +1129,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次实际承受者在受护者名下的独立份额。</summary>
         internal SoulPact Pact;
+
+        /// <summary>随本次正式施放释放的世界条件。</summary>
+        internal ActiveWorldCondition WorldCondition;
 
         /// <summary>范围法相的后续人物结算，只由共用确认接触驱动。</summary>
         internal FormationAreaContact? FormationArea;

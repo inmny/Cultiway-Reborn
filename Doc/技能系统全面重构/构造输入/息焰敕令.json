@@ -1,0 +1,15 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WorldFireWatch",
+  "Name": "息焰敕令",
+  "Resource": "mana",
+  "Cost": 12,
+  "Cooldown": 0.5,
+  "Lifetime": 2.8,
+  "Power": 1,
+  "Use": {"Channels": "World", "Target": "Self"},
+  "Impact": {"DamageScale": 0},
+  "WorldCondition": {"EntireWorld": true},
+  "Binding": {"Anchor": "Source"},
+  "Root": {"Id": "order", "Form": "pivot", "ContactRole": "Decoration", "DisappearAt": 0.22}
+}

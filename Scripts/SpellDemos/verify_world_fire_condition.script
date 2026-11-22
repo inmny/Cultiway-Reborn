@@ -1,0 +1,177 @@
+var regional = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "region.json")));
+var global = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "world.json")));
+var source = Make(64);
+var started = new List<ConstructedCastStarted>();
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id) started.Add(fact); }
+ConstructedAbilityService.CastStarted += Started;
+var all = (IList)service.GetField("worldFireConditions", F).GetValue(null);
+var zones = (IDictionary)service.GetField("regionalFireConditions", F).GetValue(null);
+var manaStats = new BaseStats();
+manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ObservedSignal.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ObservedSignal.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+source.updateStats();
+
+WorldTile Ground(int x, int y = 72)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.stopFire();
+    tile.heat = 0;
+    tile.burned_stages = 0;
+    tile.Height = 140;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    return tile;
+}
+bool FireNative(WorldTile tile)
+{
+    tile.stopFire();
+    return tile.startFire(pForce: false) && tile.isOnFire();
+}
+bool Blocked(WorldTile tile)
+{
+    tile.stopFire();
+    int health = tile.health;
+    return !tile.startFire(pForce: true) && !tile.isOnFire() && tile.health == health;
+}
+
+async Task<long> Fund(AbilityDefinition spell, float? x = null)
+{
+    source.setMana(80);
+    int before = started.Count;
+    if (x.HasValue)
+        await Fire(spell, source, null, aim: new Vector3(x.Value, 72.5f, 0), aggro: false);
+    else
+        await Fire(spell, source, source, aggro: false);
+    Check(started.Count == before + 1 && Mathf.Abs(80f - source.getMana() - spell.Cost) < .01f,
+        "正式施放只支付一次实际费用", new { id = spell.Id, cost = spell.Cost, balance = source.getMana() });
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    return started.Last().CastId;
+}
+void Stop(long cast) => service.GetMethod("Cancel", F).Invoke(null, new object[] { cast });
+FormVisualInstance[] Markers() => FormVisualScene.Instances
+    .Where(form => form.Resource.Description.Id == "truth_mirror" && form.Tint?.b == .69f).ToArray();
+
+try
+{
+    AbilityDefinition saved = regional;
+    if (checkRegion)
+    {
+        ConstructedAbilityService.Register(regional);
+        ConstructedAbilityService.Learn(source.GetExtend(), regional.Id);
+        LocalizedTextManager.instance.setLanguage("cz");
+        WindowWanfaConstructionEditor.Open(regional.Id, source);
+        await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+        var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+        Button Named(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name);
+        ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+        Named("Page0").onClick.Invoke();
+        var toggle = editor.GetComponentsInChildren<Toggle>(false).Single(value => value.name == "WorldFireEntire");
+        toggle.isOn = true;
+        Check(Session().Draft.WorldCondition.EntireWorld && Named("Replace").interactable,
+            "同一原理可从区域切到全图");
+        Named("Undo").onClick.Invoke();
+        LocalizedTextManager.instance.setLanguage("en");
+        Named("Page0").onClick.Invoke();
+        Check(editor.GetComponentsInChildren<Text>(false).Any(text => text.text == "Cover the entire map") &&
+            !Session().Draft.WorldCondition.EntireWorld && Session().Draft.WorldCondition.Radius == 4,
+            "英文表单实际显示，撤销恢复原区域半径");
+        Named("Replace").onClick.Invoke();
+        saved = ConstructionEditing.Access.Read(Session().SourceId);
+        Check(saved.WorldCondition.Radius == 4 && !saved.WorldCondition.EntireWorld && saved.Cost == 5,
+            "正式覆盖保留区域条件与费用");
+        File.WriteAllText(Path.Combine(folder, "edited-region.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+        Named("Close").onClick.Invoke();
+        await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+        LocalizedTextManager.instance.setLanguage("cz");
+    }
+    Ready(source);
+    Place(source, 64f);
+    var left = Ground(65);
+    var far = Ground(106, 76);
+    if (checkRegion)
+    {
+        var existing = Ground(66, 74);
+        var edge = Ground(72);
+        var outside = Ground(73);
+        var common = Ground(70);
+        Check(FireNative(existing) && FireNative(edge) && FireNative(far), "原版入口在普通草地实际点火");
+        edge.stopFire();
+        far.stopFire();
+
+        long first = await Fund(saved, 68.5f);
+        await Advance(.34f);
+        var markers = Markers();
+        Check(existing.isOnFire() && Blocked(edge) && FireNative(outside) &&
+            markers.Any(form => Mathf.Abs(form.Transform.m03 - 68.5f) < .01f &&
+                               Mathf.Abs(form.Transform.m13 - 72.5f) < .01f && Mathf.Abs(form.Transform.m00 - 4f) < .01f),
+            "原火继续，圆的外沿地块实测阻止新点火，旁边圈外照常",
+            new { markers = markers.Select(form => form.Transform.m03).ToArray(), existing = existing.isOnFire() });
+        outside.stopFire();
+        existing.stopFire();
+        Check(zones.Count > 0 && all.Count == 0, "区域只登记相交的小区");
+
+        long second = await Fund(saved, 72.5f);
+        await Advance(.30f);
+        Stop(first);
+        Check(Blocked(common) && FireNative(left) && started.Count == 2,
+            "第一份取消后独占地块恢复，交叠区由第二份维持");
+        left.stopFire();
+        await Advance(2.20f);
+        Check(zones.Count == 0 && Markers().Length == 0 && FireNative(common),
+            "第二份自然到期后从登记和显示移除，原版可以再次点火");
+        common.stopFire();
+    }
+
+    ConstructedAbilityService.Register(global);
+    ConstructedAbilityService.Learn(source.GetExtend(), global.Id);
+    int before = 0;
+    source.setMana(before);
+    var handle = new ActiveAbilityHandle("content.constructed", source.GetExtend().E, global.Id);
+    var self = new ActiveAbilityTarget(source, source.GetSimPos());
+    bool unpaid = ActiveAbilityService.TryUse(source.GetExtend(), handle, self, ActiveAbilityUseOrigin.Script);
+    Check(!unpaid && source.getMana() == before && all.Count == 0 && FireNative(far),
+        "欠费使全图规则不受理，远处原版点火照常");
+    far.stopFire();
+    await Fund(global);
+    await Advance(.34f);
+    Check(all.Count == 1 && zones.Count == 0 && Blocked(far) && Blocked(left),
+        "只发布一个全图条件，远处和附近都按原版点火入口检查");
+
+    long sourceId = source.id;
+    if (!checkRegion) ConstructedAbilityService.Register(saved);
+    ConstructedAbilityService.Learn(source.GetExtend(), saved.Id);
+    ConstructedAbilityService.Learn(source.GetExtend(), global.Id);
+    var archive = Path.Combine(folder, "archive");
+    SaveManager.saveWorldToDirectory(archive);
+    source.dieAndDestroy(AttackType.None);
+    Check(FireNative(Ground(106, 76)), "施术者真实死亡立即使全图点火限制失效");
+    await Advance(.14f);
+    Check(all.Count == 0, "来源失效后的施放真正退出全图登记");
+
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(archive);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var learned = World.world.units.get(sourceId).GetExtend().E.GetComponent<ConstructedKnowledge>().Ids;
+    Check(learned.Contains(saved.Id) && learned.Contains(global.Id) &&
+        ConstructionEditing.Access.Read(saved.Id).WorldCondition.Radius == 4 &&
+        ConstructionEditing.Access.Read(global.Id).WorldCondition.EntireWorld &&
+        all.Count == 0 && zones.Count == 0 && FireNative(Ground(106, 76)),
+        "正式读回区域及全图定义，原活动不重放，远处正常点火");
+    return new { passed = true, local = saved.Id, entire = global.Id, owner = sourceId };
+}
+finally
+{
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    if (editor != null && Field(editor, "session") != null)
+        typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+    LocalizedTextManager.instance.setLanguage("cz");
+}

@@ -292,6 +292,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             RunningCast running = casts[index];
             ValidateSource(running);
+            if (running.WorldCondition is { } condition && !condition.IsLive(now)) RemoveWorldCondition(running);
             PublishActionEvents(running);
             if (generation != worldGeneration) yield break;
             if (running.Cast.Finished)
@@ -311,6 +312,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (running.Cast.Plan.MirrorNodes.Length > 0) AppendMirrorImages(running, now);
                 AppendSpatialViews(running, now);
                 AppendSoulPact(running, now);
+                AppendWorldCondition(running, now);
             }
             if (!running.BodyControlled) continue;
             BodyPose pose = running.Cast.BodyPose.Value;
