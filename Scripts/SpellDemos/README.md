@@ -3183,3 +3183,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 器官来源重复读档（12.06）
 
 运行 `dev.py exec --timeout 135 -- python3 Scripts/SpellDemos/verify_organ_source_reload.py`。从第一版正式样板重复读回，核对器官授予仅重建一份，另存后仍指向原来源。见[专属能力授予与恢复](../../Doc/技能系统全面重构/专属能力授予与恢复.md)。
+
+### 瞬时施放存读（12.07）
+
+运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_instant_cast_archive.py --section prepare --archive <9.45 对练档目录>`。退出重启后改用 `--section cold --archive <蓄势存档输出目录>`。核对真实扣费、剩余冷却、旧动作结束及控制归还和重新施放。见[瞬时施放的存读约定](../../Doc/技能系统全面重构/瞬时施放的存读约定.md)。
