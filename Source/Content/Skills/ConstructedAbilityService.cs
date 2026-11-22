@@ -289,7 +289,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        bool carried = PlanFor(handle.EntryId).Binding?.Anchor == AbilityAnchor.Carrier;
+        CompiledAbility plan = PlanFor(handle.EntryId);
+        bool carried = plan.Binding?.Anchor == AbilityAnchor.Carrier;
+        bool mobile = plan.Body?.ControlsStance != true;
         string name = definitions[handle.EntryId].Name;
         Sprite icon = SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse");
         if (carried)
@@ -297,14 +299,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             name += " · " + (handle.Source.HasName ? handle.Source.Name.value : handle.Source.GetComponent<ItemShape>().Type.id);
             icon = handle.Source.GetComponent<ItemShape>().Type.GetIcon?.Invoke(handle.Source) ?? icon;
         }
-        return new(
-        name, icon,
-        PlanFor(handle.EntryId).Use.Channels, PlanFor(handle.EntryId).Use.Target, ActiveAbilityActivationMode.Instant,
-        PlanFor(handle.EntryId).Body?.ControlsStance != true
-            ? ActiveAbilityCastMobility.Mobile
-            : ActiveAbilityCastMobility.StationaryDuringRecovery,
-        targetRelation: PlanFor(handle.EntryId).Impact.Targets,
-        canCastConcurrently: PlanFor(handle.EntryId).Body?.ControlsStance != true);
+        return new(name, icon, plan.Use.Channels, plan.Use.Target, ActiveAbilityActivationMode.Instant,
+            mobile ? ActiveAbilityCastMobility.Mobile : ActiveAbilityCastMobility.StationaryDuringRecovery,
+            plan.Impact.Targets, mobile, plan);
     }
 
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>

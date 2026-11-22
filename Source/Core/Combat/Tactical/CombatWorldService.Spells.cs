@@ -1,3 +1,4 @@
+using Cultiway.Const;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core.Combat.Tactical;
@@ -11,7 +12,8 @@ public static partial class CombatWorldService
         if (!ShouldTakeOver(actor))
         {
             ReleaseActorTakeover(actor);
-            return false;
+            // 附体有自己的出手入口。已有敌意不能再经原版的自主目标更新施法或扣费。
+            return GeneralSettings.EnableSkillSystems && ControllableUnit.isControllingUnit(actor);
         }
 
         if (!actor._update_done && !actor._beh_skip && TickExecution(actor, elapsed)) actor.skipBehaviour();

@@ -17,6 +17,9 @@ internal static class ControlledCultivatorSkillControls
 {
     private static readonly Dictionary<long, ActiveAbilityHandle> SelectedAbilities = new();
 
+    /// <summary>现有可选视角提供实际准星。第一人称没有落点时不能继续使用俯视光标。</summary>
+    internal static Func<Actor, (bool Active, Vector3? Point, BaseSimObject Target)> ReadFirstPersonAim;
+
     internal static bool CastSelectedSkill()
     {
         return CastSelectedSkill(SkillTargetSelectionArea.Inactive);
@@ -40,9 +43,11 @@ internal static class ControlledCultivatorSkillControls
             return false;
         }
 
-        var aim = ResolveAim(actor);
+        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(actor.GetExtend(), ability);
+        ControlledSkillAim? aim = ResolveAim(actor, descriptor);
         var attackKingdom = World.world.kingdoms_wild.get("possessed");
-        if (TryCastSelectedSkill(actor, aim.Target, aim.TargetPos, attackKingdom, selectionArea)) return true;
+        if (aim.HasValue && TryCastSelectedSkill(actor, ability, descriptor, aim.Value, attackKingdom, selectionArea))
+            return true;
 
         ShowTip("暂时无法释放主动能力");
         return false;
@@ -246,22 +251,29 @@ internal static class ControlledCultivatorSkillControls
         return actor.isAttackPossible();
     }
 
-    private static bool TryCastSelectedSkill(Actor actor, BaseSimObject target, Vector3 targetPos,
-        Kingdom attackKingdom, SkillTargetSelectionArea selectionArea)
+    private static bool TryCastSelectedSkill(Actor actor, ActiveAbilityHandle ability,
+        ActiveAbilityDescriptor descriptor, ControlledSkillAim aim, Kingdom attackKingdom,
+        SkillTargetSelectionArea selectionArea)
     {
-        if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return false;
         var caster = actor.GetExtend();
-        ActiveAbilityChannel channels = ActiveAbilityService.GetChannels(caster, ability);
+        ActiveAbilityChannel channels = descriptor.Channels;
         if (!CanUseAbilityControlsNow(actor, channels)) return false;
 
-        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, ability);
+        BaseSimObject target = aim.Target;
+        Vector3 targetPos = aim.TargetPos;
+        bool aimsAtPoint = descriptor.TargetMode == ActiveAbilityTargetMode.Point ||
+                           descriptor.TargetRelation == SkillUseTargetRelation.WorldTile;
         var manualTargets = selectionArea.Active
             ? CollectManualTargets(actor, selectionArea, attackKingdom)
             : null;
         if (selectionArea.Active)
         {
-            if ((target == null || target.isRekt() || !IsWithinAbilityRange(caster, ability, target))
-                && manualTargets is { Count: > 0 })
+            if (aimsAtPoint)
+            {
+                targetPos = selectionArea.Center;
+            }
+            else if ((target == null || target.isRekt() || !IsWithinAbilityRange(caster, ability, target))
+                && !aim.FirstPerson && manualTargets is { Count: > 0 })
             {
                 target = manualTargets[0];
                 targetPos = target.GetSimPos();
@@ -275,7 +287,7 @@ internal static class ControlledCultivatorSkillControls
         var clampedTargetPos = descriptor.TargetMode == ActiveAbilityTargetMode.Self
             ? actor.GetSimPos()
             : ClampTargetPos(caster, ability, targetPos);
-        var useTrackedTarget = descriptor.TargetRelation != SkillUseTargetRelation.WorldTile &&
+        var useTrackedTarget = !aimsAtPoint &&
                                target != null && !target.isRekt() &&
                                MatchesTargetRelation(actor, target, descriptor.TargetRelation) &&
                                IsWithinAbilityRange(caster, ability, target);
@@ -296,18 +308,19 @@ internal static class ControlledCultivatorSkillControls
         return true;
     }
 
-    private static ControlledSkillAim ResolveAim(Actor actor)
+    private static ControlledSkillAim? ResolveAim(Actor actor, ActiveAbilityDescriptor descriptor)
     {
-        var mousePos = (Vector3)World.world.getMousePos();
-        mousePos.z = 0f;
-
-        if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability))
-            return new ControlledSkillAim(null, mousePos);
-        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(actor.GetExtend(), ability);
         if (descriptor.TargetMode == ActiveAbilityTargetMode.Self)
             return new ControlledSkillAim(actor, actor.GetSimPos());
-        if (descriptor.TargetRelation == SkillUseTargetRelation.WorldTile)
-            return new ControlledSkillAim(null, ClampTargetPos(actor.GetExtend(), ability, mousePos));
+
+        var aim = ReadPointer(actor);
+        if (!aim.Point.HasValue) return null;
+        Vector3 mousePos = aim.Point.Value;
+        if (descriptor.TargetMode == ActiveAbilityTargetMode.Point ||
+            descriptor.TargetRelation == SkillUseTargetRelation.WorldTile)
+            return new ControlledSkillAim(null, mousePos, aim.Active);
+        if (aim.Active)
+            return new ControlledSkillAim(aim.Target, mousePos, firstPerson: true);
 
         BaseSimObject target = GetActorTargetRaycast(actor, mousePos, descriptor.TargetRelation);
         target ??= GetActorTargetNearCursor(actor, descriptor.TargetRelation);
@@ -316,15 +329,19 @@ internal static class ControlledCultivatorSkillControls
             BaseSimObject building = GetBuildingTargetNearCursor();
             if (MatchesTargetRelation(actor, building, descriptor.TargetRelation)) target ??= building;
         }
-        var targetPos = target == null ? mousePos : target.GetSimPos();
-        targetPos = ClampTargetPos(actor.GetExtend(), targetPos);
-
-        return new ControlledSkillAim(target, targetPos);
+        return new ControlledSkillAim(target, target == null ? mousePos : target.GetSimPos());
     }
 
-    internal static Vector3 ClampSkillTargetPos(ActorExtend caster, Vector3 targetPos)
+    /// <summary>选择预览、松键及普通施放共用同一个视点和实际地图位置。</summary>
+    internal static (bool Active, Vector3? Point, BaseSimObject Target) ReadPointer(Actor actor)
     {
-        return caster == null || caster.Base.isRekt() ? targetPos : ClampTargetPos(caster, targetPos);
+        if (ReadFirstPersonAim != null)
+        {
+            var aim = ReadFirstPersonAim(actor);
+            if (aim.Active) return aim;
+        }
+
+        return (false, (Vector3)World.world.getMousePos(), null);
     }
 
     internal static List<BaseSimObject> CollectManualTargets(Actor actor, SkillTargetSelectionArea area,
@@ -336,7 +353,7 @@ internal static class ControlledCultivatorSkillControls
         var caster = actor.GetExtend();
         if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return result;
         ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, ability);
-        var center = ClampTargetPos(caster, area.Center);
+        var center = ClampTargetPos(caster, ability, area.Center);
         var radius = Mathf.Max(0.1f, area.Radius);
         if (descriptor.TargetRelation == SkillUseTargetRelation.WorldTile) return result;
         if (descriptor.TargetRelation == SkillUseTargetRelation.Self)
@@ -438,24 +455,17 @@ internal static class ControlledCultivatorSkillControls
         return target == null || target.isRekt() ? null : target;
     }
 
-    private static Vector3 ClampTargetPos(ActorExtend caster, Vector3 targetPos)
-    {
-        return TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
-            ? ClampTargetPos(caster, ability, targetPos)
-            : targetPos;
-    }
-
-    private static Vector3 ClampTargetPos(
+    internal static Vector3 ClampTargetPos(
         ActorExtend caster,
         ActiveAbilityHandle ability,
         Vector3 targetPos)
     {
         var sourcePos = caster.Base.GetSimPos();
-        var delta = targetPos - sourcePos;
+        Vector2 delta = (Vector2)(targetPos - sourcePos);
         var maxRange = ActiveAbilityService.ResolveRange(caster, ability);
         if (delta.sqrMagnitude <= maxRange * maxRange) return targetPos;
-        if (delta.sqrMagnitude < 0.0001f) return sourcePos + Vector3.right * maxRange;
-        return sourcePos + delta.normalized * maxRange;
+        Vector2 clamped = (Vector2)sourcePos + delta.normalized * maxRange;
+        return new Vector3(clamped.x, clamped.y, targetPos.z);
     }
 
     private static bool IsWithinAbilityRange(
@@ -473,14 +483,6 @@ internal static class ControlledCultivatorSkillControls
         return caster != null && !caster.Base.isRekt() &&
                TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
             ? ActiveAbilityService.ResolveRange(caster, ability)
-            : 0f;
-    }
-
-    internal static float ResolveSelectedAbilityEffectRadius(ActorExtend caster)
-    {
-        return caster != null && !caster.Base.isRekt() &&
-               TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
-            ? ActiveAbilityService.ResolveEffectRadius(caster, ability)
             : 0f;
     }
 
@@ -564,11 +566,13 @@ internal static class ControlledCultivatorSkillControls
     {
         public readonly BaseSimObject Target;
         public readonly Vector3 TargetPos;
+        public readonly bool FirstPerson;
 
-        public ControlledSkillAim(BaseSimObject target, Vector3 targetPos)
+        public ControlledSkillAim(BaseSimObject target, Vector3 targetPos, bool firstPerson = false)
         {
             Target = target;
             TargetPos = targetPos;
+            FirstPerson = firstPerson;
         }
     }
 }
