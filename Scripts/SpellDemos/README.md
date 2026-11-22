@@ -3175,3 +3175,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 战技筑路（11.23）
 
 在独立原版游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_martial_work.py --section work --archive <11.03 功能术准备目录>`。复用原城工人，检查铁锤、原住房规划和实际浅水通行。保存后退出并重启，改用 `--section cold --archive <筑路阶段输出目录>`，核对原铁锤、地面、工程和已学构造。见[战技的地形工作](../../Doc/技能系统全面重构/战技的地形工作.md)。
+
+### 构造编号和资料版本（12.01）
+
+在独立原版游戏运行 `dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_identity.py --archive <11.23 筑路阶段输出目录>`。沿原登记、编辑、派生和正式读回入口核对实际编号、修订和分别学习关系。见[构造编号与资料版本](../../Doc/技能系统全面重构/构造编号与资料版本.md)。

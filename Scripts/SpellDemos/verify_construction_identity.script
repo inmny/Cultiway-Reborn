@@ -1,0 +1,87 @@
+var access = ConstructionEditing.Access;
+Actor actor = World.world.units.get(ownerId);
+var reader = World.world.units.getSimpleList().First(other =>
+    other.id != ownerId && other.isAlive() && other.asset.is_humanoid);
+long readerId = reader.id;
+var owner = actor.GetExtend();
+var second = reader.GetExtend();
+const string builtInId = "Cultiway.Body.RoadForge";
+var builtIn = access.Read(builtInId);
+Check(builtIn.Id == builtInId && builtIn.Version == 1 && builtIn.Revision == 2 &&
+    builtIn.Creator == 0 && builtIn.Parent == null, "自带构造有固定编号和资料版本",
+    new { builtIn.Id, builtIn.Version, builtIn.Revision, builtIn.Creator });
+
+var first = access.Apply(owner, new ConstructionEditSession(builtIn), false);
+ConstructedAbilityService.Learn(second, first.Id);
+var session = new ConstructionEditSession(first);
+session.Draft.Cooldown += .25f;
+var revised = access.Apply(owner, session, true);
+bool Knows(ActorExtend character, string id) => access.List(character).Any(entry => entry.Id == id);
+bool HasParent(AbilityDefinition result, AbilityDefinition basis) => result.Parent?.Id == basis.Id &&
+    result.Parent.Revision == basis.Revision && result.Parent.Creator == basis.Creator;
+Check(first.Id != revised.Id && first.Name == revised.Name && first.Version == 1 &&
+    first.Creator == ownerId && revised.Creator == ownerId && revised.Version == 1 && first.Revision == 1 &&
+    revised.Revision == 2 && HasParent(first, builtIn) && HasParent(revised, first) &&
+    Knows(owner, revised.Id) && !Knows(owner, first.Id) && Knows(second, first.Id) && !Knows(second, revised.Id),
+    "同名另创和改造具有各自编号，来源与修订准确，原读者仍掌握原术");
+
+var import = access.Read(first.Id);
+Check(!access.Import(import), "相同完整构造复用原编号");
+import.Cooldown += 2f;
+bool rejectedCollision = false;
+try { access.Import(import); }
+catch (Exception error) when (error.GetType().Name == "ConstructionShareException") { rejectedCollision = true; }
+var bad = access.Read(builtInId);
+bad.Id = "test.construction-identity.future";
+bad.Version = 99;
+bool rejectedVersion = false;
+try { ConstructedAbilityService.Register(bad); }
+catch (InvalidDataException) { rejectedVersion = true; }
+Check(rejectedCollision && rejectedVersion && access.Read(first.Id).Cooldown == first.Cooldown &&
+    access.List().All(entry => entry.Id != bad.Id), "改写原编号和不支持的资料版本都被拒绝");
+
+const int seed = 711;
+string independentId = ConstructedAbilityService.Create(second, seed);
+var independent = access.Read(independentId);
+Check(independent.Id == independentId && independent.Version == 1 && independent.Revision >= 1 &&
+    independent.Creator == readerId && independent.Seed == seed && independent.Parent == null,
+    "独立创作正式登记作者、种子、当前格式和稳定编号",
+    new { independent.Id, independent.Version, independent.Revision, independent.Creator, independent.Seed });
+Check(ConstructedAbilityService.TryQueueCreation(second, 1711, independent.Id),
+    "按真正已学的独立成品受理派生");
+var pending = second.GetComponent<ConstructedCreationState>();
+Check(pending.Pending && pending.Source.Id == independent.Id && pending.Source.Version == independent.Version,
+    "正式派生请求固定当时的原术和资料格式");
+var processCreation = service.GetMethod("ProcessCreation", F);
+for (int i = 0; i < 8 && second.GetComponent<ConstructedCreationState>().Pending; i++)
+    processCreation.Invoke(null, null);
+var finished = second.GetComponent<ConstructedCreationState>();
+Check(!finished.Pending && finished.LastFailure == null && finished.LastAbility != null,
+    "正式队列只登记一次派生成品", new { finished.Pending, finished.LastFailure, finished.LastAbility });
+var derived = access.Read(finished.LastAbility);
+Check(derived.Id != independent.Id && derived.Version == 1 && derived.Revision == 1 && derived.Seed == 1711 &&
+    derived.Creator == readerId && HasParent(derived, independent) && Knows(second, derived.Id),
+    "自主派生持有独立编号，保留实际来源关系");
+
+var definitions = new[] { builtIn, first, revised, independent, derived };
+var snapshots = definitions.ToDictionary(definition => definition.Id, definition => JObject.FromObject(definition));
+string archive = Path.Combine(folder, "archive");
+SaveManager.saveWorldToDirectory(archive);
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+owner = World.world.units.get(ownerId).GetExtend();
+second = World.world.units.get(readerId).GetExtend();
+Check(snapshots.All(item => JToken.DeepEquals(item.Value, JObject.FromObject(access.Read(item.Key)))) &&
+    Knows(owner, revised.Id) && !Knows(owner, first.Id) && Knows(second, first.Id) && !Knows(second, revised.Id) &&
+    Knows(second, independent.Id) && Knows(second, derived.Id),
+    "正式世界读回同一组资料、编号、修订和分别持有者");
+var readState = second.GetComponent<ConstructedCreationState>();
+int learned = access.List(second).Count;
+processCreation.Invoke(null, null);
+Check(!readState.Pending && readState.LastAbility == derived.Id && access.List(second).Count == learned,
+    "已完成的派生保持原编号和学习结果");
+File.WriteAllText(Path.Combine(folder, "identities.json"), JsonConvert.SerializeObject(
+    definitions.Select(d => new { d.Id, d.Version, d.Revision, d.Creator, d.Parent }), Formatting.Indented));
+return new { passed = true, actor = ownerId, reader = readerId, source = independent.Id, derived = derived.Id };
