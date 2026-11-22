@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
@@ -30,7 +31,7 @@ internal sealed class YaoCoreActiveAbilityProvider : IActiveAbilityProvider, ISo
     /// <summary>按妖丹方向收集核心神通展示。</summary>
     public void Collect(ActorExtend actor, ICollection<SourceGrantedSkillPresentation> output)
     {
-        foreach ((Entity container, string patternId) in ResolveCoreSkills(actor))
+        foreach ((Entity container, string patternId, _) in ResolveCoreSkills(actor))
         {
             output.Add(new SourceGrantedSkillPresentation(
                 container, $"Cultiway.Yao.CorePattern.{patternId}.SkillDetail"));
@@ -40,12 +41,10 @@ internal sealed class YaoCoreActiveAbilityProvider : IActiveAbilityProvider, ISo
     /// <summary>按妖丹方向收集核心神通句柄；每只妖兽最多两个。</summary>
     public void Collect(ActorExtend caster, ICollection<ActiveAbilityHandle> output)
     {
-        int count = 0;
-        foreach ((Entity container, string patternId) in ResolveCoreSkills(caster))
+        foreach ((Entity container, string patternId, int index) in ResolveCoreSkills(caster))
         {
-            if (count >= MaximumCoreAbilities) break;
-            output.Add(new ActiveAbilityHandle(Id, container, $"{patternId}/{count}"));
-            count++;
+            if (index >= MaximumCoreAbilities) break;
+            output.Add(new ActiveAbilityHandle(Id, container, $"{patternId}/{index}"));
         }
     }
 
@@ -58,6 +57,7 @@ internal sealed class YaoCoreActiveAbilityProvider : IActiveAbilityProvider, ISo
     /// <summary>返回玩家控制和战术规划使用的神通名称、图标与目标方式。</summary>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
     {
+        if (!IsAvailable(caster, handle)) return default;
         SkillEntityAsset asset = ResolveSkillAsset(handle);
         return new ActiveAbilityDescriptor(
             asset == null ? handle.EntryId : asset.id.Localize(),
@@ -142,10 +142,15 @@ internal sealed class YaoCoreActiveAbilityProvider : IActiveAbilityProvider, ISo
     public bool TryUse(
         ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin)
     {
-        if (!CanUse(caster, handle, target)) return false;
+        if (!GeneralSettings.EnableSkillSystems || !CanUse(caster, handle, target)) return false;
+        var plan = SkillCastPlanner.CreatePlan(caster, handle.Source, target.Object,
+            SkillCastCost.GetAffordableStepLimit(caster, handle.Source));
         SkillCastRuntimeData runtime = target.RuntimeData;
-        runtime.Origin = origin; runtime.WorldScope = target.WorldScope;
-        return caster.CastSkillV3(handle.Source, target.Object, runtime_data: runtime, attack_kingdom: target.AttackKingdom);
+        runtime.Origin = origin;
+        runtime.WorldScope = target.WorldScope;
+        return ModClass.I.SkillV3.StartSkillSequence(caster, handle.Source, plan, SkillContext.DefaultStrength,
+            attack_kingdom: target.AttackKingdom, runtime_data: runtime,
+            options: new SkillCastSequenceOptions { Hooks = new CoreCast(this, handle) });
     }
 
     private static float CoreStrength(ActorExtend caster)
@@ -153,30 +158,45 @@ internal sealed class YaoCoreActiveAbilityProvider : IActiveAbilityProvider, ISo
         return caster.E.TryGetComponent(out YaoCore core) ? core.Strength : 1f;
     }
 
-    /// <summary>读取妖丹方向登记的核心神通容器；方向没有神通时为空。</summary>
-    private static IEnumerable<(Entity container, string patternId)> ResolveCoreSkills(ActorExtend actor)
+    /// <summary>读取人物当前妖丹方向，可以与器官共用同一技能容器。</summary>
+    private static YaoCorePatternAsset ResolvePattern(ActorExtend actor) =>
+        actor?.Base != null && !actor.Base.isRekt() && actor.HasCultisys<Yao>() &&
+        actor.TryGetComponent(out YaoCore core)
+            ? YaoCorePatterns.Get(core.CorePatternId)
+            : null;
+
+    private static IEnumerable<(Entity container, string patternId, int index)> ResolveCoreSkills(ActorExtend actor)
     {
-        var result = new List<(Entity, string)>();
-        if (actor?.Base == null || actor.Base.isRekt()) return result;
-        if (!actor.HasCultisys<Yao>()) return result;
-        if (!actor.E.TryGetComponent(out YaoCore core) || string.IsNullOrEmpty(core.CorePatternId)) return result;
-
-        YaoCorePatternAsset pattern = YaoCorePatterns.Get(core.CorePatternId);
-        if (pattern == null) return result;
-
-        foreach (string skillId in pattern.SkillIds ?? Array.Empty<string>())
+        YaoCorePatternAsset pattern = ResolvePattern(actor);
+        if (pattern?.SkillIds == null) yield break;
+        for (int i = 0; i < pattern.SkillIds.Length; i++)
         {
-            if (!CreatureCompositions.ActiveAbilities.CreatureOrganSkillRegistry.TryGetContainer(skillId, out Entity container)) continue;
-            result.Add((container, pattern.Id));
+            if (CreatureCompositions.ActiveAbilities.CreatureOrganSkillRegistry.TryGetContainer(pattern.SkillIds[i], out Entity container))
+                yield return (container, pattern.Id, i);
         }
-
-        return result;
     }
 
+    /// <summary>共用容器仍存在时，也要确认当前妖丹仍授予这项神通。</summary>
     private bool IsAvailable(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return handle.ProviderId == Id && !handle.Source.IsNull &&
-               handle.Source.HasComponent<SkillContainer>() && !caster.Base.isRekt();
+        if (handle.ProviderId != Id || handle.Source.IsNull ||
+            !handle.Source.TryGetComponent(out SkillContainer skill)) return false;
+        YaoCorePatternAsset pattern = ResolvePattern(caster);
+        if (pattern?.SkillIds == null) return false;
+        int index = Array.IndexOf(pattern.SkillIds, skill.SkillEntityAssetID);
+        return index >= 0 && index < MaximumCoreAbilities && handle.EntryId == $"{pattern.Id}/{index}" &&
+               CreatureCompositions.ActiveAbilities.CreatureOrganSkillRegistry.TryGetContainer(skill.SkillEntityAssetID, out Entity current) &&
+               current == handle.Source;
+    }
+
+    /// <summary>保留受理时付款，失去来源时只取消尚未发出的步骤。</summary>
+    private sealed class CoreCast(YaoCoreActiveAbilityProvider provider, ActiveAbilityHandle handle) : ISkillCastSequenceHooks
+    {
+        public bool CanStart(in SkillCastSequenceStartContext context) => provider.IsAvailable(context.Caster, handle);
+        public void OnStarted(in SkillCastSequenceStartContext context) {}
+        public void OnEnded(in SkillCastSequenceResult result) {}
+        public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step) =>
+            provider.IsAvailable(context.Caster, handle) ? SkillCastStepDecision.Emit(step) : SkillCastStepDecision.Cancel();
     }
 
     private static SkillEntityAsset ResolveSkillAsset(ActiveAbilityHandle handle)
