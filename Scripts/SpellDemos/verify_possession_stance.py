@@ -14,6 +14,7 @@ def main():
     checks = parser.add_mutually_exclusive_group()
     checks.add_argument('--observe', action='store_true', help='记录原行为，包括越过站姿的结果')
     checks.add_argument('--arm', action='store_true', help='单独检查只占手臂时仍可走动')
+    parser.add_argument('--worldfall', action='store_true', help='从 Worldfall 第一人称复验')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏 dev.py exec 运行')
@@ -23,6 +24,8 @@ def main():
     output = Path(tempfile.mkdtemp(prefix='possession-stance-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
     script = output / 'input.script'
     stance = Path(__file__).with_suffix('.script').read_text()
+    if args.worldfall:
+        stance = stance.split('var input =', 1)[0] + Path(__file__).with_name('verify_possession_stance_worldfall.script').read_text()
     script.write_text('using HarmonyLib;\n' + world_helpers(output, PROJECT / FIXTURE) +
                       f'\nbool observe = {str(args.observe).lower()};\n'
                       f'bool armOnly = {str(args.arm).lower()};\n' + stance)

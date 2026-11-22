@@ -1,0 +1,85 @@
+var external = AppDomain.CurrentDomain.GetAssemblies()
+    .Single(a => a.GetType("FirstPerson.WorldBoxMod", false) != null);
+var viewType = external.GetType("FirstPerson.WorldBoxMod", true);
+object view = viewType.GetProperty("Instance", F).GetValue(null);
+object View(string name) => viewType.GetProperty(name, F).GetValue(view);
+void SetView(string name, object value) => viewType.GetMethod(name, F).Invoke(view, new[] { value });
+var hooks = external.GetType("FirstPerson.PossessionHooks", true);
+var input = hooks.GetField("ScriptedInput", F);
+void Move(Vector2 direction) => input.SetValue(null, direction);
+bool FirstPerson(Actor actor) => (bool)View("IsFirstPerson") && (bool)View("DiveDone") &&
+    ReferenceEquals(View("Host"), actor) && (bool)hooks.GetField("Active", F).GetValue(null);
+Vector2 Eye()
+{
+    object camera = View("View");
+    return new Vector2((float)Field(camera, "X"), (float)Field(camera, "Y"));
+}
+
+try
+{
+    SetView("SetGodView", false);
+    SetView("ViewForTest", true);
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    await Game.WaitUntil(() => FirstPerson(source), 1800);
+    Check(FirstPerson(source), "进入实际第一人称并由原版附体控制同一个人物");
+    ClearButtons();
+    SetView("SetYaw", 0f);
+    SetView("SetPitchDegrees", 0f);
+    await Advance(.2f);
+    Place(source, 64f);
+
+    Cast("worldfall", BodyOccupancy.RightArm | BodyOccupancy.Stance);
+    Vector2 start = source.current_position;
+    Vector2 eye = Eye();
+    Move(Vector2.up);
+    await Advance(.13f);
+    float vector = ControllableUnit.getMovementVector().magnitude;
+    float bodyTravel = Vector2.Distance(start, source.current_position);
+    float eyeTravel = Vector2.Distance(eye, Eye());
+    Check(vector > .01f && HoldingStance() && bodyTravel <= .01f && eyeTravel < .4f,
+        "第一人称读到移动意图，身体和镜头仍随站姿留在原处", new { vector, bodyTravel, eyeTravel });
+    Move(Vector2.zero);
+
+    int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+    object jump = await PressWhileHeld(TouchPossessionController.pressJump, ControllableUnit.isActionPressedJump,
+        "第一人称跳跃", .10f);
+    bool blocked = (bool)jump.GetType().GetProperty("blocked").GetValue(jump);
+    if (observe) return new { process, blocked, jump, checks };
+
+    Move(Vector2.up);
+    await Advance(.65f);
+    Check(!HoldingStance() && source.current_position.x > start.x + .06f && Eye().x > eye.x + .04f,
+        "动作结束后第一人称恢复移动，镜头跟随真实身体",
+        new { bodyTravel = Vector2.Distance(start, source.current_position), eyeTravel = Vector2.Distance(eye, Eye()) });
+    Move(Vector2.zero);
+    TouchPossessionController.pressJump();
+    ControllableUnit.updateControllableUnit();
+    await Advance(.12f);
+    ClearButtons();
+    Check(source.position_height > .02f || source.under_forces, "同一个跳跃按钮在结束后重新生效");
+
+    Actor next = Make(70);
+    CombatStatusEffects.RemoveStatus(next, hold);
+    next.setStatsDirty();
+    next.updateStats();
+    ControllableUnit.clear(false);
+    ControllableUnit.setControllableCreatureAndSelected(next);
+    await Game.WaitUntil(() => FirstPerson(next), 1800);
+    Vector2 nextStart = next.current_position;
+    SetView("SetYaw", 0f);
+    Move(Vector2.up);
+    await Advance(.35f);
+    Check(FirstPerson(next) && !BodyControlState.HasControl(next.id, BodyOccupancy.Stance) &&
+        Vector2.Distance(nextStart, next.current_position) > .05f, "换附体人物后新身体可正常移动");
+    return new { process, blocked, checks };
+}
+finally
+{
+    Move(Vector2.zero);
+    SetView("ViewForTest", false);
+    Config.paused = true;
+    ClearButtons();
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+}

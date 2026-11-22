@@ -3037,3 +3037,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 原版附体站姿（10.14 A1）
 
 在原版独立游戏运行 `dev.py exec --timeout 85 -- python3 Scripts/SpellDemos/verify_possession_stance.py`。使用原版附体按钮及方向热键输入，验证掌击持有站姿时的跳闪和走动、结束后恢复、只占手臂时仍可走动。结果写到本次独立游戏输出目录。`--observe` 只记录跳跃时的行为，`--arm` 可单独复验手臂对照。
+
+在独立 Worldfall 游戏加 `--worldfall`，检查真实第一人称方向输入、跳跃、镜头与身体、收势后恢复和换人。与 `--observe` 一起用时，记录收势前的移动和跳跃现象。

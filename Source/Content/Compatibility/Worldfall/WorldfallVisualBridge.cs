@@ -7,6 +7,7 @@ using System.Reflection;
 using Cultiway.Content.Combat;
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Core.Combat.Tactical;
+using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals;
 using HarmonyLib;
 using UnityEngine;
@@ -240,6 +241,8 @@ internal static class WorldfallVisualBridge
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePlaceArm)));
             new Harmony(HarmonyId).Patch(candidate.PossessedStep,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedStep)));
+            new Harmony(HarmonyId).Patch(candidate.CheckJump,
+                prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedJump)));
             new Harmony(HarmonyId).Patch(candidate.KeepBodyClear,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeKeepBodyClear)));
             new Harmony(HarmonyId).Patch(candidate.StandOn,
@@ -303,6 +306,10 @@ internal static class WorldfallVisualBridge
         __result = 0f;
         return false;
     }
+
+    /// <summary>第一人称跳跃使用外部自己的入口，在其取得高度前尊重该人物的站姿占用。</summary>
+    private static bool BeforePossessedJump(Actor __1) =>
+        disabled || __1 == null || !BodyControlState.HasControl(__1.id, BodyOccupancy.Stance);
 
     /// <summary>共同动作、受力或模型承托期间不再按外部地面轮廓推离，避免把屋面人物推到屋外。</summary>
     /// <param name="__0">正在完成原地动作的人物。</param>
@@ -668,8 +675,8 @@ internal static class WorldfallVisualBridge
         /// <summary>第一人称手臂入口，掌击时让共用手臂代替右臂。</summary>
         internal readonly MethodInfo PlaceArm;
 
-        /// <summary>外部模组替换后的受控移动及近处重叠修正。</summary>
-        internal readonly MethodInfo PossessedStep, KeepBodyClear, StandOn;
+        /// <summary>外部模组替换后的受控移动、跳跃及近处重叠修正。</summary>
+        internal readonly MethodInfo PossessedStep, CheckJump, KeepBodyClear, StandOn;
 
         /// <summary>场景绘制对周围人物执行的避让移动。</summary>
         internal readonly MethodInfo Steer;
@@ -721,6 +728,9 @@ internal static class WorldfallVisualBridge
             Type possession = assembly.GetType("FirstPerson.PossessionHooks", true);
             PossessedStep = possession.GetMethod("PossessedStep", BindingFlags.Static | BindingFlags.NonPublic) ??
                             throw new MissingMethodException(possession.FullName, "PossessedStep");
+            Type jumps = assembly.GetType("FirstPerson.Jumps", true);
+            CheckJump = jumps.GetMethod("CheckJump", BindingFlags.Static | BindingFlags.NonPublic) ??
+                        throw new MissingMethodException(jumps.FullName, "CheckJump");
             Type hands = assembly.GetType("FirstPerson.Core.Hands", true);
             PlaceItem = hands.GetMethod("PlaceItem", BindingFlags.Instance | BindingFlags.NonPublic) ??
                         throw new MissingMethodException(hands.FullName, "PlaceItem");
