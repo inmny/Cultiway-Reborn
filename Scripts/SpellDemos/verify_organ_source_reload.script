@@ -1,0 +1,20 @@
+const string skill = "Cultiway.PoisonNeedle";
+Entity Locate()
+{
+    bool found = CreatureOrganSkillRegistry.TryGetContainer(skill, out var source);
+    Check(found && !source.IsNull && source.HasComponent<SourceGrantedSkill>(), "原器官能力进入当前登记");
+    var active = Cultiway.ModClass.I.W.Query<SkillContainer, SourceGrantedSkill>().Entities
+        .Where(item => !item.Tags.Has<TagRecycle>() && !item.Tags.Has<TagReadyRecycle>() &&
+              item.GetComponent<SkillContainer>().SkillEntityAssetID == skill).ToArray();
+    Check(active.Length == 1 && active[0] == source, "当前世界只有一份实际器官来源", active.Length);
+    return source;
+}
+var first = Locate();
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var second = Locate();
+Check(first != second, "再次读档接回新版来源，旧世界实体已脱离");
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, skill };

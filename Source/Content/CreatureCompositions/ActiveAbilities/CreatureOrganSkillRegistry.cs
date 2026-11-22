@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Content.YaoBeasts;
-using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
@@ -56,12 +55,12 @@ public static class CreatureOrganSkillRegistry
         built = true;
     }
 
-    /// <summary>清理世界时释放全部来源容器；静态技能资产保持不变。</summary>
+    /// <summary>换世界时直接释放这一批来源容器，保留静态技能资产。</summary>
     public static void ClearWorldState()
     {
         foreach (Entity container in containersBySkillId.Values)
         {
-            if (!container.IsNull) ModClass.I.CommandBuffer.AddTag<TagRecycle>(container.Id);
+            if (!container.IsNull) container.DeleteEntity();
         }
 
         containersBySkillId.Clear();
