@@ -23,7 +23,7 @@ FILMS = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('soul', 'travel-stances', 'thought-orders', 'thought-artifact', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
+    parser.add_argument('--section', choices=('soul', 'travel-stances', 'thought-orders', 'thought-artifact', 'body-consent', 'body-hostile', 'body-anchor', 'soul-force', 'node', 'avatar', 'summon', 'artifact-spirit',
                                               'natural-summon', 'facility', 'prepare', 'cold', *FILMS), default='soul')
     parser.add_argument('--archive', type=Path, help='使用 prepare 写出的正式档目录')
     args = parser.parse_args()
@@ -67,6 +67,10 @@ def main():
         body = 'verify_yuanshen_thought_orders.script'
     elif section == 'thought-artifact':
         body = 'verify_yuanshen_thought_artifact.script'
+    elif section in ('body-consent', 'body-hostile'):
+        body = 'verify_yuanshen_body_consent.script'
+    elif section == 'body-anchor':
+        body = 'verify_yuanshen_body_anchor.script'
     elif section == 'facility':
         body = 'verify_facility_nodes.script'
     else:
