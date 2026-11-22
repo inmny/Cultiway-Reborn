@@ -1,0 +1,144 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Cultiway.Content;
+using Cultiway.Content.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+void Check(bool condition, string reason)
+{
+    if (!condition) throw new InvalidOperationException(reason);
+}
+
+const string output = "$OUTPUT";
+const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+const string ability = "test.resource.wakan";
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(output, "expected.json")));
+long ownerId = expected.Value<long>("owner");
+string customId = expected.Value<string>("customId");
+var mod = Cultiway.ModClass.I;
+// 历史场景的三个原人物保存了这个测试状态，恢复与原复验相同的状态定义。
+const string holdId = "Cultiway.ResourceChannelsHold";
+if (Cultiway.ModClass.L.StatusEffectLibrary.get(holdId) == null)
+{
+    var stats = new BaseStats { ["mana"] = 1000 };
+    stats.addTag("frozen_ai");
+    stats.addTag("immovable");
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild(holdId).SetStats(stats).SetDuration(10000).Build();
+}
+var assets = mod.SkillV3.CastResourceLib;
+if (assets.get(customId) == null)
+{
+    var channel = new SkillCastResourceAsset { id = customId };
+    channel.Configure(SkillCastResources.Wakan.IsAvailable, SkillCastResources.Wakan.ReadAmount,
+        SkillCastResources.Wakan.WriteAmount, (caster, demand) => demand * 3)
+        .ConfigureRecovery(SkillCastResources.Wakan.MaximumAmount);
+    assets.add(channel);
+}
+
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = runnerType.GetProperty("Instance").GetValue(null);
+var boundary = runnerType.GetProperty("IsAtCycleBoundary");
+async Task Load(string directory)
+{
+    World.world.save_manager.loadWorld(Path.Combine(output, directory));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(() => (bool)boundary.GetValue(runner), 1800);
+}
+
+var access = ConstructionEditing.Access;
+var planFor = typeof(ConstructedAbilityService).GetMethod("PlanFor", flags);
+CompiledAbility Plan() => (CompiledAbility)planFor.Invoke(null, new object[] { ability });
+var inputs = new AbilityInputs(Vector3.zero, Vector3.right, Vector3.right, 1);
+AbilityCast Sample(CompiledAbility plan)
+{
+    var cast = new AbilityCast(plan, Matrix4x4.identity, inputs: inputs);
+    cast.Advance(.02f, inputs.Target);
+    return cast;
+}
+float Radius(AbilityCast cast)
+{
+    var contacts = new List<AbilityCapsule>();
+    cast.AppendContacts(contacts);
+    return contacts.Max(contact => contact.Radius);
+}
+bool Learned() => access.List(World.world.units.get(ownerId).GetExtend()).Any(entry => entry.Id == ability);
+JToken Material() => JObject.Parse(mod.WorldSaves.World.Capture(World.world, "资源复验"))
+    ["sections"]["world_materials"]["data"]["Records"][0]["Material"]["Resource"];
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+await Load("save");
+var report = mod.WorldSaves.LastReport;
+Check(report.Upgraded > 0 && report.Skipped.Count == 0 && report.BackupError == null &&
+    File.Exists(Path.Combine(report.BackupDirectory, "map.wbox")) && Learned(), "原档未从正式入口完整恢复");
+var leave = access.Read(expected.Value<string>("leave"));
+Check(leave.Resource == customId && leave.Cost == 3 && Material().Value<double>() == 6,
+    "保留原通道与费用，已付材料没有被重新报价");
+var definition = JObject.FromObject(access.Read(ability));
+int oldVersion = FormResources.Version;
+var oldPlan = Plan();
+var prior = Sample(oldPlan);
+float oldRadius = Radius(prior);
+
+var declaration = mod.GetDeclaration();
+string originalRoot = declaration.FolderPath;
+var location = declaration.GetType().GetProperty("FolderPath", flags);
+string resourceCopy = Path.Combine(output, "resources");
+string form = Path.Combine(resourceCopy, "Content/Forms/sword.json");
+void ReloadCopy()
+{
+    location.SetValue(declaration, resourceCopy);
+    try { FormResources.Reload(); }
+    finally { location.SetValue(declaration, originalRoot); }
+}
+
+int updatedVersion;
+float updatedRadius;
+try
+{
+    var changed = JObject.Parse(File.ReadAllText(form));
+    foreach (var contact in changed["Contacts"]) contact["Radius"] = contact.Value<float>("Radius") * 1.5f;
+    File.WriteAllText(form, changed.ToString());
+    ReloadCopy();
+    updatedVersion = FormResources.Version;
+    var next = Plan();
+    updatedRadius = Radius(Sample(next));
+    Check(next.ResourceVersion == updatedVersion && updatedVersion > oldVersion && !ReferenceEquals(oldPlan, next) &&
+        Math.Abs(updatedRadius / oldRadius - 1.5f) < .001f && Math.Abs(Radius(prior) - oldRadius) < .0001f,
+        "新旧实际作用形状应各用自己的资源版本");
+
+    var broken = (JObject)changed.DeepClone();
+    broken["Parts"][0]["MeshAsset"] = "Assets/Cultiway/Forms/does-not-exist.asset";
+    File.WriteAllText(form, broken.ToString());
+    bool rejected = false;
+    try { ReloadCopy(); }
+    catch (InvalidDataException) { rejected = true; }
+    Check(rejected && FormResources.Version == updatedVersion && ReferenceEquals(Plan(), next),
+        "资源错误不应覆盖已发布组及现有正式计划");
+    File.WriteAllText(form, changed.ToString());
+
+    SaveManager.saveWorldToDirectory(Path.Combine(output, "updated"));
+    await Load("updated");
+    var restored = Plan();
+    Check(!mod.WorldSaves.LastReport.RequiresBackup && restored.ResourceVersion == updatedVersion && Learned() &&
+        JToken.DeepEquals(definition, JObject.FromObject(access.Read(ability))) &&
+        Math.Abs(Radius(Sample(restored)) - updatedRadius) < .0001f && Material().Value<double>() == 6,
+        "正式读回必须使用已发布资源，保留原定义、学习与本金");
+}
+finally { FormResources.Reload(); }
+
+Check(FormResources.Version > updatedVersion && Math.Abs(Radius(Sample(Plan())) - oldRadius) < .0001f,
+    "恢复原资源后旧版本的作用半径归来，缓存再次重建");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+    oldVersion, updatedVersion, restoredVersion = FormResources.Version, oldRadius, updatedRadius, backup = report.BackupDirectory };
