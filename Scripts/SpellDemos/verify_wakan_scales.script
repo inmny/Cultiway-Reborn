@@ -1,0 +1,149 @@
+var caster = World.world.units.get(sourceId);
+var peer = World.world.units.get(readerId);
+var owner = caster.GetExtend();
+var recipient = peer.GetExtend();
+var city = caster.city;
+Check(city != null && owner.HasCultisys<Xian>() && recipient.HasCultisys<Xian>(),
+    "复用原城市与两名有实际真元账户的人物", new { sourceId, readerId, city = city?.id });
+peer.setKingdom(caster.kingdom);
+CombatStatusEffects.ApplyStatus(peer, hold, 10000, peer);
+owner.MarkCultiwayStatsDirty();
+recipient.MarkCultiwayStatsDirty();
+caster.setStatsDirty();
+peer.setStatsDirty();
+caster.updateStats();
+peer.updateStats();
+
+var basis = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "basis.json")));
+var access = ConstructionEditing.Access;
+access.Import(basis);
+AbilityDefinition Learn(string name, float reach)
+{
+    var session = new ConstructionEditSession(access.Read(basis.Id));
+    session.Draft.Name = name;
+    session.Draft.Resource = "wakan";
+    session.Draft.TargetRange = reach;
+    session.Draft.Lifetime = .6f;
+    session.Draft.Cooldown = .2f;
+    session.Draft.Root.ActiveUntil = .4f;
+    session.Draft.Root.Contact.MaximumPerTarget = 1;
+    session.Draft.Root.Contact.MaximumTotal = 1;
+    return access.Apply(owner, session, false);
+}
+
+var castEnds = new List<ConstructedCastEnded>();
+var castStarts = new List<ConstructedCastStarted>();
+var hits = new List<(ConstructedContact Fact, float Source, float Recipient)>();
+string observing = null;
+float Energy(ActorExtend actor) => actor.GetCultisys<Xian>().wakan;
+void Observe(ConstructedContact value)
+{
+    if (value.AbilityId == observing && value.SourceId == sourceId)
+        hits.Add((value, Energy(owner), Energy(recipient)));
+}
+void End(ConstructedCastEnded value) { if (value.AbilityId == observing) castEnds.Add(value); }
+void Start(ConstructedCastStarted value) { if (value.AbilityId == observing) castStarts.Add(value); }
+Vector2 Center(WorldTile tile) => new Vector2(tile.x + .5f, tile.y + .5f);
+void SetPositions(WorldTile from, WorldTile to)
+{
+    Place(caster, from.x + .5f, from.y + .5f);
+    Place(peer, to.x + .5f, to.y + .5f);
+    caster.attack_timer = 0;
+}
+void PrepareEnergy()
+{
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), caster.stats[BaseStatses.MaxWakan.id] * .85f);
+    WakanResourceService.Set(recipient, ref recipient.GetCultisys<Xian>(), peer.stats[BaseStatses.MaxWakan.id] * .10f);
+}
+WorldTile Remote(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+    return tile;
+}
+ActiveAbilityTarget Chosen() => new ActiveAbilityTarget(peer, peer.GetSimPos());
+ActiveAbilityHandle Handle(AbilityDefinition spell) => new ActiveAbilityHandle("content.constructed", owner.E, spell.Id);
+async Task<object> Transfer(string scale, AbilityDefinition learned)
+{
+    observing = learned.Id;
+    var range = Vector2.Distance(caster.current_position, peer.current_position);
+    float original = Energy(owner), originalPeer = Energy(recipient);
+    Check(ConstructedAbilityService.Knows(owner, learned.Id) &&
+        ActiveAbilityService.TryUse(owner, Handle(learned), Chosen(), ActiveAbilityUseOrigin.Player) &&
+        castStarts.Count(value => value.AbilityId == learned.Id && value.SourceId == sourceId) == 1 &&
+        Mathf.Abs(original - Energy(owner) - learned.Cost) < .001f,
+        "原修士独立支付真实启动费用", new { scale, range, original, originalPeer, afterStart = Energy(owner), learned.Cost });
+    Config.paused = false;
+    await Game.WaitUntil(() => castEnds.Any(value => value.AbilityId == learned.Id), 3000);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var hit = hits.Single(value => value.Fact.AbilityId == learned.Id && value.Fact.TargetId == readerId);
+    float give = original - learned.Cost - hit.Source, receive = hit.Recipient - originalPeer;
+    var finish = castEnds.Single(value => value.AbilityId == learned.Id);
+    Check(give > 0f && Mathf.Abs(give - receive) < .001f && !finish.Cancelled &&
+        hits.Count(value => value.Fact.AbilityId == learned.Id) == 1 &&
+        Mathf.Abs(Energy(owner) - hit.Source) < .001f && Mathf.Abs(Energy(recipient) - hit.Recipient) < .001f,
+        "选中的原人物实际收到等额真元，结束后没有重复扣收",
+        new { scale, range, give, receive, hit.Fact.Age, finish = finish.Age });
+    File.WriteAllText(Path.Combine(folder, scale + "-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { scale, range, paid = learned.Cost, gave = give, received = receive, finish.Age, finish.CastId };
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+ConstructedAbilityService.ContactConfirmed += Observe;
+ConstructedAbilityService.CastStarted += Start;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var initialization = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler").GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)initialization.Invoke(null, null), 3600);
+
+    Ready(caster);
+    var first = caster.current_tile;
+    var second = city.zones.SelectMany(zone => zone.tiles).Where(tile => tile.zone != first.zone &&
+        !tile.Type.liquid && tile.building == null).OrderByDescending(tile => Vector2.Distance(Center(first), Center(tile))).First();
+    SetPositions(first, second);
+    var cityRange = Vector2.Distance(Center(first), Center(second));
+    Check(first.zone.city == city && second.zone.city == city && first.zone != second.zone && cityRange >= 12f,
+        "交付两端是同一原城市的两个不同分区", new { first = first.tile_id, second = second.tile_id, cityRange });
+    var citySpell = Learn("隔坊渡气", Mathf.Ceil(cityRange) + 2f);
+    PrepareEnergy();
+    var cityReceipt = await Transfer("city", citySpell);
+
+    first = Remote(8, 8);
+    second = Remote(MapBox.width - 9, MapBox.height - 9);
+    SetPositions(first, second);
+    var worldRange = Vector2.Distance(Center(first), Center(second));
+    Check(worldRange > Mathf.Max(MapBox.width, MapBox.height), "世界场景的送收两端位于原地图相隔遥远的地域", worldRange);
+    PrepareEnergy();
+    float previous = Energy(owner);
+    int started = castStarts.Count;
+    Check(!ActiveAbilityService.TryUse(owner, Handle(citySpell), Chosen(), ActiveAbilityUseOrigin.Player) &&
+        Energy(owner) == previous && castStarts.Count == started, "原城市版本超距拒绝且没有扣收");
+    var worldSpell = Learn("隔域渡气", Mathf.Ceil(worldRange) + 2f);
+    var worldReceipt = await Transfer("world", worldSpell);
+    var result = new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        sourceId, readerId, city = city.id, cityReceipt, worldReceipt };
+    File.WriteAllText(Path.Combine(folder, "transfers.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, readerId };
+}
+finally
+{
+    Config.paused = true;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+    ConstructedAbilityService.ContactConfirmed -= Observe;
+    ConstructedAbilityService.CastStarted -= Start;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(new
+    {
+        castStarts, castEnds, hits = hits.Select(value => new { value.Fact.AbilityId, value.Fact.TargetId, value.Fact.Age, value.Source, value.Recipient })
+    }, Formatting.Indented));
+}

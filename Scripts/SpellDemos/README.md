@@ -3139,3 +3139,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 世界地貌和生态覆盖（11.18 第一批）
 
 在独立原版游戏运行 `dev.py exec --timeout 350 -- python3 Scripts/SpellDemos/verify_world_geography.py --archive <11.03城市用术准备目录>`。用同一名原修士分别另创抬升与催生，核对相隔很远的两处实际地块、真实付费、中间和原建筑保持。可用 `--case terrain` 或 `--case ecology` 单独复验。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第一批补验世界地貌与生态)。
+
+### 城市与远端真元交付（11.18 第二批）
+
+在独立原版游戏运行 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_wakan_scales.py --archive <11.03城市用术准备目录>`。复用原修士和原读者，核对实际城市分区、超距拒绝和远端真元等额入账。见[四尺度验收](../../Doc/技能系统全面重构/八类作用与四尺度验收.md#第二批补验城市与远端的真元交付)。
