@@ -21,8 +21,9 @@ internal sealed class WanfaPavilionV5ToV6 : ISaveMigration
             foreach (JObject blueprint in list.OfType<JObject>())
             {
                 string reason = SkillBlueprintMigration.RemoveRecipe(blueprint);
-                string asset = (string)blueprint.GetValue("EntityAssetId", StringComparison.OrdinalIgnoreCase);
-                if (asset is "Cultiway.RecipeField" or "Cultiway.RecipeBurst" or "Cultiway.RecipePalm")
+                var asset = blueprint.GetValue("EntityAssetId", StringComparison.OrdinalIgnoreCase);
+                if (asset?.Type == JTokenType.String &&
+                    asset.Value<string>() is "Cultiway.RecipeField" or "Cultiway.RecipeBurst" or "Cultiway.RecipePalm")
                     reason = "组合专用主体已移除，该法术将跳过";
                 if (reason != null) warnings.Add($"{blueprint.GetValue("Id", StringComparison.OrdinalIgnoreCase)}：{reason}");
             }

@@ -1,0 +1,76 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+void Check(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+
+const string input = "$INPUT";
+const string output = "$OUTPUT";
+var root = JObject.Parse(File.ReadAllText(input));
+var actual = (JObject)root["data"];
+var blueprints = (JArray)actual["Blueprints"];
+var kept = (JObject)blueprints.First.DeepClone();
+string keptId = kept.Value<string>("Id");
+Check(root.Value<int>("dataVersion") == 6 && kept.Value<int>("SchemaVersion") == SkillBlueprint.CurrentSchemaVersion,
+    "需要已读回的当前万法阁文件和一份有效蓝图");
+
+JObject Copy(string id)
+{
+    var copy = (JObject)kept.DeepClone();
+    copy["Id"] = id;
+    return copy;
+}
+var corrupt = Copy("probe-broken-field");
+corrupt["AreaMultiplier"] = new JObject();
+var removed = Copy("probe-removed-asset");
+removed["EntityAssetId"] = "Cultiway.RecipeField";
+var future = Copy("probe-future-schema");
+future["SchemaVersion"] = SkillBlueprint.CurrentSchemaVersion + 1;
+actual["Blueprints"] = new JArray(corrupt, kept, removed, future);
+actual["SelectedBlueprintIds"] = new JArray("probe-broken-field", keptId, "probe-removed-asset", "probe-future-schema");
+
+string directory = Path.Combine(output, "scratch");
+string file = Path.Combine(directory, "Saves/global/wanfa_pavilion.json");
+Directory.CreateDirectory(Path.GetDirectoryName(file));
+File.WriteAllText(file, root.ToString());
+byte[] original = File.ReadAllBytes(file);
+string originalCopy = file + ".legacy.bak";
+
+var saveType = typeof(SkillBlueprint).Assembly.GetType("Cultiway.Core.SkillLibV3.Wanfa.Persistence.WanfaPavilionSaveDefinition", true);
+object definition = saveType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
+var register = typeof(ModSaveManager).GetMethod("Register").MakeGenericMethod(definition.GetType().GetGenericArguments()[0]);
+object Register() => register.Invoke(new ModSaveManager(new GlobalFileSaveStorage(directory)), new[] { definition });
+var warnings = new List<string>();
+void OnLog(string message, string stack, LogType kind)
+{
+    if (kind == LogType.Warning && message.Contains("万法阁读取：跳过蓝图 probe-")) warnings.Add(message);
+}
+
+Application.logMessageReceived += OnLog;
+try
+{
+    object document = Register();
+    PropertyInfo data = document.GetType().GetProperty("Data");
+    var restored = JObject.Parse(JObject.FromObject(data.GetValue(document)).ToString());
+    Check(JToken.DeepEquals(restored["Blueprints"], new JArray(kept.DeepClone())) &&
+        JToken.DeepEquals(restored["SelectedBlueprintIds"], new JArray(keptId)), "保留的原蓝图或选择发生变化");
+    Check(warnings.Count == 3 && new[] { "probe-broken-field", "probe-removed-asset", "probe-future-schema" }
+        .All(id => warnings.Count(message => message.Contains(id + "，")) == 1), "应分别说明三条跳过原因");
+    Check(original.SequenceEqual(File.ReadAllBytes(originalCopy)), "自动清理前应保留当前版本的原文件");
+
+    document.GetType().GetMethod("Save").Invoke(document, null);
+    Check(JToken.DeepEquals(restored, JObject.Parse(JObject.FromObject(data.GetValue(Register())).ToString())) &&
+        warnings.Count == 3 && Directory.GetFiles(Path.GetDirectoryName(file), "*.legacy.bak").Length == 1 &&
+        original.SequenceEqual(File.ReadAllBytes(originalCopy)), "再次写读应干净且保持第一次修复前的原文件");
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, keptId, warnings, originalCopy };
+}
+finally { Application.logMessageReceived -= OnLog; }

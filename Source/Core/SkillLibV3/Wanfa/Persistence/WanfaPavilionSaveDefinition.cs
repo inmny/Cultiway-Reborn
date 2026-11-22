@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Wanfa.Persistence.Migrations;
 
 namespace Cultiway.Core.SkillLibV3.Wanfa.Persistence;
@@ -77,7 +78,15 @@ internal static class WanfaPavilionSaveDefinition
         }
 
         var validator = new SkillBlueprintValidator();
-        data.Blueprints.RemoveAll(blueprint => !validator.Validate(blueprint).IsCompatible);
+        data.Blueprints.RemoveAll(blueprint =>
+        {
+            var validation = validator.Validate(blueprint);
+            if (validation.IsCompatible) return false;
+            var reasons = validation.Issues.Where(issue => issue.Severity == SkillValidationSeverity.Error)
+                .Select(issue => issue.Message);
+            ModClass.LogWarning($"万法阁读取：跳过蓝图 {blueprint.Id}，{string.Join("，", reasons)}");
+            return true;
+        });
         seenIds.Clear();
         foreach (var blueprint in data.Blueprints) seenIds.Add(blueprint.Id);
 

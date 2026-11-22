@@ -12,7 +12,7 @@ public static class SkillBlueprintMigration
     public static void Upgrade(JObject blueprint)
     {
         var version = blueprint.Properties().FirstOrDefault(p => string.Equals(p.Name, "SchemaVersion", StringComparison.OrdinalIgnoreCase));
-        if ((int?)version?.Value != 3) return;
+        if (!JToken.DeepEquals(version?.Value, 3)) return;
         version.Value = 4;
         // 新字段的默认值就是原来的单一主体，不添加虚假的后续作用。
     }
@@ -23,7 +23,7 @@ public static class SkillBlueprintMigration
     public static string RemoveRecipe(JObject blueprint)
     {
         var version = blueprint.Property("SchemaVersion", StringComparison.OrdinalIgnoreCase);
-        if ((int?)version?.Value != 4) return null;
+        if (!JToken.DeepEquals(version?.Value, 4)) return null;
         var recipe = blueprint.Property("Recipe", StringComparison.OrdinalIgnoreCase);
         bool removed = recipe?.Value is JObject data &&
             data.GetValue("Parts", StringComparison.OrdinalIgnoreCase) is JArray parts && parts.Count > 0;
