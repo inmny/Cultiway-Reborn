@@ -153,6 +153,8 @@
   "Cultiway.ConstructionText.ProcessTimeSeparator": "、",
   "Cultiway.ConstructionText.ReleaseGrab": "可对{0}执行：{1}。",
   "Cultiway.ConstructionText.EquipmentRepair": "对{0}修复{1}栏。每件「{2}」最多恢复{3}点耐久，满耐久不扣材料。",
+  "Cultiway.ConstructionText.Perception.Observe": "接触时记下可见敌人的实际方位。",
+  "Cultiway.ConstructionText.Perception.Reveal": "解除接触敌人已有的隐匿，再记下实际方位。",
   "Cultiway.ConstructionText.Signal": "向实际接触的{0}送达「{1}」，完整作用时最多保留{2:0.##}秒。",
   "Cultiway.ConstructionText.DirectSignal": "向指定人物直接传讯「{0}」，最多保留{1:0.##}秒，送达无需接触",
   "Cultiway.ConstructionText.RequiredStatus": "接触{0}时读取「{1}」作为分支条件。",

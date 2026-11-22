@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.UI.Prefab;
 
 namespace Cultiway.UI;
@@ -71,6 +72,11 @@ public sealed partial class WindowWanfaConstructionEditor
                 ContactInteger(prefix + "RepairDurability", repair.Durability, value => repair.Durability = value);
                 Row("RepairRules", T("RepairHint"));
             }
+        }
+        if (impact.Targets == SkillUseTargetRelation.Hostile || impact.Perception != ConstructionPerception.None)
+        {
+            ImpactOption(prefix, "Perception", impact.Perception, value => impact.Perception = value);
+            Row("PerceptionRules", T("PerceptionHint"));
         }
         Toggle(prefix + "ContactSignal", impact.Signal != null, enabled => impact.Signal = enabled ? new ConstructionSignal() : null);
         if (impact.Signal is not { } signal) return;

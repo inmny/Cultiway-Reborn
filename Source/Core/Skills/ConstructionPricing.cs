@@ -361,6 +361,8 @@ public sealed class ConstructionMeasure
                 effects += impact.EquipmentErosion.Slots.Count * impact.EquipmentErosion.Fraction * 100d * strength;
             if (impact.EquipmentRepair != null)
                 effects += impact.EquipmentRepair.Durability * .1d * strength;
+            if (impact.Perception != ConstructionPerception.None)
+                effects += impact.Perception == ConstructionPerception.Reveal ? 1d : .5d;
             if (impact.Signal != null)
                 effects += .25d + impact.Signal.Duration * .25d * strength;
             effects += impact.WakanTransfer * .5d * strength;

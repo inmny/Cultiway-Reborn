@@ -28,6 +28,17 @@ public enum ConstructionWakanTransferMode
     Balance = 1
 }
 
+/// <summary>双方实际接触时如何取得第一手方位。</summary>
+public enum ConstructionPerception
+{
+    /// <summary>没有感知作用。</summary>
+    None = 0,
+    /// <summary>只观测仍可见的敌人。</summary>
+    Observe = 1,
+    /// <summary>先解除已有隐匿，再观测敌人。</summary>
+    Reveal = 2
+}
+
 /// <summary>实际接触后产生的作用，与显示和选取距离分开保存。</summary>
 public sealed class ConstructionImpact
 {
@@ -88,6 +99,10 @@ public sealed class ConstructionImpact
     /// <summary>真正接触后送到收件人物的讯号。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionSignal Signal;
+
+    /// <summary>接触敌方人物时记下实际方位，默认没有该作用。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionPerception Perception;
 
     /// <summary>真实命中后推进当前库存物件的已有有限寿命。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -245,6 +260,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已经检查的实际送达规则。</summary>
     public CompiledConstructionSignal Signal { get; }
 
+    /// <summary>已核对的接触感知方式。</summary>
+    public ConstructionPerception Perception { get; }
+
     /// <summary>已复制并检查的库存物件寿命推进。</summary>
     public CompiledInventoryAging InventoryAging { get; }
 
@@ -325,7 +343,7 @@ public sealed class CompiledConstructionImpact
     internal bool HasActorEffectBesidesStatuses => EquipmentRepair != null || HasActorEffectBesidesStatusesAndRepair;
 
     /// <summary>扣除状态和修复后的作用，用于排除混合用途。</summary>
-    internal bool HasActorEffectBesidesStatusesAndRepair => WakanTransfer > 0f || Signal != null || ReleaseGrab != ConstructionGrabRelease.None || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
+    internal bool HasActorEffectBesidesStatusesAndRepair => WakanTransfer > 0f || Signal != null || Perception != ConstructionPerception.None || ReleaseGrab != ConstructionGrabRelease.None || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f || Knockback?.HasEffect == true || Exchange?.Chance > 0f || AdditionalDamage.Count > 0 || RandomContact?.HasEffect == true || ConditionalContacts.Any(rule => rule.HasEffect) || Spreads.Any(spread => spread.HasEffect) ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -355,6 +373,10 @@ public sealed class CompiledConstructionImpact
         if (!Enum.IsDefined(typeof(ConstructionGrabRelease), ReleaseGrab))
             throw new InvalidDataException(path + "/ReleaseGrab：需要有效的抓持解除方式");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
+        Perception = source?.Perception ?? ConstructionPerception.None;
+        if (!Enum.IsDefined(typeof(ConstructionPerception), Perception) ||
+            Perception != ConstructionPerception.None && Targets != SkillUseTargetRelation.Hostile)
+            throw new InvalidDataException(path + "/Perception：感知和显影只用于敌对人物接触");
         DamageScale = source?.DamageScale ?? 1f;
         IsolationRadius = source?.IsolationRadius ?? 0f;
         IsolatedDamageMultiplier = source?.IsolatedDamageMultiplier ?? 0f;

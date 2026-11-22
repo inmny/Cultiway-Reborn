@@ -1,0 +1,166 @@
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "definition.json")));
+var legacy = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "legacy.json")));
+var source = Make(63);
+var first = Make(66.5f);
+var second = Make(70f);
+var outside = Make(75f);
+var enemy = Make(68f, "wolf");
+var outsideEnemy = Make(75f, "wolf");
+foreach (Actor ally in new[] { first, second, outside }) ally.setKingdom(source.kingdom);
+source.addAggro(enemy);
+source.addAggro(outsideEnemy);
+first.addAggro(enemy);
+second.addAggro(enemy);
+Ready(source);
+Place(source, 63);
+Place(enemy, 68, 73.25f);
+Place(outsideEnemy, 75, 73);
+var manaStats = new BaseStats(); manaStats["mana"] = 100;
+var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ObservedSignal.Mana") ??
+           Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ObservedSignal.Mana")
+               .SetStats(manaStats).SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(source, mana, 10000, source);
+source.updateStats();
+int originalHealth = enemy.data.health, outsideHealth = outsideEnemy.data.health;
+var receipts = new List<ConstructedSignalReceipt>();
+var tactical = typeof(CombatWorldService);
+var actors = (IDictionary)tactical.GetField("ActorStates", F).GetValue(null);
+const string concealed = ActorControlTags.Concealed;
+
+void Received(ConstructedSignalReceipt value)
+{
+    if (value.Kind == ConstructionSignalKind.ObservedContact) receipts.Add(value);
+}
+ConstructedAbilityService.SignalReceived += Received;
+
+void Conceal(Actor actor)
+{
+    CombatStatusEffects.ApplyStatus(actor, StatusEffects.Concealed, 40, actor);
+    actor.updateStats();
+}
+bool CanAttack(Actor target) => source.canAttackTarget(target, pCheckForFactions: false);
+object Memory(Actor actor, string name) => !actors.Contains(actor.id) ? null : Field(actors[actor.id], name);
+object UsableReport(Actor actor) => !actors.Contains(actor.id) ? null : tactical.GetMethod("ReportedFor", F)
+    .Invoke(null, new object[] { actors[actor.id], enemy.id, World.world.getCurWorldTime() });
+Vector2 KnownPosition(Actor actor) => (Vector2)tactical.GetMethod("ResolveKnownPosition", F)
+    .Invoke(null, new object[] { enemy, false, actors[actor.id], null, World.world.getCurWorldTime() });
+FormVisualInstance[] Tablets() => FormVisualScene.Instances.Where(value => value.Resource.Description.Id == "signal_sight_tablet").ToArray();
+
+async Task Send(AbilityDefinition input)
+{
+    source.setMana(80);
+    float before = source.getMana();
+    await Fire(input, source, null, aim: new Vector3(68, 72, 0), aggro: false);
+    Check(Mathf.Abs(before - source.getMana() - input.Cost) < .01f, "正式支付一次法力", new { before, after = source.getMana() });
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+}
+
+try
+{
+    var sense = ConstructionEditing.Copy(definition);
+    sense.Id += ".Sense";
+    sense.Root.Children[0].Impact.Perception = ConstructionPerception.Observe;
+    var noPerception = ConstructionEditing.Copy(definition);
+    noPerception.Root.Children[0].Impact.Perception = ConstructionPerception.None;
+    var revealPlan = AbilityCompiler.Compile(definition, cache: false);
+    var sensePlan = AbilityCompiler.Compile(sense, cache: false);
+    var regularPlan = AbilityCompiler.Compile(noPerception, cache: false);
+    var oldCopy = ConstructionEditing.Copy(legacy);
+    Check(sense.Root.Children[0].Impact.Perception == ConstructionPerception.Observe &&
+        ConstructionEditing.Copy(definition).Root.Children[0].Impact.Perception == ConstructionPerception.Reveal &&
+        revealPlan.Measure.ContactEffectsWork > sensePlan.Measure.ContactEffectsWork &&
+        sensePlan.Measure.ContactEffectsWork > regularPlan.Measure.ContactEffectsWork &&
+        !JObject.FromObject(oldCopy).SelectTokens("$..Perception").Any() && oldCopy.Cost == legacy.Cost,
+        "构造读写保留显影和感知，默认省略，旧资料成本照旧");
+    var invalid = ConstructionEditing.Copy(sense);
+    invalid.Root.Children[0].Impact.Targets = SkillUseTargetRelation.Friendly;
+    bool rejected = false;
+    try { AbilityCompiler.Compile(invalid, cache: false); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("/Perception"); }
+    Check(rejected, "感知不能接到友方作用上");
+
+    Check(CanAttack(enemy), "未遮蔽的同一对象原本可以攻击");
+    Conceal(enemy);
+    Conceal(outsideEnemy);
+    Check(enemy.stats.hasTag(concealed) && !CanAttack(enemy), "真实隐匿标签阻断原版攻击资格");
+    await Send(sense);
+    await Advance(.76f);
+    Check(Memory(source, "LastConfirmedContact") == null && receipts.Count == 0 &&
+        !contacts.Any(hit => hit.TargetId == enemy.id) && enemy.stats.hasTag(concealed) && enemy.data.health == originalHealth,
+        "感知面覆盖隐匿者时无接触情报，也不解除隐匿或扣血");
+    await Advance(2.48f);
+    Check(endings.Any(row => row.Fact.AbilityId == sense.Id && !row.Fact.Cancelled) &&
+        receipts.Count == 0 && Tablets().Length == 0, "没有亲历方位的范围术自然结束，未造出消息");
+
+    await Send(definition);
+    double begun = World.world.getCurWorldTime();
+    Task AdvanceTo(float age) => Advance((float)(begun + age - World.world.getCurWorldTime()));
+    await AdvanceTo(.37f);
+    var firstPosition = new Vector2(68f, 73.25f);
+    Check(!enemy.stats.hasTag(concealed) && CanAttack(enemy) && enemy.data.health == originalHealth &&
+        outsideEnemy.stats.hasTag(concealed) && outsideEnemy.data.health == outsideHealth &&
+        Memory(source, "LastConfirmedContact") is { } observed && (Vector2)Field(observed, "LastPosition") == firstPosition,
+        "显影只解除圈内隐匿并留下真实方位，原版恢复可攻击，两敌生命不动",
+        new { elapsed = World.world.getCurWorldTime() - begun, enemy = enemy.id, outside = outsideEnemy.id });
+    Place(enemy, 103, 73);
+    await AdvanceTo(.88f);
+    bool CorrectPair(IEnumerable<ConstructedSignalReceipt> pair, Vector2 position) =>
+        pair.Select(value => value.RecipientId).OrderBy(id => id).SequenceEqual(new[] { first.id, second.id }) &&
+        pair.All(value => value.SenderId == source.id && value.Observation is { } report &&
+            report.SubjectId == enemy.id && report.Position == position &&
+            Math.Abs(report.ExpiresAt - report.ObservedAt - 2.8) < .01);
+    Check(receipts.Count == 2 && CorrectPair(receipts, firstPosition) &&
+        Memory(outside, "ReportedContact") == null && Memory(enemy, "ReportedContact") == null &&
+        KnownPosition(first) == firstPosition && KnownPosition(second) == firstPosition &&
+        Tablets().Any(mark => Vector2.Distance(new Vector2(mark.Transform.m03, mark.Transform.m13), firstPosition) < .2f),
+        "同一范围给两名实际友方送达旧坐标，圈外友方与敌人未收件",
+        new { elapsed = World.world.getCurWorldTime() - begun, recipients = receipts.Select(value => value.RecipientId).ToArray() });
+    await AdvanceTo(1.13f);
+    Check(receipts.Count == 2, "持续接触不会重发同一条记录或续期");
+    var nextPosition = new Vector2(68.5f, 73);
+    Place(enemy, nextPosition.x, nextPosition.y);
+    await AdvanceTo(1.60f);
+    Check((Vector2)Field(Memory(source, "LastConfirmedContact"), "LastPosition") == nextPosition,
+        "同一场内下一次感知取得新位置", new { elapsed = World.world.getCurWorldTime() - begun });
+    Place(enemy, 103, 73);
+    await AdvanceTo(2.15f);
+    Check(new[] { first, second }.All(ally => !(bool)tactical.GetMethod("IsInsideSightChunks", F)
+        .Invoke(null, new object[] { ally, enemy })), "敌人已离开两名友方的原版视野");
+    Check(receipts.Count == 4 && CorrectPair(receipts.Skip(2), nextPosition) &&
+        receipts[2].Observation.Value.ObservedAt > receipts[0].Observation.Value.ObservedAt &&
+        KnownPosition(first) == nextPosition && KnownPosition(second) == nextPosition,
+        "新观测可在同一次持续施放中再送一轮，获知的仍是采样位置",
+        new { elapsed = World.world.getCurWorldTime() - begun, count = receipts.Count });
+
+    await Advance(Mathf.Max(.25f, (float)(receipts[2].Observation.Value.ExpiresAt - World.world.getCurWorldTime()) + .22f));
+    Check(receipts.Count == 4 && UsableReport(first) == null && UsableReport(second) == null && Tablets().Length == 0 &&
+        endings.Any(row => row.Fact.AbilityId == definition.Id && !row.Fact.Cancelled) && enemy.data.health == originalHealth,
+        "自然结束后两份情报各自过期，方位显示收起，没有再施放或附带扣血");
+    var rounds = receipts.ToArray();
+    Place(enemy, nextPosition.x, nextPosition.y);
+    await Send(sense);
+    await Advance(.36f);
+    Check(Memory(source, "LastConfirmedContact") is { } seen &&
+        (double)Field(seen, "LastLocationAt") > receipts[2].Observation.Value.ObservedAt &&
+        (Vector2)Field(seen, "LastPosition") == nextPosition && enemy.data.health == originalHealth,
+        "感知对可见对象也能独立记录真实位置，仍无伤害");
+    await Advance(2.9f);
+    return new
+    {
+        passed = true, source = source.id, first = first.id, second = second.id, outside = outside.id,
+        subject = enemy.id, outsideSubject = outsideEnemy.id,
+        deliveries = rounds.Select(value => new
+        {
+            value.RecipientId, value.WorldTime, value.Observation.Value.ObservedAt,
+            value.Observation.Value.ExpiresAt, x = value.Observation.Value.Position.x, y = value.Observation.Value.Position.y
+        }).ToArray()
+    };
+}
+finally
+{
+    ConstructedAbilityService.SignalReceived -= Received;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}
