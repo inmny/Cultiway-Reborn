@@ -3091,3 +3091,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 地形改变后的通行（11.07）
 
 在原版独立游戏运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_terrain_passage.py`。复用原步法，检查同一处浅水经原版排水成为可落脚地面，实际恢复浅水后再次阻挡。原始坐标写入 `movements.json`。
+
+### 灵葫储元正式冷读（11.08）
+
+在原版独立游戏运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_artifact_resource_passives.py --section gourd-save --skip-views`。结束进程并重新启动后，使用 `--section gourd-load --skip-views --archive 保存输出目录`，核对同一原件的持有关系、存量和一次实际回注。
