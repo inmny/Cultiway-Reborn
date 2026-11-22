@@ -86,6 +86,16 @@ internal sealed class AbilityWorldWater
         Seconds = Mathf.Min(seconds, cell * .2f / speed);
     }
 
+    /// <summary>在进入计算线程前加入原版水力落差，保留水柱和显示使用的原地面。</summary>
+    internal void AddGroundRelief(Func<(int, int), float[]> sampleRegion)
+    {
+        foreach (Tile tile in tiles)
+        {
+            float[] relief = sampleRegion(tile.Position);
+            for (int i = 0; i < tile.Ground.Length; i++) tile.Ground[i] += relief[i];
+        }
+    }
+
     /// <summary>一个区域只写自己的差值，邻区读取共同旧值；可并行调用。</summary>
     /// <param name="index">区域序号。</param>
     internal void Compute(int index)
