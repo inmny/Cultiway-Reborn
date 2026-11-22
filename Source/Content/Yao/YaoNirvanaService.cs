@@ -1,3 +1,4 @@
+using System.Linq;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.CreatureCompositions.Combat;
@@ -37,15 +38,40 @@ public static class YaoNirvanaService
         if (actor.E.HasComponent<Nirvana>()) return;
         if (!actor.HasCultisys<Yao>()) return;
 
-        float duration = entry.Value > 0f ? entry.Value : NirvanaDuration;
-        actor.E.AddComponent(new Nirvana
-        {
-            StartedAt = YaoTime.Now,
-            ExpiresAt = YaoTime.Now + duration,
-            BodyIntegrity = 1f,
-        });
+        actor.E.AddComponent(CreatePhase(entry));
         HoldStill(actor.Base);
         YaoWorldLog.NirvanaStarted(actor);
+    }
+
+    /// <summary>已扣除机会的等待记录保存为同一个可继续的涅槃过程。</summary>
+    internal static Nirvana? CapturePhase(ActorExtend actor)
+    {
+        if (actor.E.TryGetComponent(out Nirvana active)) return active;
+        return CreatureConsequenceQueue.TryGetPending(actor.E, EffectId, out var pending)
+            ? CreatePhase(pending) : null;
+    }
+
+    /// <summary>全部档案关系已接回后，为还在涅槃体的角色补上本过程的限制。</summary>
+    internal static void RestoreStillness()
+    {
+        foreach (var entity in ModClass.I.W.Query<ActorBinder, Nirvana>().Entities.ToArray())
+        {
+            Actor actor = entity.GetComponent<ActorBinder>().Actor;
+            if (actor == null || actor.isRekt() || !actor.isAlive() ||
+                CombatStatusEffects.HasStatus(actor, StatusEffects.NirvanaStillness, actor)) continue;
+            HoldStill(actor);
+        }
+    }
+
+    private static Nirvana CreatePhase(in CreatureConsequenceEntry entry)
+    {
+        float now = YaoTime.Now;
+        return new Nirvana
+        {
+            StartedAt = now,
+            ExpiresAt = now + (entry.Value > 0f ? entry.Value : NirvanaDuration),
+            BodyIntegrity = 1f
+        };
     }
 
     /// <summary>推进全部涅槃过程；由低频系统调用。</summary>

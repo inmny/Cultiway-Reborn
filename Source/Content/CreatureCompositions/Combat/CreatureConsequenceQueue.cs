@@ -69,6 +69,14 @@ public static class CreatureConsequenceQueue
     internal static bool IsPending(Entity owner, string effectFamilyId) =>
         FindPending(owner, effectFamilyId) >= 0;
 
+    /// <summary>只读取得已确认的后果，供保存正式进度。</summary>
+    internal static bool TryGetPending(Entity owner, string effectFamilyId, out CreatureConsequenceEntry entry)
+    {
+        int index = FindPending(owner, effectFamilyId);
+        entry = index < 0 ? default : entries[index];
+        return index >= 0;
+    }
+
     /// <summary>尝试排队一条后果；队列已满或类别没有处理体时直接丢弃并返回假。</summary>
     public static bool TryEnqueue(CreatureConsequenceEntry entry)
     {

@@ -22,7 +22,7 @@ public static class YaoPersistence
         {
             Yao = Read<Yao>(actor), Body = Read<YaoBody>(actor), Genome = Read<YaoGenome>(actor),
             Digestion = Read<YaoDigestion>(actor), Core = Read<YaoCore>(actor),
-            Tribulation = Read<YaoTribulation>(actor), Nirvana = Read<Nirvana>(actor)
+            Tribulation = Read<YaoTribulation>(actor), Nirvana = YaoNirvanaService.CapturePhase(actor)
         };
         if (!record.Yao.HasValue) record.Potential = Read<YaoAwakeningPotential>(actor);
         if (!record.Yao.HasValue && !record.Genome.HasValue &&

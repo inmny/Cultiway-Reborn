@@ -13,6 +13,7 @@ internal static class WorldSaveContent
     internal static void Initialize()
     {
         WorldObjectSaveService.Initialize();
+        ModClass.I.WorldSaves.WorldRestored += YaoNirvanaService.RestoreStillness;
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, WorldObjectSaveData>("objects", "物件与知识", 3,
                 WorldObjectSaveService.Capture, WorldObjectSaveService.Prepare,
                 migrations: new ISaveMigration[] { new WorldObjectsV1ToV2(), new WorldObjectsV2ToV3() })

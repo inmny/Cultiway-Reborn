@@ -1,0 +1,190 @@
+// 只用实际身体、正式击杀及原版存档入口建立跨进程样本。
+const string provider = "content.creature_phenotype";
+const string stillnessId = "NirvanaStillness";
+var proc = System.Diagnostics.Process.GetCurrentProcess().Id;
+var queueType = service.Assembly.GetType("Cultiway.Content.CreatureCompositions.Combat.CreatureConsequenceQueue");
+var queued = queueType.GetMethod("IsPending", F);
+bool Pending(ActorExtend actor) => (bool)queued.Invoke(null, new object[] { actor.E, "yao.nirvana" });
+var stillness = Cultiway.ModClass.L.StatusEffectLibrary.get(stillnessId);
+Check(stillness != null, "加载了正式涅槃静息状态");
+
+YaoOrganRecord Organ(string slot, string id, int rank = 1) =>
+    new YaoOrganRecord { SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited };
+var scale = Organ(YaoContent.Slots.Surface, "yao.scale.basic");
+var sense = Organ(YaoContent.Slots.Head, "yao.spirit.sense");
+void Outfit(Actor actor, params YaoOrganRecord[] organs)
+{
+    Check(YaoFormPlanService.TrySetOrgans(actor.GetExtend(), YaoFormIds.TrueForm, new[] { scale }.Concat(organs).ToArray()),
+        "正式表达身体 " + actor.id, organs.Select(organ => organ.OrganId).ToArray());
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.finishScale();
+    actor.checkAnimationContainer();
+}
+void LethalStrike(Actor source, Actor target)
+{
+    var iron = ElementComposition.Static.Iron;
+    var owner = target.GetExtend();
+    owner.GetHit(target.getMaxHealth() * 2f, ref iron, source, AttackType.Other, ignore_damage_reduction: true,
+        attacker_power_level_override: owner.GetPowerLevel());
+}
+string Signature(ActorExtend actor) => actor.E.GetComponent<CreaturePhenotype>().Signature;
+YaoDigestionEntry Sample(ActorExtend actor) => actor.E.GetComponent<YaoDigestion>().Queue.Single(value => !value.IsEmpty);
+ActiveAbilityHandle[] Handles(ActorExtend owner)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    return handles.Where(value => value.ProviderId == provider).OrderBy(value => value.EntryId, StringComparer.Ordinal).ToArray();
+}
+async Task Until(Func<bool> condition, double maximum)
+{
+    double end = World.world.getCurWorldTime() + maximum;
+    Config.paused = false;
+    await Game.WaitUntil(() => condition() || World.world.getCurWorldTime() >= end, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+CreatureOrganSkillRegistry.EnsureBuilt();
+if (saved == null)
+{
+    Actor caster = Make(64.5f, "wolf"), phoenix = Make(67f, "wolf"), prey = Make(70f, "snake");
+    var owner = caster.GetExtend();
+    var guarded = phoenix.GetExtend();
+    foreach (Actor creature in new[] { caster, phoenix, prey })
+        Check(YaoAwakeningService.TryAwakenByRain(creature.GetExtend()), "从实际出生角色启灵 " + creature.id);
+
+    Outfit(caster, sense, Organ(YaoContent.Slots.Metabolism, "yao.stomach.devour", 2));
+    Outfit(prey, Organ(YaoContent.Slots.Head, "yao.venom.fang"));
+    owner.GetCultisys<Yao>().yao_power = 32f;
+    Vector2 corpse = prey.current_position;
+    long victim = prey.id;
+    LethalStrike(caster, prey);
+    prey.checkDeath();
+    caster.finishStatusEffect("poisoned");
+    var sample = Sample(owner);
+    Check(!prey.isAlive() && sample.SourceActorId == victim && sample.SourceDeathSequence > 0 &&
+          sample.Cost == 2f && owner.GetCultisys<Yao>().yao_power == 30f &&
+          !YaoDigestionService.TryFindDeposit(corpse, .25f, out _), "原版死亡确认后保留一份已付的正式精华");
+    Outfit(caster, Organ(YaoContent.Slots.Head, "yao.horn.thunder", 2), Organ(YaoContent.Slots.Breath, "yao.gland.foxfire", 2));
+    Outfit(phoenix, sense, Organ(YaoContent.Slots.Heart, "yao.heart.nirvana"));
+    await Advance(.10f);
+    foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.RemoveStatus(actor, hold);
+    caster.updateStats();
+    phoenix.updateStats();
+    guarded.GetCultisys<Yao>().yao_power = 25f;
+    guarded.GetCultisys<Yao>().PhoenixRevivalUses = 1;
+    phoenix.data.health = phoenix.getMaxHealth() * 3 / 5;
+    int hp = phoenix.getHealth();
+    float before = YaoTime.Now;
+    LethalStrike(caster, phoenix);
+    Check(Pending(guarded) && !guarded.E.HasComponent<Nirvana>() && guarded.GetCultisys<Yao>().PhoenixRevivalUses == 0 &&
+          phoenix.getHealth() == hp, "正式致命伤已经扣除机会，尚在等待世界循环");
+    var entries = Handles(owner).Select(value => value.EntryId).ToArray();
+    Check(entries.Length == 2, "准备保存的同一身体授予雷链与狐火吐息", entries);
+    string archive = Path.Combine(folder, "archive");
+    World.world.units.checkContainer();
+    SaveManager.saveWorldToDirectory(archive);
+    Check(File.Exists(Path.Combine(archive, "map.wbox")) && Pending(guarded) && !guarded.E.HasComponent<Nirvana>() &&
+          !CombatStatusEffects.HasStatus(phoenix, stillness), "写档采用只读快照，现场仍保持等待");
+    File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = proc, caster = caster.id, phoenix = phoenix.id, victim, corpseX = corpse.x, corpseY = corpse.y,
+        casterSignature = Signature(owner), phoenixSignature = Signature(guarded), entries, sample = Sample(owner), hp,
+        casterPower = owner.GetCultisys<Yao>().yao_power, phoenixPower = guarded.GetCultisys<Yao>().yao_power,
+        uses = 0, start = before, expiry = before + 8f
+    }, Formatting.Indented));
+    return new { passed = true, process = proc, section };
+}
+
+Check(proc != (int)saved["process"], "实际新进程读取同一正式档");
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+Check(report != null && report.BackupError == null && report.Skipped.Count == 0, "正式恢复报告没有丢失资料",
+    new { error = report?.BackupError, skipped = report?.Skipped });
+Actor fighter = World.world.units.get((long)saved["caster"]), reborn = World.world.units.get((long)saved["phoenix"]);
+var fighterOwner = fighter.GetExtend();
+var rebornOwner = reborn.GetExtend();
+var original = Sample(fighterOwner);
+var active = Handles(fighterOwner);
+Check(Signature(fighterOwner) == (string)saved["casterSignature"] && Signature(rebornOwner) == (string)saved["phoenixSignature"] &&
+      active.Select(value => value.EntryId).SequenceEqual(saved["entries"].Values<string>()),
+    "组合器官和两个主动来源恢复为原身份");
+var snapshot = typeof(YaoDigestionService).GetMethod("CaptureWorldSave", F).Invoke(null, null);
+var deposits = (IDictionary)Field(snapshot, "Deposits");
+bool claimed = deposits[original.SourceActorId] is YaoDigestionService.YaoEssenceDeposit deposit &&
+    deposit.Claimed && deposit.SourceDeathSequence == original.SourceDeathSequence;
+float power = fighterOwner.GetCultisys<Yao>().yao_power;
+bool visible = YaoDigestionService.TryFindDeposit(new Vector2((float)saved["corpseX"], (float)saved["corpseY"]), .25f, out _);
+bool repeated = YaoDigestionService.TryClaim(fighterOwner, original.SourceActorId, original.SourceDeathSequence);
+var storedSample = saved["sample"].ToObject<YaoDigestionEntry>();
+// 正式加载可以推进一个已经到开始时点、未到完成时点的消化条目。
+if (storedSample.Phase == YaoDigestionPhase.Queued && original.Phase == YaoDigestionPhase.Digesting &&
+    YaoTime.Now >= storedSample.StartedAt && YaoTime.Now < storedSample.CompleteAt)
+    storedSample.Phase = YaoDigestionPhase.Digesting;
+Check(original.Equals(storedSample) && claimed &&
+      power == (float)saved["casterPower"] && !visible && !repeated,
+    "已付精华保留原编号、进度和成本，正式读回后仍只可取得一次",
+    new { original, savedPhase = (int)saved["sample"]["Phase"], now = YaoTime.Now, power, claimed, visible, repeated });
+var phase = rebornOwner.E.GetComponent<Nirvana>();
+Check(!Pending(rebornOwner) && phase.StartedAt == (float)saved["start"] && phase.ExpiresAt == (float)saved["expiry"] &&
+      reborn.getHealth() == (int)saved["hp"] && rebornOwner.GetCultisys<Yao>().PhoenixRevivalUses == (int)saved["uses"] &&
+      rebornOwner.GetCultisys<Yao>().yao_power == (float)saved["phoenixPower"] &&
+      CombatStatusEffects.HasStatus(reborn, stillness, reborn) && reborn.stats.hasTag(Cultiway.Core.ActorControlTags.Silenced),
+    "已扣次数的涅槃从原时点延续，并在读档时接回行动限制");
+foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(actor, hold, 10000f, actor);
+fighter.attack_timer = reborn.attack_timer = 999f;
+var recoveryFees = new List<float>();
+var attackFees = new List<float>();
+bool measureAttack = false;
+void Paid(ActorExtend payer, YaoPowerMutation change)
+{
+    if (change.Kind != YaoPowerMutationKind.Spend) return;
+    if (payer == rebornOwner) recoveryFees.Add(-change.Delta);
+    if (payer == fighterOwner && measureAttack) attackFees.Add(-change.Delta);
+}
+var starts = new List<long>();
+var received = new List<ConstructedContact>();
+const long shot = 100941;
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == fighter.id && fact.CorrelationId == shot) starts.Add(fact.CastId);
+}
+void Contact(ConstructedContact fact)
+{
+    if (starts.Contains(fact.CastId) && fact.TargetId == reborn.id) received.Add(fact);
+}
+YaoResourceService.MutationCommitted += Paid;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    await Until(() => !rebornOwner.E.HasComponent<Nirvana>(), 1.6);
+    reborn.updateStats();
+    Check(reborn.isAlive() && reborn.getHealth() == reborn.getMaxHealth() && recoveryFees.SequenceEqual(new[] { 10f }) &&
+          rebornOwner.GetCultisys<Yao>().PhoenixRevivalUses == 0 && !CombatStatusEffects.HasStatus(reborn, stillness) &&
+          !reborn.stats.hasTag(Cultiway.Core.ActorControlTags.Silenced), "读回的涅槃只支付一次并恢复行动",
+          new { health = reborn.getHealth(), fees = recoveryFees.ToArray(), now = YaoTime.Now });
+    Place(fighter, 64.5f);
+    Place(reborn, 67f);
+    fighter.flip = false;
+    fighter.addAggro(reborn);
+    reborn.addAggro(fighter);
+    var horn = active.Single(value => value.EntryId.EndsWith("/Cultiway.ChainLightning", StringComparison.Ordinal));
+    measureAttack = true;
+    fighter.attack_timer = 0f;
+    Check(ActiveAbilityService.TryUse(fighterOwner, horn, new ActiveAbilityTarget(reborn, reborn.GetSimPos(),
+        runtimeData: new SkillCastRuntimeData { CorrelationId = shot }), ActiveAbilityUseOrigin.Script),
+        "读回的真实雷角可以从正式入口再次施放");
+    fighter.attack_timer = 999f;
+    await Until(() => received.Count > 0, 1.3);
+    Check(starts.Count == 1 && received.Count > 0 && attackFees.Count == 1 &&
+          Mathf.Abs(attackFees[0] - SkillCastCost.CalculateStepDemand(horn.Source)) < .002f,
+        "冷读档后的雷链实际接触目标，仅支付该次妖力", new { strikes = received.Count, fees = attackFees.ToArray() });
+    return new { passed = true, process = proc, section };
+}
+finally
+{
+    YaoResourceService.MutationCommitted -= Paid;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    Config.paused = true;
+}

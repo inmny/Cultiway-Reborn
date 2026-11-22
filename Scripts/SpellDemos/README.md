@@ -2941,3 +2941,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--section shell|phoenix|tails` 复验玄甲减伤、涅槃及重生、九尾护持及次数耗尽。三段均使用实际伤害结算和世界推进。
 
 `--section venom|regen|devour` 复验实际攻击者中毒、脱战且有妖力时再生，以及正式击杀的精华唯一性和费用。
+
+`--section prepare` 通过正式世界保存入口写入已经扣除机会的等待涅槃、已领取的精华及组合器官。新启动的另一个独立游戏运行 `--section cold --archive 保存阶段的输出目录`，使用同一正式文件核对涅槃继续、恢复后器官仍能实际出手以及精华唯一性。
+
+`--section film-active|film-shell|film-phoenix` 分别摄录同一现有对练场的雷角与狐火、玄甲受击、涅槃和恢复。原版独立游戏读取实际相机，启用 Worldfall 的环境读取三维画面。输出包含录像、实际世界时间、出手和伤害记录。每次可单独录制一段。

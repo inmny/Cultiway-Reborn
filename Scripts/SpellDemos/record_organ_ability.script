@@ -1,0 +1,298 @@
+// 沿用既有对练场和真实的器官结算，按游戏世界时间取景。
+bool active = section == "film-active", phoenix = section == "film-phoenix";
+Actor body = Make(64.5f, "wolf"), enemy = Make(67f);
+ActorExtend owner = body.GetExtend();
+Check(YaoAwakeningService.TryAwakenByRain(owner), "正式启灵录像中的兽形");
+CreatureOrganSkillRegistry.EnsureBuilt();
+YaoOrganRecord Organ(string slot, string id, int rank = 1) =>
+    new YaoOrganRecord { SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited };
+var organs = new List<YaoOrganRecord>
+{
+    active || phoenix ? Organ(YaoContent.Slots.Surface, "yao.scale.basic") :
+        Organ(YaoContent.Slots.Surface, "yao.shell.black", 2),
+    active ? Organ(YaoContent.Slots.Head, "yao.horn.thunder", 2) :
+        Organ(YaoContent.Slots.Head, "yao.spirit.sense"),
+};
+if (active) organs.Add(Organ(YaoContent.Slots.Breath, "yao.gland.foxfire", 2));
+if (phoenix) organs.Add(Organ(YaoContent.Slots.Heart, "yao.heart.nirvana"));
+Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, organs.ToArray()), "正式换入该段组合");
+body.setStatsDirty();
+body.updateStats();
+body.finishScale();
+body.checkAnimationContainer();
+body.flip = false;
+enemy.flip = true;
+body.addAggro(enemy);
+enemy.addAggro(body);
+owner.GetCultisys<Yao>().yao_power = 40f;
+if (phoenix)
+{
+    owner.GetCultisys<Yao>().PhoenixRevivalUses = 1;
+    body.data.health = body.getMaxHealth() * 3 / 5;
+}
+var frames = new List<object>();
+var events = new List<object>();
+var starts = new HashSet<long>();
+var contactsByCast = new HashSet<long>();
+var finished = new HashSet<long>();
+var fees = new List<float>();
+double Now() => World.world.getCurWorldTime();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != body.id || fact.CorrelationId < 100961 || fact.CorrelationId > 100962) return;
+    var instance = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => (long)Field(value, "Id") == fact.CastId);
+    var outlet = (Vector3)Field(instance, "LastSourceFoot");
+    starts.Add(fact.CastId);
+    events.Add(new { kind = "cast", fact.WorldTime, fact.CastId, fact.CorrelationId, fact.AbilityId,
+        outlet = new[] { outlet.x, outlet.y, outlet.z } });
+}
+void Contact(ConstructedContact fact)
+{
+    if (fact.TargetId != enemy.id || !starts.Contains(fact.CastId) || !contactsByCast.Add(fact.CastId)) return;
+    events.Add(new { kind = "contact", fact.WorldTime, fact.CastId, fact.TargetId });
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (!starts.Contains(fact.CastId) || fact.Cancelled) return;
+    finished.Add(fact.CastId);
+    events.Add(new { kind = "finished", fact.WorldTime, fact.CastId });
+}
+void Fee(ActorExtend payer, YaoPowerMutation change)
+{
+    if (payer != owner || change.Kind != YaoPowerMutationKind.Spend) return;
+    fees.Add(-change.Delta);
+    events.Add(new { kind = "spend", time = Now(), amount = -change.Delta });
+}
+float Cast(string spelling, long correlation)
+{
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(value => value.ProviderId == "content.creature_phenotype" &&
+        value.EntryId.EndsWith("/Cultiway." + spelling, StringComparison.Ordinal));
+    body.attack_timer = 0f;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos(),
+        runtimeData: new SkillCastRuntimeData { CorrelationId = correlation }), ActiveAbilityUseOrigin.Script),
+        "正式受理 " + spelling);
+    body.attack_timer = 999f;
+    return SkillCastCost.CalculateStepDemand(handle.Source);
+}
+int Strike(float damage)
+{
+    int old = body.getHealth();
+    var iron = ElementComposition.Static.Iron;
+    owner.GetHit(damage, ref iron, enemy, AttackType.Other, ignore_damage_reduction: true,
+        attacker_power_level_override: owner.GetPowerLevel());
+    int lost = old - body.getHealth();
+    events.Add(new { kind = "strike", time = Now(), incoming = damage, lost, health = body.getHealth() });
+    return lost;
+}
+
+var external = AppDomain.CurrentDomain.GetAssemblies()
+    .Select(value => value.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(value => value != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+string view = mod == null ? "native" : "worldfall";
+object settings = null;
+int originalTimeMode = 0;
+void SetView(string name, object value) => external.GetField(name, F).SetValue(mod, value);
+var camera = World.world.camera;
+Vector3 centre = new Vector3(65.75f, 72.45f, camera.transform.position.z);
+RenderTexture target = null;
+Texture2D pixels = null;
+bool taskIcons = PlayerConfig.optionBoolEnabled("icons_tasks");
+bool moodIcons = PlayerConfig.optionBoolEnabled("icons_happiness");
+
+async Task ReadyImage()
+{
+    await Game.WaitUntil(Boundary, 1800);
+    int before = (int)Field(mod, "_godGpuApplied");
+    await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
+}
+void Capture(string stage)
+{
+    var previous = RenderTexture.active;
+    if (mod == null)
+    {
+        var oldTarget = camera.targetTexture;
+        float oldZoom = camera.orthographicSize;
+        var oldPosition = camera.transform.position;
+        try
+        {
+            camera.targetTexture = target;
+            camera.orthographicSize = 1.8f;
+            camera.transform.position = centre;
+            camera.Render();
+        }
+        finally
+        {
+            camera.targetTexture = oldTarget;
+            camera.orthographicSize = oldZoom;
+            camera.transform.position = oldPosition;
+        }
+    }
+    else
+    {
+        object gpu = external.GetProperty("GpuRendererForTest", F).GetValue(mod);
+        target = (RenderTexture)Field(gpu, "Output");
+    }
+    if (pixels == null) pixels = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+    try
+    {
+        RenderTexture.active = target;
+        pixels.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+        pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "frames", frames.Count.ToString("00000") + ".png"), pixels.EncodeToPNG());
+    }
+    finally { RenderTexture.active = previous; }
+    frames.Add(new { frame = frames.Count, time = Now(), stage, health = body.getHealth(), opposingHealth = enemy.getHealth() });
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += Finished;
+YaoResourceService.MutationCommitted += Fee;
+try
+{
+    Directory.CreateDirectory(Path.Combine(folder, "frames"));
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new { section, body = body.id, enemy = enemy.id, organs }));
+    File.WriteAllText(Path.Combine(folder, "metadata.json"), JsonConvert.SerializeObject(new
+    {
+        version = Cultiway.ModClass.I.GetDeclaration().Version,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        worldfall = external?.Assembly.GetName().Version.ToString()
+    }));
+    PlayerConfig.setOptionBool("icons_tasks", false);
+    PlayerConfig.setOptionBool("icons_happiness", false);
+    World.world.console.Hide();
+    WorldTip.hideNow();
+    Tooltip.hideTooltipNow();
+    foreach (LoadingScreen loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    if (mod == null)
+    {
+        target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+        target.Create();
+    }
+    else
+    {
+        settings = Field(mod, "Settings");
+        originalTimeMode = (int)Field(settings, "TimeMode");
+        settings.GetType().GetField("TimeMode", F).SetValue(settings, 1);
+        external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        await Game.WaitUntil(() => (bool)external.GetProperty("GodShown", F).GetValue(mod) &&
+            (float)external.GetProperty("GodAlpha", F).GetValue(mod) >= .999f, 1800);
+        SetView("_godLock", body);
+        SetView("_godFollow", body.current_position);
+        camera.transform.position = new Vector3(body.current_position.x, body.current_position.y, camera.transform.position.z);
+        SetView("_godCamWas", camera.transform.position);
+        SetView("_godCamSet", true);
+        SetView("_godFollowVel", Vector2.zero);
+        SetView("_godClose", 2.4f);
+        SetView("_godCloseTarget", 2.4f);
+        SetView("_godPull", 1f);
+        SetView("_godTurn", -.25f);
+        SetView("_godTurnRate", 0f);
+        SetView("_godTip", .32f);
+        SetView("_godTipRate", 0f);
+        var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+        ground(new Rect(0, 0, MapBox.width, MapBox.height));
+    }
+    ConstructedAbilityService.NotifyActorChanged(body);
+    await Advance(.15f);
+    if (mod != null) await ReadyImage();
+    string stage = "对练准备";
+    Capture(stage);
+    double start = Now(), next = start + .035d;
+    float hornCost = 0, fireCost = 0;
+    int reduced = 0;
+    bool wounded = false, triggered = false, phaseSeen = false, recovered = false;
+    Config.paused = false;
+    while (Now() - start < (active ? 2.8d : 1.75d))
+    {
+        double age = Now() - start;
+        if (active)
+        {
+            if (age >= .22d && hornCost == 0f) hornCost = Cast("ChainLightning", 100961);
+            if (age >= 1.04d && fireCost == 0f) fireCost = Cast("FoxfireBreath", 100962);
+            stage = finished.Count == 2 ? "雷角与狐火均已结束" : fireCost > 0f ? "狐火吐息" :
+                hornCost > 0f ? "角尖雷链" : "同一狼形的两个器官";
+        }
+        else if (!phoenix && age >= .37d && reduced == 0)
+        {
+            reduced = Strike(100f);
+            stage = $"玄甲承伤 100，实际失去 {reduced} 点生命";
+        }
+        else if (phoenix)
+        {
+            if (age >= .25d && !wounded)
+            {
+                Check(Strike(40f) == 40, "未致命伤照常结算");
+                wounded = true;
+                stage = "受伤";
+            }
+            if (age >= .52d && !triggered)
+            {
+                Check(Strike(body.getMaxHealth() * 2f) == 0 && owner.GetCultisys<Yao>().PhoenixRevivalUses == 0,
+                    "真实致命伤扣除本次涅槃机会");
+                triggered = true;
+                stage = "致命伤触发涅槃";
+            }
+            if (owner.E.HasComponent<Nirvana>())
+            {
+                if (!phaseSeen) events.Add(new { kind = "phase", time = Now() });
+                phaseSeen = true;
+                stage = "涅槃静息";
+            }
+            else if (phaseSeen && !recovered)
+            {
+                body.updateStats();
+                recovered = body.isAlive() && body.getHealth() == body.getMaxHealth() &&
+                    !body.stats.hasTag(Cultiway.Core.ActorControlTags.Silenced);
+                if (recovered)
+                {
+                    events.Add(new { kind = "restored", time = Now(), health = body.getHealth() });
+                    stage = "恢复生命与行动";
+                }
+            }
+        }
+        if (Now() >= next)
+        {
+            if (mod != null)
+            {
+                Config.paused = true;
+                await ReadyImage();
+            }
+            Capture(stage);
+            next = Now() + .035d;
+            Config.paused = false;
+        }
+        await Game.NextFrame();
+    }
+    if (active)
+        Check(starts.Count == 2 && contactsByCast.Count == 2 && finished.Count == 2 && fees.Count == 2 &&
+            Mathf.Abs(fees[0] - hornCost) < .002f && Mathf.Abs(fees[1] - fireCost) < .002f,
+            "录像包含两种器官实际施放、支付、接触和结束", new { starts, contactsByCast, finished, fees });
+    else if (phoenix)
+        Check(phaseSeen && recovered && fees.SequenceEqual(new[] { 10f }), "连续记录涅槃、单次支付和恢复", new { phaseSeen, recovered, fees });
+    else Check(reduced == 75, "正式玄甲减伤符合既有实机结果", reduced);
+    Check(frames.Count >= 12, "世界时间常速记录含准备、发生和结束", frames.Count);
+    return new { passed = true, section, view, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= Finished;
+    YaoResourceService.MutationCommitted -= Fee;
+    PlayerConfig.setOptionBool("icons_tasks", taskIcons);
+    PlayerConfig.setOptionBool("icons_happiness", moodIcons);
+    if (settings != null) settings.GetType().GetField("TimeMode", F).SetValue(settings, originalTimeMode);
+    if (pixels != null) UnityEngine.Object.Destroy(pixels);
+    if (mod == null && target != null)
+    {
+        target.Release();
+        UnityEngine.Object.Destroy(target);
+    }
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+}
