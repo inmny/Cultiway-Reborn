@@ -3095,3 +3095,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 灵葫储元正式冷读（11.08）
 
 在原版独立游戏运行 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_artifact_resource_passives.py --section gourd-save --skip-views`。结束进程并重新启动后，使用 `--section gourd-load --skip-views --archive 保存输出目录`，核对同一原件的持有关系、存量和一次实际回注。
+
+### 双门来源失效（11.09）
+
+在独立游戏运行 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_spatial_mapping.py --section staging-source`。复用原暂存双门，确认旅客实际进入等待，原施术者死亡后解除入口占用，并在经过出口原开放时点后核对没有补发结果。
