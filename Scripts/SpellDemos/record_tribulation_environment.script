@@ -1,0 +1,331 @@
+const string thunderId = "Cultiway.Tribulation.Yao.Strike";
+const string windPrefix = "Cultiway.Tribulation.BalefulWind.";
+const string weatherId = "test.environment-film.cloud";
+const string statusId = "test.environment-film.status";
+bool IsTribulation(string id) => id == thunderId || id.StartsWith(windPrefix, StringComparison.Ordinal);
+Actor caster = Make(scene == "yao" ? 67.5f : 64.5f);
+Actor beast = Make(scene == "yao" ? 64.5f : 67.5f, "wolf");
+var owner = caster.GetExtend();
+var animal = beast.GetExtend();
+var windType = service.Assembly.GetType("Cultiway.Content.BalefulWindTribulationSkillService");
+var cloudType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+JArray Clouds() => (JArray)JObject.FromObject(cloudType.GetMethod("Capture", F).Invoke(null, null))["Clouds"];
+var power = Cultiway.WorldboxGame.GodPowers.YaoAwakeningRain;
+var rainTile = World.world.GetTileSimple(67, 72);
+Vector2 anchor = beast.current_position;
+Vector2 strikeOrigin = anchor;
+var frames = new List<object>();
+var events = new List<object>();
+var thunderOutside = new HashSet<long>();
+var contactsSeen = new List<ConstructedContact>();
+var endsSeen = new List<ConstructedCastEnded>();
+var worldChanges = new List<ConstructedWorldContact>();
+var firstWaveOrigins = new List<Vector2>();
+var tickKinds = new HashSet<AttackType>();
+var repairs = (IList)service.GetField("lifeRepairs", F).GetValue(null);
+bool healRecorded = false;
+
+if (scene == "yao")
+{
+    Check(YaoAwakeningService.TryAwakenByRain(animal), "复用原兽形获得实际妖修");
+    animal.E.AddComponent(new YaoCore { CorePatternId = YaoCorePatterns.Fire.Id, Quality = 60, Stability = 65 });
+    CombatStatusEffects.ApplyStrongestStatus(beast, Cultiway.Content.StatusEffects.HasteBlessing, 15f, 1f, caster,
+        new BaseStats { ["multiplier_speed"] = 6f });
+    beast.updateStats();
+    beast.setHealth(beast.getMaxHealth());
+    Place(caster, 67.5f, 69.5f);
+}
+else if (scene == "wind")
+{
+    owner.NewCultisys(Cultisyses.Xian);
+    owner.GetCultisys<Xian>().level = 3;
+    owner.E.AddComponent(new Yuanying { formation = new CoreFormationSnapshot { refinement = 9 } });
+    owner.MarkCultiwayStatsDirty();
+    caster.setStatsDirty();
+    caster.updateStats();
+    caster.setHealth(caster.getMaxHealth());
+    Place(caster, 67.5f);
+    Place(beast, 72f);
+}
+else if (scene == "status")
+{
+    owner.SetPowerLevel(.4f);
+    CombatStatusEffects.ApplyStrongestStatus(caster, Cultiway.Content.StatusEffects.BattleBlessing, 60f, 1f, caster,
+        new BaseStats { ["damage"] = 40f });
+    caster.removeTrait("super_health");
+    caster.updateStats();
+}
+else if (scene == "weather")
+{
+    Place(caster, 70f, 82f);
+    var weather = new AbilityDefinition
+    {
+        Id = weatherId, Name = "持续雨云", Lifetime = .32f, TargetRange = 100f,
+        Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact
+        {
+            DamageScale = 0f,
+            WorldEffects = new[]
+            {
+                new ConstructionWorldEffect
+                    { Action = "weather.rain", TileCentreOnly = true, MaximumTiles = 1, Duration = 12f }
+            }
+        },
+        Root = new ConstructionNode { Id = "cloud", Form = "world_domain", Scale = .12f, Volume = 0f }
+    };
+    await Fire(weather, caster, caster, aim: new Vector3(65.5f, 72.5f, 0f), aggro: false);
+    await Advance(2.16f);
+    Check(Clouds().Count == 1, "已由正式施法形成同一朵独立原版云");
+}
+
+AbilityDefinition StatusRay()
+{
+    var harm = new[]
+    {
+        (Cultiway.Content.StatusEffects.Burn, .10f, new ElementComposition(fire: 1f, normalize: true)),
+        (Cultiway.Content.StatusEffects.Poison, .16f, new ElementComposition(wood: 1f, normalize: true)),
+        (Cultiway.Content.StatusEffects.EternalCurse, .22f, new ElementComposition(neg: 1f, normalize: true))
+    };
+    return new AbilityDefinition
+    {
+        Id = statusId, Name = "结算中的状态与回春", Resource = "none",
+        Cost = 0f, Cooldown = 0f, Power = 1f, Lifetime = .26f, TargetRange = 8f,
+        Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Object },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = true, Height = .32f },
+        Impact = new ConstructionImpact
+        {
+            Targets = SkillUseTargetRelation.Hostile, SelectedTargetOnly = true, DamageScale = 0f,
+            Statuses = harm.Select(effect => new ConstructionStatus
+            {
+                Id = effect.Item1.id, Duration = 2.35f, Application = ConstructionStatusApplication.Refresh,
+                Tick = new ConstructionStatusTick { ForcePerSecond = effect.Item2, Element = effect.Item3 }
+            }).ToArray(),
+            Restoration = new ConstructionRestoration
+                { Target = ConstructionRestorationTarget.Controller, HealthPerSecond = 12f, Duration = 1.35f }
+        },
+        Root = new ConstructionNode
+        {
+            Id = "ray", Form = "energy_ray", Matter = "lightning", State = "energy",
+            Operations = new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.Ray,
+                    Ray = new ConstructionRay { Length = 5f, FollowTarget = true, FadeOut = .08f } }
+            }
+        }
+    };
+}
+
+double Now() => World.world.getCurWorldTime();
+float WolfDistance() => Vector2.Distance(strikeOrigin, beast.current_position);
+int WolfHp() => beast.getHealth();
+void StartedScene(ConstructedCastStarted cast)
+{
+    if (!IsTribulation(cast.AbilityId) && cast.AbilityId != statusId) return;
+    var running = ((IList)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .FirstOrDefault(value => (long)Field(value, "Id") == cast.CastId);
+    Vector3 point = running == null ? Vector3.zero : (Vector3)Field(running, "LastSourceFoot");
+    if (cast.AbilityId == thunderId && running != null)
+    {
+        strikeOrigin = point;
+        if (WolfDistance() > 4.2f) thunderOutside.Add(cast.CastId);
+    }
+    if (cast.AbilityId == windPrefix + "Wave") firstWaveOrigins.Add(point);
+    events.Add(new { kind = "cast", cast.CastId, cast.AbilityId, cast.SourceId, cast.WorldTime,
+        origin = new[] { point.x, point.y, point.z }, wolfDistance = WolfDistance() });
+}
+void SceneContact(ConstructedContact fact)
+{
+    if (!IsTribulation(fact.AbilityId) && fact.AbilityId != statusId) return;
+    contactsSeen.Add(fact);
+    events.Add(new { kind = "contact", fact.AbilityId, fact.CastId, fact.SourceId, fact.TargetId, fact.WorldTime,
+        fact.Damage.HealthLost, fact.Damage.SettledCount });
+}
+void SceneEnded(ConstructedCastEnded fact)
+{
+    if (!IsTribulation(fact.AbilityId) && fact.AbilityId != statusId) return;
+    endsSeen.Add(fact);
+    events.Add(new { kind = "end", fact.AbilityId, fact.CastId, fact.WorldTime, fact.Cancelled });
+}
+void SceneWorld(ConstructedWorldContact contact)
+{
+    if (contact.AbilityId != power.id) return;
+    worldChanges.Add(contact);
+    events.Add(new { kind = "world", contact.AbilityId, contact.CastId, contact.SourceId, contact.WorldTime,
+        contact.X, contact.Y, contact.Action, contact.Result.Count });
+}
+void Tick(ActorExtend target, BaseSimObject attacker, ref ElementComposition composition,
+    ref AttackType type, ref float damage, ref bool ignored)
+{
+    if (scene != "status" || target.Base != beast || attacker != caster || !CombatDamageEffects.IsResolvingReaction) return;
+    tickKinds.Add(type);
+    events.Add(new { kind = "tick", type = type.ToString(), time = Now(), damage, target = beast.id, source = caster.id });
+}
+var beforeAttack = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+var prior = beforeAttack.GetValue(null);
+Vector2 centre = scene switch
+{
+    "yao" => new Vector2(66.7f, 72.55f),
+    "wind" => new Vector2(67.5f, 73.25f),
+    "rain" => new Vector2(67.15f, 72.8f),
+    "weather" => new Vector2(70.5f, 81.7f),
+    _ => new Vector2(66f, 72.45f)
+};
+float zoom = scene switch { "wind" => 6.15f, "weather" => 13f, "yao" => 3.75f, "rain" => 2.55f, _ => 2.55f };
+float distance = scene switch { "wind" => 5.5f, "weather" => 9.5f, _ => 3.2f };
+float duration = scene switch { "yao" => 2.85f, "wind" => 3.17f, "rain" => 2.65f, "weather" => 3.03f, _ => 3.22f };
+float interval = scene == "yao" ? .031f : .068f;
+int beforeHealing = caster.getHealth(), beforeTargetHp = WolfHp();
+bool triggered = false, sentBack = false;
+double leftAt = 0, nextWalkOrder = 0;
+float farthest = 0;
+int aboveGroundFrames = 0;
+var definition = scene == "status" ? StatusRay() : null;
+File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new
+{
+    scene, caster = caster.id, beast = beast.id, definition, power = power.id,
+    cameraCentre = new[] { centre.x, centre.y }, zoom, distance
+}));
+ConstructedAbilityService.CastStarted += StartedScene;
+ConstructedAbilityService.ContactConfirmed += SceneContact;
+ConstructedAbilityService.CastEnded += SceneEnded;
+ConstructedAbilityService.WorldContactConfirmed += SceneWorld;
+ActorExtend.RegisterActionBeforeBeAttacked(Tick);
+using var drops = Trace.Method(typeof(DropManager), "spawn",
+    argumentTypes: new[] { typeof(WorldTile), typeof(string), typeof(float), typeof(float), typeof(long) });
+try
+{
+    await OpenView(scene == "rain" ? beast : caster, centre, distance);
+    if (scene == "status")
+    {
+        caster.setHealth(caster.getMaxHealth() / 2);
+        beforeHealing = caster.getHealth();
+        beforeTargetHp = WolfHp();
+    }
+    if (scene == "yao") strikeOrigin = anchor = beast.current_position;
+    double start = Now(), next = start;
+    float oldAge = scene == "weather" ? (float)Clouds()[0]["Age"] : 0f;
+    Config.paused = false;
+    while (Now() - start < duration)
+    {
+        double age = Now() - start;
+        if (!triggered && age >= (scene == "yao" ? .14d : .22d))
+        {
+            if (scene == "yao")
+            {
+                Check(YaoHumanFormService.TryStartTransformation(animal), "实际从当前站位开始化形劫");
+                CombatStatusEffects.RemoveStatus(beast, hold, beast);
+                beast.updateStats();
+                beast.cancelAllBeh();
+                beast.goTo(World.world.GetTileSimple(72, 72));
+                nextWalkOrder = Now() + .24d;
+            }
+            else if (scene == "wind")
+            {
+                var startWind = windType.GetMethod("Start", F, null, new[] { typeof(ActorExtend) }, null);
+                Check((bool)startWind.Invoke(null, new object[] { owner }), "原煞风劫实际开始");
+            }
+            else if (scene == "status") await Fire(definition, caster, beast);
+            else if (scene == "rain")
+                Check(power.click_action(rainTile, power.id) && !animal.HasCultisys<Yao>(), "从原按钮发出真实雨滴");
+            triggered = true;
+        }
+        if (scene == "yao")
+        {
+            float fromAnchor = WolfDistance();
+            farthest = Mathf.Max(farthest, fromAnchor);
+            if (fromAnchor > 4.2f && leftAt == 0) leftAt = Now();
+            if (triggered && leftAt == 0 && Now() >= nextWalkOrder)
+            {
+                // 受击会打断原行走，再次发出正常移动指令，位置仍靠世界实际推进。
+                beast.goTo(World.world.GetTileSimple(72, 72));
+                nextWalkOrder = Now() + .24d;
+            }
+            if (!sentBack && leftAt > 0 && Now() - leftAt > .22d)
+            {
+                beast.goTo(World.world.GetTileSimple((int)anchor.x, (int)anchor.y));
+                sentBack = true;
+            }
+        }
+        if (Now() >= next)
+        {
+            if (worldfall != null)
+            {
+                Config.paused = true;
+                await WaitForView();
+            }
+            if (!healRecorded && scene == "status")
+            {
+                var repair = repairs.Cast<object>().FirstOrDefault(value => (long)Field(value, "Id") == caster.id);
+                if (repair != null && (int)Field(repair, "Amount") == 12)
+                {
+                    healRecorded = true;
+                    events.Add(new { kind = "healing", time = (double)Field(repair, "At"), amount = 12, target = caster.id });
+                }
+            }
+            string stage = scene switch
+            {
+                "yao" => !triggered ? "化形劫前" : WolfDistance() > 4f
+                    ? "离开劫心，雷光仍落在原处" : sentBack ? "返入原劫心" : "从实际站位开始落雷",
+                "wind" => firstWaveOrigins.Count == 0 ? "中央风柱确立劫心" : "四面劫风奔向同一渡劫者",
+                "status" => tickKinds.Count == 0 ? "实际接触施加状态" : healRecorded ? "状态结算与回春" : "原周期正在结算",
+                "rain" => worldChanges.Count == 0 ? "原雨滴沿下落路径接近凡兽" : "实际落地后完成启灵",
+                _ => drops.Events.Count == 0 ? "同一朵天气独立推进" : "原版天气继续发出实际雨滴"
+            };
+            bool aboveGround = scene == "yao" && FormVisualScene.Instances.Any(instance =>
+                instance.Resource.Description.Id == "lightning_strike_0" &&
+                instance.Transform.MultiplyVector(Vector3.back).z > .5f);
+            if (aboveGround) aboveGroundFrames++;
+            ReadFrame(frames.Count, centre, zoom);
+            frames.Add(new { frame = frames.Count, time = Now(), stage, wolf = beast.current_position.ToString(),
+                caster = caster.current_position.ToString(), wolfHp = WolfHp(), casterHp = caster.getHealth(), aboveGround });
+            next = Now() + interval;
+            Config.paused = false;
+        }
+        await Game.NextFrame();
+    }
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(frames.Count >= 22, "按实际世界时间连续拍摄");
+    if (scene == "yao")
+        Check(aboveGroundFrames > 0 && farthest > 4.2f && endsSeen.Any(fact => thunderOutside.Contains(fact.CastId) && !fact.Cancelled &&
+                !contactsSeen.Any(hit => hit.CastId == fact.CastId)) &&
+            contactsSeen.Any(hit => hit.AbilityId == thunderId && hit.TargetId == beast.id && hit.Damage.SettledCount > 0),
+            "雷身实际在地表上方出现，原兽形走出四格时躲过，范围内的另一记真实结算",
+            new { aboveGroundFrames, farthest, at = beast.current_position.ToString(),
+                outside = thunderOutside.Count, hits = contactsSeen.Count });
+    else if (scene == "wind")
+        Check(firstWaveOrigins.Count >= 3 && firstWaveOrigins.All(point => Vector2.Distance(point, caster.current_position) >= 8f) &&
+            contactsSeen.Any(hit => hit.AbilityId == windPrefix + "Wave" && hit.SourceId == 0 && hit.TargetId == caster.id),
+            "实际四周来风至少一股完成无主接触", new { origins = firstWaveOrigins.Select(p => p.ToString()), hits = contactsSeen.Count });
+    else if (scene == "status")
+        Check(contactsSeen.Any(hit => hit.AbilityId == statusId && hit.TargetId == beast.id) &&
+            tickKinds.SetEquals(new[] { AttackType.Fire, AttackType.Poison, AttackType.Other }) &&
+            healRecorded && caster.getHealth() >= beforeHealing + 12 && WolfHp() < beforeTargetHp,
+            "实际接触后三类伤害结算并观察到回春", new { kinds = tickKinds, healRecorded, beforeHealing, hp = caster.getHealth() });
+    else if (scene == "rain")
+        Check(worldChanges.Count == 1 && worldChanges[0].Result.Count == 1 && worldChanges[0].SourceId == 0 &&
+            animal.HasCultisys<Yao>(), "同一真实落点只完成一次启灵");
+    else
+    {
+        var cloud = Clouds().Single();
+        int rainDrops = drops.Events.Count(entry => entry.Arguments?.ToString().Contains("rain") == true);
+        Check(rainDrops > 0 && (string)cloud["Ability"] == weatherId && (float)cloud["Age"] - oldAge > 2f,
+            "原施放已结束，同一原版云继续真实降雨", new { cloud, rainDrops, oldAge });
+        events.Add(new { kind = "weather", time = Now(), rainDrops, oldAge, age = (float)cloud["Age"],
+            x = (float)cloud["X"], y = (float)cloud["Y"] });
+    }
+    return new { passed = true, scene, view, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    beforeAttack.SetValue(null, prior);
+    ConstructedAbilityService.CastStarted -= StartedScene;
+    ConstructedAbilityService.ContactConfirmed -= SceneContact;
+    ConstructedAbilityService.CastEnded -= SceneEnded;
+    ConstructedAbilityService.WorldContactConfirmed -= SceneWorld;
+    CloseView();
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view, frames, events }, Formatting.Indented));
+}

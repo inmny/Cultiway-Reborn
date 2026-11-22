@@ -19,7 +19,7 @@ async Task WaitForView()
     await Game.WaitUntil(() => (int)Field(worldfall, "_godGpuApplied") >= before + 3, 1800);
 }
 
-async Task OpenView(Actor focus, Vector2 centre)
+async Task OpenView(Actor focus, Vector2 centre, float worldfallDistance = 3.2f)
 {
     Directory.CreateDirectory(Path.Combine(folder, "frames"));
     File.WriteAllText(Path.Combine(folder, "metadata.json"), JsonConvert.SerializeObject(new
@@ -56,8 +56,8 @@ async Task OpenView(Actor focus, Vector2 centre)
         SetView("_godCamWas", filmCamera.transform.position);
         SetView("_godCamSet", true);
         SetView("_godFollowVel", Vector2.zero);
-        SetView("_godClose", 3.2f);
-        SetView("_godCloseTarget", 3.2f);
+        SetView("_godClose", worldfallDistance);
+        SetView("_godCloseTarget", worldfallDistance);
         SetView("_godPull", 1f);
         SetView("_godTurn", -.22f);
         SetView("_godTurnRate", 0f);

@@ -56,7 +56,10 @@ internal static class YaoTribulationConstruction
                 new ConstructionNode
                 {
                     Id = "bolt", Form = "lightning_strike_0", Matter = "lightning", State = "energy",
-                    Scale = 1.65f, AppearAt = StrikeAt, ContactRole = ConstructionContactRole.Decoration,
+                    // 落雷模型沿局部负 Z 轴延伸，固定在地面时将雷身翻向天空。
+                    Rotation = new[] { 0f, 180f, 0f },
+                    // 起势就显示雷身，保证步长较大的视角也能看到。实际接触仍由落点部位决定。
+                    Scale = 1.65f, ContactRole = ConstructionContactRole.Decoration,
                     Operations = new[]
                     {
                         new ConstructionOperation
