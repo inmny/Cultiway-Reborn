@@ -584,6 +584,14 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
             _tooltipSummary = tooltipSummary;
             _tooltipDetail = tooltipDetail;
             UiTooltip.Set(gameObject, title, tooltipSummary, tooltipDetail);
+            if (Tooltip.isShowingFor(gameObject) &&
+                Tooltip.findActive(tip => tip.asset == WorldboxGame.Tooltips.RawTip) is { } visible)
+            {
+                visible.data.tip_name = title;
+                visible.data.tip_description = tooltipSummary;
+                visible.data.tip_description_2 = tooltipDetail;
+                visible.showTooltip(gameObject, WorldboxGame.Tooltips.RawTip.id);
+            }
         }
 
         if (_selected == selected) return;

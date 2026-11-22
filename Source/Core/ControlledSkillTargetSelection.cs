@@ -5,6 +5,8 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Skills;
+using Cultiway.UI;
 using Cultiway.Utils.Extension;
 using strings;
 using UnityEngine;
@@ -46,6 +48,10 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
     private MonoObjPool<SelectionMarker> _selectionMarkerPool;
     private bool _pressActive;
     private bool _selecting;
+    private Actor _preparingActor;
+    private long _preparingActorId;
+    private ActiveAbilityHandle _preparingAbility;
+    private CompiledAbility _preparingPlan;
     private float _pressStartTime;
     private float _radius = DefaultRadius;
     private float _displayRadius = DefaultRadius;
@@ -105,7 +111,8 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
     {
         if (!_pressActive) return;
 
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape) ||
+            !TryReadPreparation(out Actor actor, out ActiveAbilityDescriptor descriptor))
         {
             Cancel();
             return;
@@ -125,15 +132,13 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
 
         if (!_selecting) return;
 
-        float fixedEffectRadius = ControlledCultivatorSkillControls.TryGetControlledActor(out Actor actor)
-            ? ControlledCultivatorSkillControls.ResolveSelectedAbilityEffectRadius(actor.GetExtend())
-            : 0f;
+        float fixedEffectRadius = ActiveAbilityService.ResolveEffectRadius(actor.GetExtend(), _preparingAbility);
         if (fixedEffectRadius <= 0f && Mathf.Abs(scroll) > 0.01f)
         {
             _radius = Mathf.Clamp(_radius + scroll * WheelRadiusStep, MinRadius, MaxRadius);
         }
 
-        UpdateCircle();
+        UpdateCircle(actor, descriptor, fixedEffectRadius);
     }
 
     private static bool ShouldConsumeCameraZoom()
@@ -146,8 +151,13 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
     private void BeginInternal()
     {
         if (_pressActive) return;
-        if (!ControlledCultivatorSkillControls.TryGetControlledActor(out _)) return;
+        if (!ControlledCultivatorSkillControls.TryGetControlledActor(out Actor actor) ||
+            !ControlledCultivatorSkillControls.TryDescribeSelectedAbility(actor.GetExtend(),
+                out _preparingAbility, out ActiveAbilityDescriptor descriptor)) return;
 
+        _preparingActor = actor;
+        _preparingActorId = actor.id;
+        _preparingPlan = descriptor.Plan;
         _pressActive = true;
         _selecting = false;
         _pressStartTime = Time.unscaledTime;
@@ -158,6 +168,14 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
 
     private void Release()
     {
+        if (!_pressActive || !TryReadPreparation(out Actor actor, out ActiveAbilityDescriptor descriptor))
+        {
+            Cancel();
+            return;
+        }
+
+        if (_selecting)
+            UpdateCircle(actor, descriptor, ActiveAbilityService.ResolveEffectRadius(actor.GetExtend(), _preparingAbility));
         var area = _selecting
             ? new SkillTargetSelectionArea(true, _center, _displayRadius)
             : SkillTargetSelectionArea.Inactive;
@@ -165,25 +183,30 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         ControlledCultivatorSkillControls.CastSelectedSkill(area);
     }
 
+    /// <summary>只有原人物仍持有同一来源和版本时，才可接着处理这一次按键。</summary>
+    private bool TryReadPreparation(out Actor actor, out ActiveAbilityDescriptor descriptor)
+    {
+        descriptor = default;
+        actor = null;
+        return !ScrollWindow.isWindowActive() && !ControlledPossessionInputGate.BlocksPossessionActions &&
+               ControlledCultivatorSkillControls.TryGetControlledActor(out actor) &&
+               ReferenceEquals(actor, _preparingActor) && actor.id == _preparingActorId &&
+               ControlledCultivatorSkillControls.TryDescribeSelectedAbility(actor.GetExtend(),
+                   out ActiveAbilityHandle selected, out descriptor) &&
+               selected == _preparingAbility && ReferenceEquals(descriptor.Plan, _preparingPlan);
+    }
+
     private void Cancel()
     {
         _pressActive = false;
         _selecting = false;
+        _preparingActor = null;
+        _preparingAbility = default;
+        _preparingPlan = null;
         HideCircle();
     }
 
-    private bool IsCastKeyHeld()
-    {
-        return IsKeyHeld(_castHotkey?.default_key_1)
-               || IsKeyHeld(_castHotkey?.default_key_2)
-               || IsKeyHeld(_castHotkey?.default_key_3)
-               || Input.GetKey(KeyCode.R);
-    }
-
-    private static bool IsKeyHeld(KeyCode? key)
-    {
-        return key.HasValue && key.Value != KeyCode.None && Input.GetKey(key.Value);
-    }
+    private bool IsCastKeyHeld() => _castHotkey?.isHolding() == true;
 
     private void CreateCircle()
     {
@@ -386,28 +409,24 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         return SpriteTextureLoader.getSpriteList(SelectionEffectFallbackPath, true) ?? new Sprite[0];
     }
 
-    private void UpdateCircle()
+    private void UpdateCircle(Actor actor, ActiveAbilityDescriptor descriptor, float effectRadius)
     {
         if (_circle == null) return;
-        if (!ControlledCultivatorSkillControls.TryGetControlledActor(out var actor))
+        Vector3? point = descriptor.TargetMode == ActiveAbilityTargetMode.Self
+            ? actor.GetSimPos()
+            : ControlledCultivatorSkillControls.ReadPointer(actor).Point;
+        if (!point.HasValue)
         {
             HideCircle();
             return;
         }
 
-        var mousePos = (Vector3)World.world.getMousePos();
-        mousePos.z = 0f;
         var caster = actor.GetExtend();
-        _center = ControlledCultivatorSkillControls.ClampSkillTargetPos(caster, mousePos);
-        float effectRadius = ControlledCultivatorSkillControls.ResolveSelectedAbilityEffectRadius(caster);
+        _center = ControlledCultivatorSkillControls.ClampTargetPos(caster, _preparingAbility, point.Value);
         _displayRadius = effectRadius > 0f ? effectRadius : _radius;
         var area = new SkillTargetSelectionArea(true, _center, _displayRadius);
         var targets = ControlledCultivatorSkillControls.CollectManualTargets(actor, area,
             World.world.kingdoms_wild.get("possessed"));
-        ControlledCultivatorSkillControls.TryDescribeSelectedAbility(
-            caster,
-            out _,
-            out ActiveAbilityDescriptor descriptor);
         bool worldTarget = descriptor.TargetRelation == SkillUseTargetRelation.WorldTile;
         if (worldTarget)
         {

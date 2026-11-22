@@ -161,6 +161,9 @@ public readonly struct ActiveAbilityDescriptor
     /// <summary>能否独立启动而不占公共恢复；实际来源仍须检查部位、器物和自身活动状态。</summary>
     public readonly bool CanCastConcurrently;
 
+    /// <summary>手动准备所见的正式执行版本。重新编译后的计划必须重新准备。</summary>
+    internal readonly CompiledAbility Plan;
+
     public ActiveAbilityDescriptor(
         string name,
         Sprite icon,
@@ -170,7 +173,16 @@ public readonly struct ActiveAbilityDescriptor
         ActiveAbilityCastMobility castMobility = ActiveAbilityCastMobility.Mobile,
         SkillUseTargetRelation? targetRelation = null,
         bool canCastConcurrently = false)
+        : this(name, icon, channels, targetMode, activationMode, castMobility, targetRelation, canCastConcurrently, null)
     {
+    }
+
+    internal ActiveAbilityDescriptor(string name, Sprite icon, ActiveAbilityChannel channels,
+        ActiveAbilityTargetMode targetMode, ActiveAbilityActivationMode activationMode,
+        ActiveAbilityCastMobility castMobility, SkillUseTargetRelation? targetRelation,
+        bool canCastConcurrently, CompiledAbility plan)
+    {
+        Plan = plan;
         CanCastConcurrently = canCastConcurrently;
         Name = name ?? string.Empty;
         Icon = icon;

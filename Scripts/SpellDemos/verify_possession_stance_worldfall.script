@@ -28,6 +28,38 @@ try
     await Advance(.2f);
     Place(source, 64f);
 
+    if (dodge)
+    {
+        var moves = external.GetType("FirstPerson.Moves", true);
+        object equipped = Enum.Parse(moves.GetNestedType("Move", F), "Dodge");
+        moves.GetMethod("Learn", F).Invoke(null, new[] { (object)source, equipped });
+        moves.GetMethod("SetReady", F).Invoke(null, new[] { (object)source, equipped });
+        Check((bool)moves.GetMethod("IsReady", F).Invoke(null, new[] { (object)source, equipped }),
+            "同一人物经 Worldfall 原技能入口装备闪步");
+        var count = hooks.GetField("DodgesForTest", F);
+        var dodgeInput = hooks.GetField("ScriptedDodge", F);
+        int before = (int)count.GetValue(null);
+        Cast("worldfall-dodge", BodyOccupancy.RightArm | BodyOccupancy.Stance);
+        Move(Vector2.up);
+        dodgeInput.SetValue(null, true);
+        await Advance(.10f);
+        dodgeInput.SetValue(null, false);
+        Move(Vector2.zero);
+        int whileHeld = (int)count.GetValue(null) - before;
+        bool blockedDodge = whileHeld == 0 && HoldingStance() && source.position_height <= .001f;
+        var fact = new { whileHeld, height = source.position_height, held = HoldingStance() };
+        if (!observe)
+        {
+            Check(blockedDodge, "第一人称闪步无法中断持有的站姿", fact);
+            await Advance(.55f);
+            Move(Vector2.up);
+            dodgeInput.SetValue(null, true);
+            await Advance(.10f);
+            Check(!HoldingStance() && (int)count.GetValue(null) == before + 1, "收势后新一次闪步正常受理");
+        }
+        return new { process = System.Diagnostics.Process.GetCurrentProcess().Id, blocked = blockedDodge, fact, checks };
+    }
+
     Cast("worldfall", BodyOccupancy.RightArm | BodyOccupancy.Stance);
     Vector2 start = source.current_position;
     Vector2 eye = Eye();

@@ -3038,4 +3038,10 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 在原版独立游戏运行 `dev.py exec --timeout 85 -- python3 Scripts/SpellDemos/verify_possession_stance.py`。使用原版附体按钮及方向热键输入，验证掌击持有站姿时的跳闪和走动、结束后恢复、只占手臂时仍可走动。结果写到本次独立游戏输出目录。`--observe` 只记录跳跃时的行为，`--arm` 可单独复验手臂对照。
 
-在独立 Worldfall 游戏加 `--worldfall`，检查真实第一人称方向输入、跳跃、镜头与身体、收势后恢复和换人。与 `--observe` 一起用时，记录收势前的移动和跳跃现象。
+在独立 Worldfall 游戏加 `--worldfall`，检查真实第一人称方向输入、跳跃、镜头与身体、收势后恢复和换人。再加 `--dodge` 可只复验已装备的闪步。`--observe` 用于记录修复前后的站姿现象。
+
+### 手动施放与正式存读（10.14 B、C）
+
+原版独立游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_manual_cast.py --record`。从同一能力栏和施放热键检查重订版、过期准备、超距及费用。录像按实际世界时间记录这次施放，输出目录另含待恢复的正式世界。解除附体后等原版眩晕和困惑结束，再查自主出手。
+
+在独立 Worldfall 游戏运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_manual_cast.py --worldfall --record --archive 原版输出目录`。脚本读入世界副本，用恢复出来的同一能力从实际第一人称准星施放。省去 `--record` 可只检查当次操作，省去 `--archive` 可在现成演示世界直接检查第一人称。

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Content.Combat;
 using Cultiway.Content.CreatureCompositions.Visuals;
+using Cultiway.Core;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals;
@@ -243,6 +244,8 @@ internal static class WorldfallVisualBridge
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedStep)));
             new Harmony(HarmonyId).Patch(candidate.CheckJump,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedJump)));
+            new Harmony(HarmonyId).Patch(candidate.DodgeKey,
+                prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedDodge)));
             new Harmony(HarmonyId).Patch(candidate.KeepBodyClear,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeKeepBodyClear)));
             new Harmony(HarmonyId).Patch(candidate.StandOn,
@@ -254,6 +257,7 @@ internal static class WorldfallVisualBridge
             new Harmony(HarmonyId).Patch(candidate.DrawBuildingModel,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeDrawBuildingModel)));
             binding = candidate;
+            ControlledCultivatorSkillControls.ReadFirstPersonAim = ReadSkillAim;
             FormWorldfallRenderer.Install(pendingAssembly);
             BodyWorldfallRenderer.Install(pendingAssembly);
             BodyOrganWorldfall.Install(pendingAssembly);
@@ -308,8 +312,31 @@ internal static class WorldfallVisualBridge
     }
 
     /// <summary>第一人称跳跃使用外部自己的入口，在其取得高度前尊重该人物的站姿占用。</summary>
-    private static bool BeforePossessedJump(Actor __1) =>
-        disabled || __1 == null || !BodyControlState.HasControl(__1.id, BodyOccupancy.Stance);
+    private static bool BeforePossessedJump(Actor __1) => CanLeaveStance(__1);
+
+    /// <summary>外部已装备的闪步从方向输入启动，和跳跃共用同一人物的站姿检查。</summary>
+    private static bool BeforePossessedDodge(Actor __0) => CanLeaveStance(__0);
+
+    private static bool CanLeaveStance(Actor actor) =>
+        disabled || actor == null || !BodyControlState.HasControl(actor.id, BodyOccupancy.Stance);
+
+    /// <summary>读取实际三维准星和地块。首次绘制尚未就绪时，仍由这一视角接管输入。</summary>
+    private static (bool Active, Vector3? Point, BaseSimObject Target) ReadSkillAim(Actor actor)
+    {
+        object view = binding.RootInstance.GetValue(null);
+        if (view == null || !(bool)binding.RootFirstPerson.GetValue(view)) return default;
+        if (!ReferenceEquals(binding.RootHost.GetValue(view), actor) || !binding.AimReady(actor))
+            return (true, null, null);
+
+        object[] hit = { null, null, false };
+        if (!(bool)binding.AimPoint.Invoke(null, hit)) return (true, null, null);
+        float x = (float)binding.AimX.GetValue(hit[0]), y = (float)binding.AimY.GetValue(hit[0]);
+        BaseSimObject target = (Actor)hit[1];
+        if (target == null && binding.RootPicked.GetValue(view) is Building building &&
+            World.world.GetTile(Mathf.FloorToInt(x), Mathf.FloorToInt(y))?.building == building)
+            target = building;
+        return (true, new Vector3(x, y, 0f), target);
+    }
 
     /// <summary>共同动作、受力或模型承托期间不再按外部地面轮廓推离，避免把屋面人物推到屋外。</summary>
     /// <param name="__0">正在完成原地动作的人物。</param>
@@ -578,6 +605,7 @@ internal static class WorldfallVisualBridge
     private static void Disable(Exception exception)
     {
         disabled = true;
+        ControlledCultivatorSkillControls.ReadFirstPersonAim = null;
         Skills.ConstructedAbilityService.GroundProvider = null;
         Skills.ConstructedAbilityService.BodyWallHeights = null;
         Skills.ConstructedAbilityService.CaptureBodyObstacles = null;
@@ -675,8 +703,8 @@ internal static class WorldfallVisualBridge
         /// <summary>第一人称手臂入口，掌击时让共用手臂代替右臂。</summary>
         internal readonly MethodInfo PlaceArm;
 
-        /// <summary>外部模组替换后的受控移动、跳跃及近处重叠修正。</summary>
-        internal readonly MethodInfo PossessedStep, CheckJump, KeepBodyClear, StandOn;
+        /// <summary>外部模组替换后的受控移动、跳闪及近处重叠修正。</summary>
+        internal readonly MethodInfo PossessedStep, CheckJump, DodgeKey, KeepBodyClear, StandOn;
 
         /// <summary>场景绘制对周围人物执行的避让移动。</summary>
         internal readonly MethodInfo Steer;
@@ -687,8 +715,13 @@ internal static class WorldfallVisualBridge
         /// <summary>外部船坞显示方向，仅清除过期缓存，不修改世界事实。</summary>
         internal readonly FieldInfo DockHeading;
 
-        /// <summary>外部视角的实例与真实宿主。</summary>
-        internal readonly PropertyInfo RootInstance, RootHost;
+        /// <summary>外部视角的实例、真实宿主和准星当前拾取对象。</summary>
+        internal readonly PropertyInfo RootInstance, RootHost, RootFirstPerson, RootPicked;
+
+        /// <summary>复用外部实际的准星检测，并将落点读为地图坐标。</summary>
+        internal readonly Func<Actor, bool> AimReady;
+        internal readonly MethodInfo AimPoint;
+        internal readonly FieldInfo AimX, AimY;
 
         /// <summary>场景模型列表。</summary>
         internal readonly FieldInfo SceneMeshes;
@@ -718,6 +751,8 @@ internal static class WorldfallVisualBridge
             Type root = assembly.GetType("FirstPerson.WorldBoxMod", true);
             RootInstance = root.GetProperty("Instance") ?? throw new MissingMemberException(root.FullName, "Instance");
             RootHost = root.GetProperty("Host") ?? throw new MissingMemberException(root.FullName, "Host");
+            RootFirstPerson = root.GetProperty("IsFirstPerson") ?? throw new MissingMemberException(root.FullName, "IsFirstPerson");
+            RootPicked = root.GetProperty("Picked") ?? throw new MissingMemberException(root.FullName, "Picked");
             KeepBodyClear = root.GetMethod("KeepBodyClear", BindingFlags.Instance | BindingFlags.NonPublic) ??
                             throw new MissingMethodException(root.FullName, "KeepBodyClear");
             StandOn = root.GetMethod("StandOn", BindingFlags.Instance | BindingFlags.NonPublic) ??
@@ -728,6 +763,8 @@ internal static class WorldfallVisualBridge
             Type possession = assembly.GetType("FirstPerson.PossessionHooks", true);
             PossessedStep = possession.GetMethod("PossessedStep", BindingFlags.Static | BindingFlags.NonPublic) ??
                             throw new MissingMethodException(possession.FullName, "PossessedStep");
+            DodgeKey = possession.GetMethod("DodgeKey", BindingFlags.Static | BindingFlags.NonPublic) ??
+                       throw new MissingMethodException(possession.FullName, "DodgeKey");
             Type jumps = assembly.GetType("FirstPerson.Jumps", true);
             CheckJump = jumps.GetMethod("CheckJump", BindingFlags.Static | BindingFlags.NonPublic) ??
                         throw new MissingMethodException(jumps.FullName, "CheckJump");
@@ -772,6 +809,13 @@ internal static class WorldfallVisualBridge
             Instance = new Shape(assembly, "MeshInstance", "Model", "Position", "Basis", "Multiply", "Fade", "Emissive",
                 "Tag", "KeepSmall");
             Type vec = assembly.GetType("FirstPerson.Core.Vec3", true);
+            Type aim = assembly.GetType("FirstPerson.FirstPersonAim", true);
+            AimReady = (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>),
+                aim.GetMethod("Ready", new[] { typeof(Actor) }));
+            AimPoint = aim.GetMethod("Point", new[] { vec.MakeByRefType(), typeof(Actor).MakeByRefType(), typeof(bool) }) ??
+                       throw new MissingMethodException(aim.FullName, "Point");
+            AimX = vec.GetField("X") ?? throw new MissingFieldException(vec.FullName, "X");
+            AimY = vec.GetField("Y") ?? throw new MissingFieldException(vec.FullName, "Y");
             vector = vec.GetConstructor(new[] { typeof(float), typeof(float), typeof(float) }) ??
                      throw new MissingMethodException(vec.FullName, ".ctor");
             matrix = assembly.GetType("FirstPerson.Core.Mat3", true).GetConstructor(new[] { vec, vec, vec }) ??

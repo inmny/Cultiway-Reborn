@@ -1,0 +1,299 @@
+Actor caster = archived == null ? Make(64) : World.world.units.get((long)archived["caster"]);
+Actor enemy = archived == null ? Make(firstPerson ? 66.7f : 70f, "wolf") :
+    World.world.units.get((long)archived["enemy"]);
+ActorExtend owner = caster.GetExtend();
+CombatStatusEffects.RemoveStatus(caster, hold);
+caster.setStatsDirty();
+caster.updateStats();
+if (archived != null)
+{
+    CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+    enemy.setStatsDirty();
+    enemy.updateStats();
+}
+
+const string abilityId = "test.manual-cast.sword";
+AbilityDefinition definition;
+if (archived == null)
+{
+    definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(samplePath));
+    definition.Id = abilityId;
+    definition.Name = "成锋行剑·初版";
+    definition.Resource = "stamina";
+    definition.Cost = 3f;
+    definition.TargetRange = 14f;
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(owner, definition.Id);
+}
+else
+{
+    definition = ConstructionEditing.Access.Read(abilityId);
+    JToken savedDefinition = definition == null ? null : JObject.Parse(JsonConvert.SerializeObject(definition));
+    Check(JToken.DeepEquals(savedDefinition, archived["definition"]), "正式世界已读回同一人物的完整重订版资料",
+        savedDefinition == null ? null : new { definition.Id, definition.Revision, definition.Cost, definition.TargetRange });
+}
+
+var assembly = typeof(ActorExtend).Assembly;
+var selectionType = assembly.GetType("Cultiway.Core.ControlledSkillTargetSelection", true);
+var slotType = assembly.GetType("Cultiway.UI.ControlledActiveAbilitySlot", true);
+var selection = selectionType.GetField("_instance", F).GetValue(null);
+var ability = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+var hotkey = Cultiway.WorldboxGame.Hotkeys.CastControlledSkill;
+var starts = new List<ConstructedCastStarted>();
+var finishes = new List<ConstructedCastEnded>();
+var events = new List<object>();
+var film = new List<object>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    starts.Add(fact);
+    bool whileControlled = ControllableUnit.isControllingUnit(caster);
+    events.Add(new { kind = "施放受理", origin = fact.Origin.ToString(), fact.WorldTime, fact.CastId, whileControlled,
+        automaticPath = fact.Origin == ActiveAbilityUseOrigin.Autonomous && whileControlled
+            ? new System.Diagnostics.StackTrace().ToString() : null });
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    finishes.Add(fact);
+    events.Add(new { kind = "实际结束", fact.CastId, fact.Cancelled });
+}
+
+var input = new Harmony("Cultiway.Verify.ManualCast.Input");
+var getMouse = typeof(MapBox).GetMethod("getMousePos", F, null, Type.EmptyTypes, null);
+void AimNative(Vector2 point) => ManualCastTestInput.Position = point;
+void Begin() => hotkey.just_pressed_action(hotkey);
+bool Preparing() => (bool)Field(selection, "_pressActive");
+void Release() => selectionType.GetMethod("Release", F).Invoke(selection, null);
+
+async Task Frames(int count)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+}
+
+async Task Capture(string stage)
+{
+    if (!record) return;
+    double time = World.world.getCurWorldTime();
+    await Frames(2);
+    Screen.Capture(Path.Combine(folder, "frames", film.Count.ToString("D5") + ".png"));
+    await Frames(2);
+    film.Add(new { time, frame = film.Count, stage });
+}
+
+Component Slot() => Resources.FindObjectsOfTypeAll(slotType).Cast<Component>()
+    .FirstOrDefault(item => item.gameObject.activeInHierarchy &&
+        (ActiveAbilityHandle)Field(item, "_handle") == ability);
+
+object view = null;
+Type viewType = null;
+void SetView(string name, object value) => viewType.GetMethod(name, F).Invoke(view, new[] { value });
+object View(string name) => viewType.GetProperty(name, F).GetValue(view);
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+input.Patch(getMouse, prefix: new HarmonyMethod(typeof(ManualCastTestInput).GetMethod("BeforeMouse")));
+try
+{
+    ControllableUnit.setControllableCreatureAndSelected(caster);
+    if (firstPerson)
+    {
+        viewType = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+            .Single(type => type != null);
+        view = viewType.GetProperty("Instance", F).GetValue(null);
+        SetView("SetGodView", false);
+        SetView("ViewForTest", true);
+        await Game.WaitUntil(() => (bool)View("IsFirstPerson") && (bool)View("DiveDone") &&
+            ReferenceEquals(View("Host"), caster), 1800);
+    }
+    await Advance(archived == null ? .25f : .6f);
+    Place(caster, 64f);
+    Place(enemy, firstPerson ? 66.7f : 70f);
+    if (record)
+    {
+        Directory.CreateDirectory(Path.Combine(folder, "frames"));
+        if (!firstPerson)
+        {
+            World.world.camera.transform.position = new Vector3(65.7f, 72f, 0f);
+            MoveCamera.instance.forceZoom(4.8f);
+        }
+    }
+    World.world.console.Hide();
+    caster.data.stamina = caster.getMaxStamina();
+    caster.attack_timer = 0f;
+    caster.addAggro(enemy);
+    enemy.addAggro(caster);
+    await Game.WaitUntil(() => Slot() != null, 900);
+    Slot().GetComponent<Button>().onClick.Invoke();
+    await Frames(2);
+    int balance = caster.data.stamina;
+    Check((bool)Field(Slot(), "_selected") && ((string)Field(Slot(), "_tooltipTitle")).Contains(definition.Name),
+        "使用真实能力栏选中当前版本");
+
+    if (firstPerson)
+    {
+        // 俯视光标指向无人的另一处，只允许三维准星决定目标。
+        AimNative(new Vector2(61f, 75f));
+        viewType.GetField("MouseLookOff", F).SetValue(view, true);
+        var vec = viewType.Assembly.GetType("FirstPerson.Core.Vec3", true);
+        var ray = viewType.Assembly.GetType("FirstPerson.FirstPersonAim", true).GetMethod("Point",
+            new[] { vec.MakeByRefType(), typeof(Actor).MakeByRefType(), typeof(bool) });
+        bool HasAim()
+        {
+            object[] hit = { null, null, false };
+            return (bool)ray.Invoke(null, hit) && ReferenceEquals(hit[1], enemy);
+        }
+        var sight = new List<object>();
+        foreach (Vector2 offset in new[] { new Vector2(2.7f, 0f), new Vector2(0f, 2.25f), new Vector2(-2.25f, 0f) })
+        {
+            Vector2 target = caster.current_position + offset;
+            Place(enemy, target.x, target.y);
+            await Advance(.06f);
+            object eye = View("View");
+            Vector2 eyePosition = new Vector2((float)Field(eye, "X"), (float)Field(eye, "Y"));
+            Vector2 toEnemy = enemy.current_position - eyePosition;
+            SetView("SetYaw", Mathf.Atan2(toEnemy.y, toEnemy.x));
+            for (int degrees = 12; degrees >= -44; degrees -= 4)
+            {
+                SetView("SetPitchDegrees", (float)degrees);
+                await Frames(5);
+                if (HasAim()) break;
+            }
+            bool visible = HasAim();
+            sight.Add(new { eye = eyePosition.ToString(), enemy = enemy.current_position.ToString(), visible });
+            if (visible) break;
+        }
+        if (!HasAim())
+        {
+            Screen.Capture(Path.Combine(folder, "aim-failure.png"));
+            await Frames(3);
+        }
+        Check(HasAim(), "第一人称准星确实拾取同一对练目标",
+            new { sight, alive = enemy.isAlive(), inside = enemy.isInsideSomething(), enemy.actor_scale,
+                picked = (View("Picked") as BaseSimObject)?.getID() });
+        if (record)
+        {
+            await Capture("准星选定目标");
+            await Advance(.15f);
+            balance = caster.data.stamina;
+        }
+        Begin();
+        Release();
+        Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Player &&
+            balance - caster.data.stamina == Mathf.CeilToInt(definition.Cost),
+            "第一人称从真实准星受理一次，并支付当前构造费用", new { starts = starts.Count, paid = balance - caster.data.stamina });
+    }
+    else
+    {
+        AimNative(enemy.current_position);
+        Slot().GetComponent<TipButton>().showTooltipDefault();
+        Tooltip shown = Tooltip.findActive(tip => tip.asset == Cultiway.WorldboxGame.Tooltips.RawTip);
+        Check(shown != null && shown.name.text.Contains(definition.Name), "初版提示正在实际显示");
+        Begin();
+        Check(Preparing(), "施放热键建立当前版本的准备");
+        definition.Name = "成锋行剑·重订";
+        definition.Revision++;
+        definition.TargetRange = 4f;
+        definition.Cost = 7f;
+        ConstructedAbilityService.Register(definition);
+        Release();
+        Check(!Preparing() && starts.Count == 0 && caster.data.stamina == balance, "原准备跨改版取消且未支付");
+        await Frames(2);
+        string summary = (string)Field(Slot(), "_tooltipSummary");
+        Check(((string)Field(Slot(), "_tooltipTitle")).Contains(definition.Name) && summary.Contains("4") &&
+            Mathf.Abs(ActiveAbilityService.ResolveRange(owner, ability) - 4f) < .01f,
+            "同一能力栏更新名称及选取距离", summary);
+        Check(shown.gameObject.activeSelf && shown.name.text.Contains(definition.Name) &&
+            shown.description.text.Contains("4"), "已打开的提示也更新为同一重订版", shown.description.text);
+
+        Begin();
+        Release();
+        Check(starts.Count == 0 && caster.data.stamina == balance, "新版本拒绝超距人物且未支付");
+        Place(enemy, 66.7f);
+        AimNative(enemy.current_position);
+        if (record)
+        {
+            await Capture("选取重订版和距离内目标");
+            await Advance(.15f);
+            balance = caster.data.stamina;
+        }
+        Begin();
+        Release();
+        Check(starts.Count == 1 && starts[0].Origin == ActiveAbilityUseOrigin.Player && balance - caster.data.stamina == 7,
+            "新范围内从实际施放键开始，按新价支付一次");
+    }
+
+    if (record)
+    {
+        double until = World.world.getCurWorldTime() + definition.Lifetime + .4;
+        while (World.world.getCurWorldTime() < until)
+        {
+            await Capture(finishes.Count == 0 ? "正式施展" : "法术实际结束");
+            await Advance(.10f);
+        }
+        await Capture("法术实际结束");
+        Check(film.Count >= 14, "录像包含实际起手、运动和结束");
+    }
+    else await Advance(definition.Lifetime + .25f);
+    Check(starts.Count == 1 && finishes.Count == 1 && !finishes[0].Cancelled &&
+        !BodyControlState.IsBusy(caster.id), "整次动作结束后无额外受理和控制残留", events.ToArray());
+    if (!firstPerson)
+    {
+        ControllableUnit.clear(false);
+        // 附体解除会产生推力、短暂眩晕与困惑。按世界时间让这些原版效果正常结束。
+        await Advance(6.15f);
+        Place(caster, 64f);
+        Place(enemy, 66.7f);
+        if (record)
+        {
+            World.world.units.checkContainer();
+            foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+            SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+            Check(File.Exists(Path.Combine(folder, "archive", "map.wbox")), "带实际修订与知识的正式世界已保存");
+            File.WriteAllText(Path.Combine(folder, "archive-expected.json"), JsonConvert.SerializeObject(new
+            {
+                caster = caster.id, enemy = enemy.id, definition
+            }));
+        }
+        caster.setAttackTarget(enemy);
+        caster.attack_timer = 0f;
+        for (int i = 0; i < 6 && starts.Count == 1; i++) await Advance(.45f);
+        Check(starts.Skip(1).Any(fact => fact.Origin == ActiveAbilityUseOrigin.Autonomous && fact.SourceId == caster.id),
+            "解除附体后同一个人物恢复自主施法", events.ToArray());
+    }
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, firstPerson, checks };
+}
+finally
+{
+    input.Unpatch(getMouse, HarmonyPatchType.Prefix, input.Id);
+    if (view != null)
+    {
+        viewType.GetField("MouseLookOff", F).SetValue(view, false);
+        SetView("ViewForTest", false);
+    }
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+    if (record)
+    {
+        File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition));
+        File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new
+        {
+            view = firstPerson ? "firstperson" : "native", frames = film, events
+        }));
+    }
+}
+
+public static class ManualCastTestInput
+{
+    public static Vector2 Position;
+
+    public static bool BeforeMouse(ref Vector2 __result)
+    {
+        __result = Position;
+        return false;
+    }
+}
