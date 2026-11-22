@@ -3159,3 +3159,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 顶尖修士的精细小术（11.19）
 
 在独立原版游戏运行 `dev.py exec --timeout 200 -- python3 Scripts/SpellDemos/verify_small_art_control.py --archive <11.03城市用术准备目录>`。复用原城与同一名化神，核对实际伤害、覆盖、瞄准、两档火禁时长及一格地貌的正式读回。可用 `--case combat` 或 `--case world` 单独复验。见[精细小术](../../Doc/技能系统全面重构/顶尖修士的精细小术.md)。
+
+### 地面传播的四个取景尺度（11.20）
+
+在已启动的独立游戏运行 `dev.py exec --timeout 630 -- python3 Scripts/SpellDemos/verify_ground_scale.py --catalog --film --archive <4.32原测试世界目录> --case city`。将 `city` 改为 `world` 切换全域术。使用加载了 Worldfall 的独立游戏时加 `--worldfall`。影片按实际世界时间切换取景，原始帧、已到达格与网格中心高度的核对、伤害和结束记录随成片保留。见[地面传播的四个取景尺度](../../Doc/技能系统全面重构/地面传播的四个取景尺度.md)。
