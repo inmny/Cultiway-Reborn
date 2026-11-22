@@ -37,8 +37,8 @@ internal static partial class CultiwayRankings
             !item.HasComponent<Talisman>();
         RegisterInventory(api, Materials, MaterialIcon, () => ModClass.I.W.Query<SpecialItem>().Entities,
             IsMaterial);
-        api.Field<InventoryRow>(Materials, "shape", Locale + "material_shape", "Choice",
-            row => api.Choice(row.Shape, row.Shape.Localize()));
+        api.Field<InventoryRow>(Materials, "shape", Locale + "material_shape", "Category",
+            row => api.Choice(row.Shape, row.Shape), icon: MaterialIcon);
         api.Board(Materials, Locale + "material_board", Group, 500, MaterialIcon, "level", "shape", "holder");
     }
 
@@ -73,8 +73,8 @@ internal static partial class CultiwayRankings
                 return Find(key, out var item) ? GetHolder(item).Tile : null;
         });
         api.Field<InventoryRow>(id, "name", Locale + "name", "Text", row => api.Text(row.Name));
-        api.Field<InventoryRow>(id, "level", Locale + "grade", "Choice", row => row.Grade is ItemLevel grade
-            ? api.Choice(Key(grade), grade.GetName(), (int)grade) : null);
+        api.Field<InventoryRow>(id, "level", Locale + "grade", "Ordinal",
+            row => row.Grade is ItemLevel grade ? Grade(api, grade) : null, GradeOptions, icon);
         api.Field<InventoryRow>(id, "holder", Locale + "holder", "Text", row => api.Text(row.Holder));
         api.Field<InventoryRow>(id, "creator", Locale + "creator", "Text", row => api.Text(row.Creator));
 

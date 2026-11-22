@@ -61,6 +61,16 @@ internal static partial class CultiwayRankings
         internal readonly string Holder = holder;
     }
 
+    private static readonly GodToolsRankingApi.Option[] GradeOptions = Enumerable.Range(0, 36).Select(value =>
+    {
+        var grade = ItemLevel.FromValue(value);
+        return new GodToolsRankingApi.Option(Key(value), grade.GetName, value, Key(grade.Stage),
+            $"Cultiway.Stage.{grade.Stage}", -grade.Stage);
+    }).ToArray();
+
+    private static object Grade(GodToolsRankingApi api, ItemLevel grade) =>
+        api.Choice(Key((int)grade), grade.GetName(), (int)grade);
+
     private static Dictionary<string, BookRow> bookRows = new();
     private static GameObject Anchor => ScrollWindow.get("WindowRankings").gameObject;
 
@@ -89,19 +99,18 @@ internal static partial class CultiwayRankings
         });
         api.Field<Actor>(Actors, "cultiway:skill_count", Locale + "skill_count", "Number",
             actor => api.Number(actor.GetExtend().all_skills.Count));
-        api.Field<Actor>(Actors, "cultiway:book_grade", Locale + "book_grade", "Choice", actor =>
+        api.Field<Actor>(Actors, "cultiway:book_grade", Locale + "book_grade", "Ordinal", actor =>
         {
             var book = actor.GetExtend().GetMainCultibook();
-            return book == null ? api.Choice("none", LM.Get(Locale + "no_book"), 0)
-                : api.Choice(book.Level.ToString(), book.Level.GetName(), (int)book.Level);
-        });
+            return book == null ? null : Grade(api, book.Level);
+        }, GradeOptions, BookIcon);
         api.Field<Actor>(Actors, "cultiway:apprentices", Locale + "apprentices", "Number", actor =>
             api.Number(actor.GetExtend().TryGetComponent(out MasterApprenticeState state) ? state.ApprenticeCount : 0));
     }
 
     private static void RegisterRealm<T>(GodToolsRankingApi api, string id, string noRealm) where T : struct, ICultisysComponent
     {
-        api.Field<Actor>(Actors, "cultiway:" + id, Locale + id, "Choice", actor =>
+        api.Field<Actor>(Actors, "cultiway:" + id, Locale + id, "Ordinal", actor =>
         {
             var extend = actor.GetExtend();
             if (!extend.HasCultisys<T>()) return api.Choice(noRealm, LM.Get(Locale + noRealm), -1);
@@ -115,8 +124,8 @@ internal static partial class CultiwayRankings
         api.Source(Books, ReadBooks, row => row.Book.id, row => row.Book.Name,
             _ => SpriteTextureLoader.getSprite(BookIcon), key => InspectBook(api, key));
         api.Field<BookRow>(Books, "name", Locale + "name", "Text", row => api.Text(row.Book.Name));
-        api.Field<BookRow>(Books, "level", Locale + "grade", "Choice",
-            row => api.Choice(row.Book.Level.ToString(), row.Book.Level.GetName(), (int)row.Book.Level));
+        api.Field<BookRow>(Books, "level", Locale + "grade", "Ordinal",
+            row => Grade(api, row.Book.Level), GradeOptions, BookIcon);
         api.Field<BookRow>(Books, "learners", Locale + "learners", "Number", row => api.Number(row.Learners));
         api.Field<BookRow>(Books, "spells", Locale + "spells", "Number",
             row => api.Number(row.Book.SkillPool.Count + row.Book.ConstructionPool.Count));
@@ -173,7 +182,8 @@ internal static partial class CultiwayRankings
                 SkillTooltip.Show(Anchor, spell);
         });
         api.Field<MagicWebEntryView>(Spells, "name", Locale + "name", "Text", row => api.Text(SpellName(row)));
-        api.Field<MagicWebEntryView>(Spells, "ring", Locale + "ring", "Number", row => api.Number(row.Profile.Ring));
+        api.Field<MagicWebEntryView>(Spells, "ring", Locale + "ring", "Integer",
+            row => api.Number(row.Profile.Ring), icon: SpellIcon, description: Locale + "ring_description");
         api.Field<MagicWebEntryView>(Spells, "element", Locale + "element", "Choice",
             row => row.Profile.PrimaryElement is { } element ? api.Choice(element.id, element.GetName()) : null);
         api.Field<MagicWebEntryView>(Spells, "publisher", Locale + "publisher", "Text", row => api.Text(row.PublisherName));
@@ -240,8 +250,8 @@ internal static partial class CultiwayRankings
                 return TryGetArtifact(key, out var artifact) ? GetHolder(artifact).Tile : null;
         });
         api.Field<ArtifactRow>(Artifacts, "name", Locale + "name", "Text", row => api.Text(row.Name));
-        api.Field<ArtifactRow>(Artifacts, "level", Locale + "grade", "Choice", row => row.Grade is ItemLevel grade
-            ? api.Choice(Key(grade), grade.GetName(), (int)grade) : null);
+        api.Field<ArtifactRow>(Artifacts, "level", Locale + "grade", "Ordinal",
+            row => row.Grade is ItemLevel grade ? Grade(api, grade) : null, GradeOptions, ArtifactIcon);
         api.Field<ArtifactRow>(Artifacts, "abilities", Locale + "abilities", "Number", row => api.Number(row.Abilities));
         api.Field<ArtifactRow>(Artifacts, "holder", Locale + "holder", "Text", row => api.Text(row.Holder));
         api.Field<ArtifactRow>(Artifacts, "shape", Locale + "shape", "Choice", row => api.Choice(row.Shape, row.Shape.Localize()));

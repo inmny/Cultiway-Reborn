@@ -16,7 +16,19 @@ internal sealed class GodToolsRankingApi
     private readonly Type fieldType;
     private readonly Type boardType;
     private readonly Type fieldKind;
+    private readonly Type optionType;
+    private readonly Type bandType;
     private readonly Type valueType;
+
+    internal readonly struct Option(string id, Func<string> name, double order, string bandID, string bandName, double bandOrder)
+    {
+        internal readonly string ID = id;
+        internal readonly Func<string> Name = name;
+        internal readonly double Order = order;
+        internal readonly string BandID = bandID;
+        internal readonly string BandName = bandName;
+        internal readonly double BandOrder = bandOrder;
+    }
     private readonly MethodInfo registerGroup;
     private readonly MethodInfo registerSource;
     private readonly MethodInfo registerField;
@@ -55,6 +67,8 @@ internal sealed class GodToolsRankingApi
         fieldType = assembly.GetType(ApiNamespace + "RankingField`1", true);
         boardType = assembly.GetType(ApiNamespace + "RankingBoard", true);
         fieldKind = assembly.GetType(ApiNamespace + "RankingFieldKind", true);
+        optionType = assembly.GetType(ApiNamespace + "RankingOption");
+        bandType = assembly.GetType(ApiNamespace + "RankingDistributionBand");
         valueType = assembly.GetType(ApiNamespace + "RankingValue", true);
         registerGroup = Method(registry, "RegisterGroup");
         registerSource = Method(registry, "RegisterSource");
@@ -81,13 +95,33 @@ internal sealed class GodToolsRankingApi
             ("Locate", locate), ("MetaPortrait", metaPortrait));
 
     /// <summary>登记指定来源的指标，值读取委托按指标类型绑定一次。</summary>
-    internal void Field<T>(string source, string id, string label, string kind, Func<T, object> read)
+    internal void Field<T>(string source, string id, string label, string kind, Func<T, object> read,
+        IReadOnlyList<Option> options = null, string icon = null, string description = null)
     {
         var item = Expression.Parameter(typeof(T));
         var adapted = Expression.Lambda(typeof(Func<,>).MakeGenericType(typeof(T), valueType),
             Expression.Convert(Expression.Invoke(Expression.Constant(read), item), valueType), item).Compile();
-        var definition = Definition(fieldType.MakeGenericType(typeof(T)), id, ("Name", label),
-            ("Kind", Enum.Parse(fieldKind, kind)), ("Read", adapted), ("Owner", ModClass.I.GetDeclaration()));
+        string compatibleKind = Enum.IsDefined(fieldKind, kind) ? kind : kind == "Integer" ? "Number" : "Choice";
+        var type = fieldType.MakeGenericType(typeof(T));
+        var definition = Definition(type, id, ("Name", label), ("Kind", Enum.Parse(fieldKind, compatibleKind)), ("Read", adapted));
+        type.GetProperty("IconPath")?.SetValue(definition, icon);
+        type.GetProperty("Description")?.SetValue(definition, description);
+        if (kind == "Ordinal" && compatibleKind == "Choice")
+            type.GetProperty("Ordered")?.SetValue(definition, true);
+        if (optionType != null && options != null)
+        {
+            var declared = Array.CreateInstance(optionType, options.Count);
+            for (int i = 0; i < options.Count; i++)
+            {
+                var option = options[i];
+                var band = bandType == null ? null :
+                    Activator.CreateInstance(bandType, option.BandID, option.BandName, option.BandOrder);
+                var entry = bandType == null ? Activator.CreateInstance(optionType, option.ID, option.Name(), option.Order)
+                    : Activator.CreateInstance(optionType, option.ID, option.Name(), option.Order, option.Name, band);
+                declared.SetValue(entry, i);
+            }
+            type.GetProperty("Options").SetValue(definition, declared);
+        }
         if (!(bool)registerField.MakeGenericMethod(typeof(T)).Invoke(null, new[] { source, definition }))
             throw new InvalidOperationException($"无法登记指标 {source} / {id}");
     }
