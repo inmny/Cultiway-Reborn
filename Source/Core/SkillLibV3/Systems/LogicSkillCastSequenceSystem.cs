@@ -69,9 +69,12 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 { ending = SkillCastSequenceEndReason.InsufficientResource; return; }
                 if (!IsValid(sequence)) { ending = SkillCastSequenceEndReason.Invalidated; return; }
                 Vector3 source = step.HasSourcePosition ? step.SourcePos : (sequence.Carrier ?? sequence.Caster).Base.GetSimPos();
-                Vector3 position = default;
-                bool resolved = !step.HasSourcePosition && !sequence.Sourceless && SkillCastPlanner.TryResolveSourcePosition(sequence.Caster, sequence.SkillContainer, out position);
-                if (resolved) source = position;
+                SkillCastPlacement placement = default;
+                bool resolved = !step.HasSourcePosition && !sequence.Sourceless &&
+                    SkillCastPlanner.TryResolveSourcePlacement(sequence.Caster, sequence.SkillContainer, out placement);
+                if (resolved) source = placement.Position;
+                SkillCastRuntimeData runtimeData = sequence.RuntimeData;
+                runtimeData.TrackSource = placement.Track;
                 var request = new SkillEmission
                 {
                     Payment = payment,
@@ -89,7 +92,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     StepSeed = unchecked((entity.Id * 397 ^ sequence.NextIndex) * 397 ^ World.world.getCurWorldTime().GetHashCode()),
                     InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees,
                     AttackKingdom = sequence.AttackKingdom,
-                    RuntimeData = sequence.RuntimeData
+                    RuntimeData = runtimeData
                 };
                 var accepted = sequence.Options?.FirstEmissionAccepted;
                 if (sequence.EmittedCount == 0 && payment != null && accepted != null)

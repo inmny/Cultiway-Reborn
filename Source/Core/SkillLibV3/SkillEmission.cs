@@ -1,8 +1,28 @@
+using System;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3;
+
+/// <summary>一次发射的实际空间来源，归属和扣费仍由原技能负责。</summary>
+internal readonly struct SkillCastPlacement
+{
+    /// <summary>本次解析时的出生位置。</summary>
+    internal readonly Vector3 Position;
+
+    /// <summary>可选的原载体位置。返回空表示原载体消失。</summary>
+    internal readonly Func<Vector3?> Track;
+
+    /// <summary>建立一次出生位置及可选的随动方式。</summary>
+    /// <param name="position">出生位置。</param>
+    /// <param name="track">原载体位置的读取方式。</param>
+    internal SkillCastPlacement(Vector3 position, Func<Vector3?> track = null)
+    {
+        Position = position;
+        Track = track;
+    }
+}
 
 /// <summary>一个已经受理的发射步骤；收费和步骤数由原来源维护，执行入口只能接管一次。</summary>
 public struct SkillEmission

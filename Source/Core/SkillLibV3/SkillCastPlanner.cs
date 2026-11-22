@@ -87,7 +87,7 @@ public static class SkillCastPlanner
     private static Func<ActorExtend, Entity, bool> castValidator;
 
     /// <summary>内容系统可注册的技能出生位置解析器。</summary>
-    private static Func<ActorExtend, Entity, Vector3?> sourcePositionResolver;
+    private static Func<ActorExtend, Entity, SkillCastPlacement?> sourcePositionResolver;
 
     /// <summary>注册一个在计划生成前执行的施法许可校验器。</summary>
     /// <param name="validator">返回假时禁止本次技能释放。</param>
@@ -117,8 +117,14 @@ public static class SkillCastPlanner
     /// <param name="resolver">返回世界坐标表示改写；返回空表示继续使用人物位置。</param>
     public static void RegisterSourcePositionResolver(Func<ActorExtend, Entity, Vector3?> resolver)
     {
-        sourcePositionResolver += resolver;
+        RegisterSourcePlacementResolver((caster, skill) => resolver(caster, skill) is { } position
+            ? new SkillCastPlacement(position) : null);
     }
+
+    /// <summary>登记既能提供出生位置、也能随原载体读取位置的解析器。</summary>
+    /// <param name="resolver">按实际归属者和技能决定本次载体。</param>
+    internal static void RegisterSourcePlacementResolver(Func<ActorExtend, Entity, SkillCastPlacement?> resolver) =>
+        sourcePositionResolver += resolver;
 
     /// <summary>按注册顺序取得第一个明确的技能出生位置。</summary>
     /// <param name="caster">技能归属人物。</param>
@@ -127,7 +133,18 @@ public static class SkillCastPlanner
     /// <returns>内容系统提供了有效位置时返回真。</returns>
     public static bool TryResolveSourcePosition(ActorExtend caster, Entity skill, out Vector3 position)
     {
-        position = default;
+        bool resolved = TryResolveSourcePlacement(caster, skill, out SkillCastPlacement placement);
+        position = placement.Position;
+        return resolved;
+    }
+
+    /// <summary>发射与位置检查使用同一份来源。</summary>
+    /// <param name="caster">技能归属人物。</param>
+    /// <param name="skill">准备发射的技能。</param>
+    /// <param name="placement">真实出生位置及可选的随动读取方式。</param>
+    internal static bool TryResolveSourcePlacement(ActorExtend caster, Entity skill, out SkillCastPlacement placement)
+    {
+        placement = default;
         if (caster == null) return false;
         if (SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context) &&
             context.Carrier != caster)
@@ -139,9 +156,9 @@ public static class SkillCastPlanner
         Delegate[] resolvers = sourcePositionResolver.GetInvocationList();
         for (var i = 0; i < resolvers.Length; i++)
         {
-            Vector3? candidate = ((Func<ActorExtend, Entity, Vector3?>)resolvers[i])(caster, skill);
+            SkillCastPlacement? candidate = ((Func<ActorExtend, Entity, SkillCastPlacement?>)resolvers[i])(caster, skill);
             if (!candidate.HasValue) continue;
-            position = candidate.Value;
+            placement = candidate.Value;
             return true;
         }
 

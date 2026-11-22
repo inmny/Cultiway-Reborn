@@ -19,7 +19,7 @@ public sealed partial class ConstructedAbilityService
         Mesh mesh = BuildShadowMesh(body);
         if (mesh == null) return;
         if (shadows.Count == 16) RemoveShadow(0);
-        Vector3 toward = running.Owner(node).LastFoot - body.Foot;
+        Vector3 toward = running.Owner(node).SourceFoot() - body.Foot;
         toward.z = 0f;
         // 立影离开真实人物的轮廓，沿来向的反面和侧边抬起，两个视角都能认出原身和投影。
         Vector3 side = new(toward.y, -toward.x, 0);

@@ -1,6 +1,8 @@
+using System;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Components;
 
@@ -18,6 +20,9 @@ public struct SkillCastRuntimeData
 
     /// <summary>本次实际世界任务边界，不进入长期资料或工作线程。</summary>
     public ConstructionWorldScope WorldScope;
+
+    /// <summary>实际发射时绑定的原载体，只在主线程读取，失效时返回空。</summary>
+    internal Func<Vector3?> TrackSource;
 
     /// <summary>伤害、状态强度和击退共同使用的效果倍率；非正数按 1 处理。</summary>
     public float EffectScale;

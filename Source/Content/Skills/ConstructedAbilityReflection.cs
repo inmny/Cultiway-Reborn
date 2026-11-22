@@ -34,6 +34,15 @@ public sealed partial class ConstructedAbilityService
         /// <summary>本次空间载体也属于自身，不能在出生处被自己的攻击命中。</summary>
         private readonly long spatialId;
 
+        /// <summary>只改目标或交接反射时，共享实际来源与其最后位置。</summary>
+        private readonly CastAuthority placement;
+
+        /// <summary>原空间人物，和负责伤害及资源的归属人物可以不同。</summary>
+        private readonly Actor spatialActor;
+
+        /// <summary>原空间节点，返回空时保留最后位置。</summary>
+        private readonly Func<Vector3?> trackSource;
+
         /// <summary>最后采集关系的真实帧，同帧重复校验不重新复制。</summary>
         private int relationsFrame = -1;
 
@@ -64,6 +73,35 @@ public sealed partial class ConstructedAbilityService
         /// <summary>当前人物来源是否仍有效；环境的存续由发起过程负责。</summary>
         internal bool IsLive => Actor != null && Actor.data?.id == Id && Actor.isAlive() && Actor.hasHealth();
 
+        /// <summary>实际空间载体仍存在，独立留存部位据此处理来源消失。</summary>
+        internal bool SpatialLive => WorldSource || (placement.trackSource != null
+            ? placement.trackSource().HasValue
+            : placement.spatialActor?.data?.id == spatialId && placement.spatialActor.isAlive() &&
+              placement.spatialActor.hasHealth());
+
+        /// <summary>判断两个部位是否仍借用同一原施放空间来源。</summary>
+        /// <param name="other">待核对的归属。</param>
+        internal bool SharesPlacement(CastAuthority other) => ReferenceEquals(placement, other.placement);
+
+        /// <summary>读取共用时间的实际施法位置，用作推拉及立影方向。</summary>
+        internal Vector3 SourceFoot()
+        {
+            if (placement.trackSource != null)
+            {
+                if (placement.trackSource() is { } point)
+                {
+                    point.z += simulation.terrain?.Sample(point.x, point.y) ?? 0f;
+                    placement.LastFoot = point;
+                }
+            }
+            else if (!WorldSource && SpatialLive)
+            {
+                StartingPose(placement.spatialActor, out Vector3 point, out _);
+                placement.LastFoot = point;
+            }
+            return placement.LastFoot;
+        }
+
         /// <summary>介质只能借给同一实际阵营，来源失效后使用已经冻结的阵营身份。</summary>
         /// <param name="other">另一实际控制者。</param>
         internal bool SameKingdom(CastAuthority other) => kingdomId != 0 && kingdomId == other.kingdomId;
@@ -75,12 +113,17 @@ public sealed partial class ConstructedAbilityService
         /// <param name="actor">当前控制者。</param>
         /// <param name="damage">当前伤害归属。</param>
         /// <param name="target">追踪目标。</param><param name="attackKingdom">可选的本次明确攻击阵营。</param>
-        /// <param name="spatialSourceId">本次空间载体的稳定身份，省略时沿用归属人物。</param>
-        internal CastAuthority(Actor actor, GetHitEvent damage, Actor target, Kingdom attackKingdom = null, long spatialSourceId = 0)
+        /// <param name="spatialSource">本次实际空间人物，省略时沿用归属人物。</param>
+        /// <param name="sourceTracker">本次真实节点或其他可跟随的非人物来源。</param>
+        internal CastAuthority(Actor actor, GetHitEvent damage, Actor target, Kingdom attackKingdom = null,
+            Actor spatialSource = null, Func<Vector3?> sourceTracker = null)
         {
             Actor = actor;
             Id = actor?.data.id ?? 0;
-            spatialId = spatialSourceId == 0 ? Id : spatialSourceId;
+            placement = this;
+            spatialActor = spatialSource ?? actor;
+            spatialId = spatialActor?.id ?? 0;
+            trackSource = sourceTracker;
             Damage = damage;
             Target = target;
             TargetId = target?.data?.id ?? 0;
@@ -102,9 +145,9 @@ public sealed partial class ConstructedAbilityService
             kingdomId = controller.kingdomId;
             fixedKingdom = controller.fixedKingdom;
             spatialId = controller.spatialId;
+            placement = controller.placement;
             canFight = controller.canFight;
             tantrum = controller.tantrum;
-            LastFoot = controller.LastFoot;
             hostileIds.UnionWith(controller.hostileIds);
             relationsFrame = controller.relationsFrame;
         }
@@ -116,7 +159,8 @@ public sealed partial class ConstructedAbilityService
             Actor = source.Actor; Id = source.Id; Damage = source.Damage;
             Target = target; TargetId = target?.data?.id ?? 0;
             kingdomId = source.kingdomId; fixedKingdom = source.fixedKingdom; spatialId = source.spatialId; canFight = source.canFight; tantrum = source.tantrum;
-            LastFoot = source.LastFoot; relationsFrame = source.relationsFrame;
+            placement = source.placement;
+            relationsFrame = source.relationsFrame;
             hostileIds.UnionWith(source.hostileIds);
         }
 
@@ -126,7 +170,8 @@ public sealed partial class ConstructedAbilityService
             if (!IsLive || relationsFrame == Time.frameCount) return;
             relationsFrame = Time.frameCount;
             if (!fixedKingdom) kingdomId = Actor.kingdom?.data?.id ?? 0;
-            LastFoot = PhysicsFoot(Actor);
+            if (ReferenceEquals(placement, this) && trackSource == null && SpatialLive)
+                LastFoot = PhysicsFoot(spatialActor);
             canFight = !Actor.asset.skip_fight_logic;
             tantrum = Actor.hasStatusTantrum();
             hostileIds.Clear();

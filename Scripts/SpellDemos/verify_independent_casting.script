@@ -1,40 +1,3 @@
-// 复用正式神游、真实人物和共同能力入口。
-Actor body = Make(64.5f), enemy = Make(72f, "wolf");
-ActorExtend owner = body.GetExtend();
-owner.AddComponent(new Xian { level = Cultiway.Content.Const.XianLevels.Huashen, wakan = 10000 });
-owner.AddComponent(new Yuanshen
-{
-    formation = new CoreFormationSnapshot
-    {
-        version = CoreFormationSnapshot.CurrentVersion, signature = "verify.independent.casting",
-        canonical_name = "代施复验", finalized = true, realm = CoreFormationRealm.Yuanshen, strength = 4f,
-        refinement = 5, composition = ElementComposition.Static.Earth,
-        atoms = new[] { new CoreFormationAtomState { atom_id = CoreFormationAtoms.ManifestSpiritPlatform.id, weight = 1f } },
-        stats = Array.Empty<CoreFormationStatValue>(),
-        semantics = Array.Empty<Cultiway.Core.Semantics.SemanticContribution>()
-    },
-    original_body = new PhysicalBodySnapshot { actor_asset_id = "human" }
-});
-var boost = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.IndependentCasting.Resource")
-    .SetStats(new BaseStats { [BaseStatses.MaxWakan.id] = 10000, [nameof(Cultiway.WorldboxGame.BaseStats.DivineSense)] = 10000 })
-    .SetDuration(10000).Build();
-var guard = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.IndependentCasting.Guard")
-    .SetStats(new BaseStats { ["armor"] = 1 }).SetDuration(1f).Build();
-CombatStatusEffects.ApplyStatus(body, boost, 10000, body);
-owner.MarkCultiwayStatsDirty();
-body.setStatsDirty();
-body.updateStats();
-await Advance(.18f);
-ref Xian Cultivation() => ref owner.GetCultisys<Xian>();
-float Balance() => Cultivation().wakan;
-
-AbilityDefinition NewAbility(string name, AbilityAnchor anchor, float lifetime) => new()
-{
-    Id = "test.independent-casting." + name, Name = name, Resource = "wakan", Cost = 6f,
-    TargetRange = 3f, Power = 2f, Lifetime = lifetime, Cooldown = .4f,
-    Binding = new ConstructionBinding { Anchor = anchor },
-    Root = new ConstructionNode { Id = "root", Form = "spirit_bolt", Matter = "spirit", Scale = .6f }
-};
 var shot = NewAbility("hit", AbilityAnchor.Target, .32f);
 shot.Root.OnContact = ConstructionContactResponse.End;
 shot.Root.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Hostile, DamageScale = 1f, SelectedTargetOnly = true };
@@ -52,33 +15,6 @@ palm.Resource = "wakan";
 palm.Cost = 6f;
 var expectedFee = SkillCastPayment.Quote(owner, SkillCastResources.Wakan, shot.Cost);
 
-ActiveAbilityHandle Learn(AbilityDefinition definition)
-{
-    ConstructedAbilityService.Register(definition);
-    ConstructedAbilityService.Learn(owner, definition.Id);
-    return new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
-}
-bool Use(Actor caster, ActiveAbilityHandle handle, Actor target, long correlation) =>
-    ActiveAbilityService.TryUse(caster.GetExtend(), handle, new ActiveAbilityTarget(target, target.GetSimPos(),
-        runtimeData: new SkillCastRuntimeData { CorrelationId = correlation }), ActiveAbilityUseOrigin.Script);
-var unit = new Dictionary<long, (ConstructedCastStarted Fact, object Run)>();
-var hits = new List<ConstructedContact>();
-var exits = new List<ConstructedCastEnded>();
-void Started(ConstructedCastStarted fact)
-{
-    if (fact.CorrelationId is < 10101 or > 10104) return;
-    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
-        .Single(value => (long)Field(value, "Id") == fact.CastId);
-    unit.Add(fact.CorrelationId, (fact, run));
-}
-void Contact(ConstructedContact fact)
-{
-    if (unit.Values.Any(value => value.Fact.CastId == fact.CastId)) hits.Add(fact);
-}
-void Exited(ConstructedCastEnded fact)
-{
-    if (unit.Values.Any(value => value.Fact.CastId == fact.CastId)) exits.Add(fact);
-}
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.ContactConfirmed += Contact;
 ConstructedAbilityService.CastEnded += Exited;

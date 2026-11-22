@@ -308,7 +308,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillCasterContext context = SkillCasterContextService.Resolve(caster);
         if (!context.IsValid || context.EffectScale <= 0f || caster.HasComponent<YuanshenBodilessTransitState>() ||
             !context.Carrier.Base.isAlive() || !context.Carrier.Base.hasHealth() ||
-            plan.Body != null && (context.Kind != SkillCarrierKind.Physical || !context.HasPhysicalBody))
+            plan.Body != null && (context.Kind != SkillCarrierKind.Physical || !context.HasPhysicalBody) ||
+            !YuanshenNodeCastingService.TryResolveConstruction(in context, plan, out _, out _))
             return new(ActiveAbilityControlBlockReason.Unavailable);
         if (plan.Binding?.Anchor == AbilityAnchor.Carrier &&
             !ConstructedArtifactCarrier.CanBorrow(caster, handle.Source))
@@ -337,15 +338,28 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
-    public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
+    public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
+        CanUseFrom(caster, handle, target, out _);
+
+    /// <summary>选择距离与正式受理共同解析同一个源节点。</summary>
+    /// <param name="caster">持有法术的修士。</param>
+    /// <param name="handle">当前能力。</param>
+    /// <param name="target">本次选择。</param>
+    /// <param name="node">通过检查后准备借用的节点。</param>
+    private bool CanUseFrom(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
+        out YuanshenNodeHandle node)
     {
+        node = default;
         if (!CanPrepare(caster, handle, target.Object) || target.WorldScope != null && !target.WorldScope.IsValid())
             return false;
         CompiledAbility plan = PlanFor(handle.EntryId);
-        Actor carrier = SkillCasterContextService.Resolve(caster).Carrier.Base;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!YuanshenNodeCastingService.TryResolveConstruction(in context, plan, out node, out Vector3 origin)) return false;
+        Actor carrier = context.Carrier.Base;
         return TryResolveUseTarget(caster, plan, target, out Actor actor, out Vector3 point, out _, self: carrier) &&
                (plan.SoulPact == null || CanBeginSoulPact(caster.Base, actor)) &&
-               StartingDistance(carrier, point) <= Range(caster, plan, actor, handle.Source);
+               (node.OwnerActorId != 0 ? Vector2.Distance(origin, point) : StartingDistance(carrier, point)) <=
+               Range(caster, plan, actor, handle.Source);
     }
 
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
@@ -397,10 +411,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        if (!CanUse(caster, handle, target)) return false;
+        if (!CanUseFrom(caster, handle, target, out YuanshenNodeHandle node)) return false;
         SkillCasterContext context = SkillCasterContextService.Resolve(caster);
         return Start(caster, PlanFor(handle.EntryId), target, origin, out _,
-            carrierSource: handle.Source, spatialSource: context.Carrier.Base, effectScale: context.EffectScale);
+            carrierSource: handle.Source, spatialSource: context.Carrier.Base, effectScale: context.EffectScale,
+            trackSource: node.OwnerActorId != 0 ? YuanshenNodeCastingService.TrackNode(node) : null);
     }
 
     /// <summary>原有身体能力的入口沿用统一执行，不要求每个人预先学会一份临时容器。</summary>
@@ -524,6 +539,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="artifactArea">原法宝圆面确认接触时兑现的状态、伤害或净化。</param>
     /// <param name="commitEffect">共同施放发布前在主线程确认来源动作。</param>
     /// <param name="effectScale">直接施放时当前载体的心神效果倍率。</param>
+    /// <param name="trackSource">可随动的原空间载体，省略时读取已受理发射带来的载体。</param>
     private static bool Start(ActorExtend caster, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, out long castId, Vector3? sourcePosition = null,
         bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
@@ -533,7 +549,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         LegacyBuildingContact buildingContact = null, string formationFamily = null,
         FormationAreaContact? formationArea = null, bool explicitReactionTarget = false,
         FormationTargetContact formationTarget = default, bool selectionAlreadyChecked = false,
-        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, float effectScale = 1f)
+        ArtifactAreaContact? artifactArea = null, Func<bool> commitEffect = null, float effectScale = 1f,
+        Func<Vector3?> trackSource = null)
     {
         castId = 0;
         Actor sourceActor = caster?.Base;
@@ -542,6 +559,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         spatialSource ??= sourceActor;
         if (spatialSource != null && (!spatialSource.isAlive() || !spatialSource.hasHealth())) return false;
         long spatialSourceId = spatialSource?.id ?? 0;
+        if (prepaid && caster != null) trackSource ??= target.RuntimeData.TrackSource;
+        if (trackSource != null)
+        {
+            sourcePosition = trackSource();
+            if (!sourcePosition.HasValue || plan.Body != null) return false;
+            sourceIsWorld = false;
+        }
         string id = plan.Id;
         Actor targetActor = null;
         Vector3 point = target.Position;
@@ -552,7 +576,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (plan.SoulPact != null && (practice || !CanBeginSoulPact(sourceActor, targetActor))) return false;
         if (plan.HasCorrespondences && plan.Nodes.Any(node => node.Correspondence != null &&
             (node.Correspondence.Target == ConstructionCorrespondenceTarget.Source ? sourceActor : targetActor) == null)) return false;
-        if (caster != null && !selectionAlreadyChecked && StartingDistance(spatialSource, point) > Range(caster, plan, targetActor, carrierSource) ||
+        if (caster != null && !selectionAlreadyChecked &&
+            (trackSource != null ? Vector2.Distance(sourcePosition.Value, point) : StartingDistance(spatialSource, point)) >
+            Range(caster, plan, targetActor, carrierSource) ||
             caster == null && Vector2.Distance(sourcePosition.Value, point) > (plan.TargetRange ?? 10000f)) return false;
         if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
             return false;
@@ -570,7 +596,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         double startedAt = LogicTime;
         Vector3 source = sourcePosition.GetValueOrDefault();
         float sourceHeight = 0f;
-        if (spatialSource != null) StartingPose(spatialSource, out source, out sourceHeight);
+        if (spatialSource != null && trackSource == null) StartingPose(spatialSource, out source, out sourceHeight);
         if (sourcePosition.HasValue)
         {
             source = sourcePosition.Value;
@@ -634,6 +660,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (!prepaid && payment == null || sourceActor != null && (sourceActor.isRekt() || sourceActor.id != sourceId) ||
                 spatialSource != null && (spatialSource.isRekt() || spatialSource.id != spatialSourceId ||
                                           !spatialSource.isAlive() || !spatialSource.hasHealth()) ||
+                trackSource != null && !trackSource().HasValue ||
                 generation != worldGeneration || inventory != null && !inventory.IsValid) return false;
             if (plan.Body?.Construction.HasControlRelations == true)
             {
@@ -709,6 +736,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 SourceId = sourceId,
                 SpatialSource = spatialSource,
                 SpatialSourceId = spatialSourceId,
+                TrackSource = trackSource,
                 Target = targetActor,
                 TargetId = targetActor?.id ?? 0,
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
@@ -727,8 +755,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 StartedAt = startedAt,
                 BodyGuardRemaining = practice ? 0f : (plan.Body?.Guard.Capacity ?? 0f) * plan.Power
             };
-            running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource?.id ?? 0);
-            if (sourceActor == null) running.InitialOwner.LastFoot = inputs.Source;
+            running.InitialOwner = new CastAuthority(sourceActor, damage, targetActor, target.AttackKingdom, spatialSource, trackSource);
+            running.InitialOwner.LastFoot = inputs.Source;
             running.Owners = new CastAuthority[plan.FormCount];
             for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
             running.LastSourceFoot = inputs.Source;
@@ -1158,8 +1186,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>载体原身份，防止对象池替身接续随动。</summary>
         internal long SpatialSourceId;
 
-        /// <summary>实际载体仍是原人物且能够提供位置。</summary>
-        internal bool SpatialSourceLive => SpatialSource != null && SpatialSource.data?.id == SpatialSourceId && SpatialSource.isAlive() && SpatialSource.hasHealth();
+        /// <summary>元神等独立的非人物载体，失效不回落到肉身。</summary>
+        internal Func<Vector3?> TrackSource;
+
+        /// <summary>实际载体仍是原来源且能够提供位置。</summary>
+        internal bool SpatialSourceLive => TrackSource != null ? TrackSource().HasValue :
+            SpatialSource != null && SpatialSource.data?.id == SpatialSourceId &&
+            SpatialSource.isAlive() && SpatialSource.hasHealth();
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;

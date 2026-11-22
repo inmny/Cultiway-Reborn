@@ -1,0 +1,210 @@
+// 用同一对练场验证不同空间来源。只有源的处理方式不同。
+owner.GetComponent<Yuanshen>().stage = 9;
+Cultivation().wakan = 9000f;
+body.addAggro(enemy);
+enemy.addAggro(body);
+var steady = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.IndependentCasting.Steady")
+    .SetStats(new BaseStats()).SetDuration(30f).Build();
+steady.stats.addTag("frozen_ai");
+CombatStatusEffects.RemoveStatus(enemy, hold);
+CombatStatusEffects.ApplyStatus(enemy, steady, 30f, enemy);
+enemy.updateStats();
+
+Vector2 Foot(object run) => (Vector3)Field(run, "LastSourceFoot");
+bool Near(Vector2 left, Vector2 right, float tolerance = .15f) => Vector2.Distance(left, right) < tolerance;
+
+AbilityDefinition Push()
+{
+    var push = NewAbility("push", AbilityAnchor.Target, .35f);
+    push.Root.OnContact = ConstructionContactResponse.End;
+    push.Root.Impact = new ConstructionImpact
+    {
+        Targets = SkillUseTargetRelation.Hostile, SelectedTargetOnly = true, DamageScale = 0f,
+        Impulse = new[] { 2f, 0f, 0f }, SlideSeconds = .4f, Origin = ConstructionForceOrigin.Owner
+    };
+    return push;
+}
+AbilityDefinition Ward()
+{
+    var protection = NewAbility("projection-ward", AbilityAnchor.Source, 12f);
+    protection.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    protection.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f };
+    protection.Binding.Follow = true;
+    protection.Root.ContactRole = ConstructionContactRole.Barrier;
+    return protection;
+}
+bool Aim(ActiveAbilityHandle handle, Vector2 point, long correlation) =>
+    ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, (Vector3)point,
+        runtimeData: new SkillCastRuntimeData { CorrelationId = correlation }), ActiveAbilityUseOrigin.Script);
+void CheckPush(long key)
+{
+    var hit = hits.FirstOrDefault(value => value.CastId == unit[key].Fact.CastId && value.TargetId == enemy.id);
+    Check(hit.SourceId == body.id && hit.VelocityChange.x < -.01f,
+        "位于目标右侧的实际载体向左推开目标，原修士仍是施法归属",
+        new { hit.SourceId, delta = hit.VelocityChange.ToString(), source = Foot(unit[key].Run).ToString() });
+}
+void CheckEnded(long key)
+{
+    Check(exits.Any(value => value.CastId == unit[key].Fact.CastId && value.Cancelled && value.Age < 12f),
+        "原节点离开后依附主体提前结束");
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastEnded += Exited;
+try
+{
+    if (section == "soul-force")
+    {
+        Actor spirit = null;
+        Check(YuanshenTravelService.TryTravelTo(owner, new Vector3(73.7f, 72.5f, 0f), YuanshenTravelStance.Balanced) &&
+            YuanshenTravelService.TryGetSoulCarrier(owner, out spirit), "实际创建同一命魂");
+        await Advance(2.6f);
+        Place(enemy, 72f, 72.5f);
+        Check(spirit.current_position.x > enemy.current_position.x + .5f && body.current_position.x < enemy.current_position.x,
+            "命魂与肉身实在目标两侧", new { spiritX = spirit.current_position.x, targetX = enemy.current_position.x, bodyX = body.current_position.x });
+        var push = Learn(Push());
+        Check(Use(spirit, push, enemy, 10101), "命魂实际代施推力");
+        await Advance(.4f);
+        CheckPush(10101);
+    }
+    else if (section == "node")
+    {
+        ControllableUnit.setControllableCreature(body);
+        Vector2 destination = new(73.7f, 72f);
+        Check(YuanshenThoughtService.TryCreateThought(owner, destination), "正式创建可移动分念");
+        var thought = owner.GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+        Check(YuanshenThoughtService.TryAssignGuard(owner, thought, destination) && YuanshenThoughtService.TryFocus(owner, thought),
+            "由正式命令移动并聚焦原分念");
+        await Advance(2.6f);
+        Check(YuanshenThoughtService.TryGetFocused(owner, out var focused, out Vector2 nodePosition) &&
+            focused == thought && Near(nodePosition, destination, YuanshenTravelService.ReturnCompletionDistance + .05f) &&
+            nodePosition.x > enemy.current_position.x + .4f &&
+            Vector2.Distance(body.current_position, enemy.current_position) > 3f,
+            "实际分念已接近目标，肉身在射程之外", new { node = nodePosition.ToString(), source = body.current_position.ToString() });
+        var palm = BodyActionCatalog.Create("test.independent-casting.node-palm", "掌击",
+            new BodyActionRequest { Kind = BodyActionKind.Slap, Effector = "hand.right", Seconds = 1f });
+        float before = Balance();
+        Check(!Use(body, Learn(palm), enemy, 10102) && before == Balance() && unit.Count == 0,
+            "聚焦无实体的分念时，身体招式拒绝且不收费");
+
+        var push = Learn(Push());
+        before = Balance();
+        float fee = SkillCastPayment.Quote(owner, SkillCastResources.Wakan, 6f);
+        Check(Use(body, push, enemy, 10101) && Mathf.Abs(before - Balance() - fee) < .003f &&
+            Near(Foot(unit[10101].Run), nodePosition) && unit[10101].Fact.SourceId == body.id,
+            "分念以实际位置和射程施放，修士支付原价", new { paid = before - Balance(), fee });
+        await Advance(.4f);
+        CheckPush(10101);
+
+        Place(enemy, 72);
+        var skill = new SkillContainerBuilder(SkillEntities.Fireball).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+        var signature = SkillContainerSignature.Build(skill);
+        owner.LearnSkillV3(skill);
+        skill = ((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F)
+            .Invoke(owner, null)).Single(value => SkillContainerSignature.Build(value) == signature);
+        before = Balance();
+        body.attack_timer = 0;
+        var aim = enemy.GetSimPos();
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(enemy, aim, selectionArea: new SkillTargetSelectionArea(true, aim, .1f),
+                runtimeData: new SkillCastRuntimeData { CorrelationId = 10104 }), ActiveAbilityUseOrigin.Script),
+            "原已学法术按正式入口受理");
+        body.attack_timer = 999;
+        await Advance(.25f);
+        Check(unit.TryGetValue(10104, out var legacy) && legacy.Fact.SourceId == body.id &&
+            Field(legacy.Run, "TrackSource") != null && Near(Foot(legacy.Run), nodePosition, .3f) && Balance() < before,
+            "原火球从同一实际节点发射并沿原来源扣费", new { paid = before - Balance() });
+
+        Vector2 moveTo = new(71f, 75f);
+        Check(Aim(Learn(Ward()), nodePosition, 10102) &&
+            YuanshenThoughtService.TryAssignMove(owner, thought, moveTo), "部位附着在原分念并发出新的实际移动命令");
+        await Advance(.45f);
+        Check(YuanshenThoughtService.TryGetFocused(owner, out _, out Vector2 moved) &&
+            Vector2.Distance(nodePosition, moved) > .8f && Near(Foot(unit[10102].Run), moved, .3f),
+            "运行中的部位随实际分念移动", new { node = moved.ToString(), shape = Foot(unit[10102].Run).ToString() });
+        Check(YuanshenThoughtService.RequestReturn(owner, thought), "原分念正式归返");
+        await Advance(2.5f);
+        Check(!YuanshenNodeLockService.TryResolve(thought, out _), "归返确实结束原分念");
+        CheckEnded(10102);
+    }
+    else
+    {
+        ControllableUnit.setControllableCreature(body);
+        // 沿用既有节点受理场景的原版立城、建庙和供奉入口。
+        var city = World.world.cities.list.FirstOrDefault(value => !value.isRekt());
+        if (city == null)
+        {
+            World.world.kingdoms.makeNewCivKingdom(body);
+            city = World.world.cities.buildFirstCivilizationCity(body);
+        }
+        body.joinCity(city);
+        var temple = city.buildings.FirstOrDefault(value => value.asset != null &&
+            (value.asset.id.Contains("temple") || value.asset.type?.Contains("temple") == true));
+        if (temple == null)
+        {
+            var tile = city.getTile();
+            var asset = AssetManager.buildings.list.First(value => value.id.Contains("temple"));
+            if (tile.building != null) tile.building.removeBuildingFinal();
+            temple = World.world.buildings.addBuilding(asset.id, tile);
+            temple.completeConstruction();
+        }
+        Vector2 point = temple.current_position;
+        Place(body, point.x, point.y);
+        body.clearAttackTarget();
+        Check(YuanshenAnchorNetworkService.TryConsecrate(owner, point, YuanshenAnchorKind.CityAltar), "在真实神庙设立香火坛");
+        Check(YuanshenAdvancedNodeService.TryCreateManifestation(owner, point), "正式创建护持显圣");
+        var manifestation = owner.GetComponent<YuanshenRuntimeState>().advanced_nodes.Single();
+        Check(YuanshenNodeLockService.TryResolve(manifestation, out var projected) &&
+            projected.GetComponent<YuanshenAdvancedNodeState>().support_only, "聚焦实际显圣节点");
+        float away = point.x + (point.x < MapBox.width - 8f ? 6f : -6f);
+        Place(body, away, point.y);
+        Vector2 near = point + new Vector2(1f, 0f);
+        Place(enemy, near.x, near.y);
+        float before = Balance();
+        Check(!Use(body, Learn(Push()), enemy, 10101) && before == Balance() && unit.Count == 0,
+            "显圣拒绝进攻，费用和运行状态均不改变");
+        Check(Aim(Learn(Ward()), point, 10102) && before > Balance() && Near(Foot(unit[10102].Run), point),
+            "显圣从真实锚点接受合法护持，仍由修士支付");
+        YuanshenAdvancedNodeService.Disperse(owner, projected, 0f);
+        await Advance(.15f);
+        CheckEnded(10102);
+        if (section == "avatar")
+        {
+            Place(body, point.x, point.y);
+            body.clearAttackTarget();
+            Cultivation().wakan = 9900f;
+            Check(YuanshenAdvancedNodeService.TryStartAvatarPreparation(owner, point), "正式进入化身准备");
+            // 以原版倍速推进同一世界循环，保留逐期扣费、到场与完成判定。
+            Config.setWorldSpeed("x5", false);
+            for (int period = 0; period < 5 && owner.HasComponent<YuanshenAvatarPreparationState>(); period++)
+            {
+                Cultivation().wakan = 9900f;
+                await Advance(13f);
+            }
+            Config.setWorldSpeed("x1", false);
+            var avatar = owner.GetComponent<YuanshenRuntimeState>().advanced_nodes.SingleOrDefault();
+            Check(YuanshenNodeLockService.TryResolve(avatar, out var projection) &&
+                projection.GetComponent<YuanshenNodeState>().role == YuanshenNodeRole.Avatar &&
+                !owner.HasComponent<YuanshenAvatarPreparationState>(), "实际世界循环完成化身并接管聚焦");
+            Place(body, away, point.y);
+            Place(enemy, near.x, near.y);
+            before = Balance();
+            Check(Use(body, Learn(Push()), enemy, 10103) && before > Balance() && Near(Foot(unit[10103].Run), point),
+                "实体化身节点可代施进攻，从实际锚点出手并由原修士支付");
+            await Advance(.4f);
+            Check(hits.Any(value => value.CastId == unit[10103].Fact.CastId && value.SourceId == body.id && value.TargetId == enemy.id),
+                "化身法术实际作用，结算保持原修士归属");
+        }
+    }
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastEnded -= Exited;
+    ControllableUnit.clear(false);
+    Config.setWorldSpeed("x1", false);
+    Config.paused = true;
+}

@@ -409,7 +409,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 CastAuthority owner = running.Owner(i);
                 owner.RefreshRelations();
-                if ((!owner.WorldSource && !owner.IsLive || !spatialLive && ReferenceEquals(owner, running.InitialOwner)) && !running.Cast.CanContinueWithoutSource(i))
+                bool live = owner.WorldSource || owner.IsLive &&
+                    (owner.SharesPlacement(running.InitialOwner) ? spatialLive : owner.SpatialLive);
+                if (!live && !running.Cast.CanContinueWithoutSource(i))
                     running.Cast.EndNode(i, true);
             }
 
@@ -633,10 +635,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                   changedActors.ContainsKey(running.WeaponConstraint.Owner.SourceId))) continue;
             Vector3 foot = running.LastSourceFoot;
             float height = running.LastSourceHeight;
-            if (running.SpatialSourceLive && actorIndices.TryGetValue(running.SpatialSourceId, out int sourceIndex))
+            if (running.TrackSource != null)
+            {
+                if (running.TrackSource() is { } point)
+                {
+                    foot = point;
+                    foot.z += terrain?.Sample(foot.x, foot.y) ?? 0f;
+                }
+            }
+            else if (running.SpatialSourceLive && actorIndices.TryGetValue(running.SpatialSourceId, out int sourceIndex))
                 Sample(actors[sourceIndex], time, out foot, out height);
             running.LastSourceFoot = foot;
             running.LastSourceHeight = height;
+            running.InitialOwner.LastFoot = foot;
             if (running.Target?.data?.id == running.TargetId && running.Target.isAlive() &&
                 running.Target.hasHealth() &&
                 actorIndices.TryGetValue(running.TargetId, out int targetIndex))
@@ -1639,10 +1650,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             impact.Impulse.HasValue && (impact.Impulse.Value.x != 0f || impact.Impulse.Value.y != 0f))
         {
             StartingPose(target, out Vector3 position, out _);
-            Vector3 center;
-            if (impact.Origin == ConstructionForceOrigin.Shape) center = origin ?? running.Cast.ContactOrigin(node);
-            else if (owner.IsLive) StartingPose(owner.Actor, out center, out _);
-            else center = owner.LastFoot;
+            Vector3 center = impact.Origin == ConstructionForceOrigin.Shape
+                ? origin ?? running.Cast.ContactOrigin(node)
+                : owner.SourceFoot();
             direction = (Vector2)(position - center);
             if (direction.sqrMagnitude < .000001f) return Vector3.zero;
             direction.Normalize();

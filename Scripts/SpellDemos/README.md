@@ -2949,3 +2949,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 命魂代施（10.10）
 
 独立游戏中运行 `dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/verify_independent_casting.py`。通过实际神游把命魂移出肉身射程，核对命魂从当前位置出手、原修士支付与归属、共享冷却、自护目标和归返后结束。测试复用同一对练场和人物。
+
+同一入口可加 `--section soul-force|node|avatar` 单独验证命魂推拉中心、分念代施与移动归返、显圣及化身。分念段也从原已学入口发射火球。化身段通过原版世界倍速走完准备过程，可将外层 `dev.py exec` 时限调到 175 秒。
