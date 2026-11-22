@@ -28,8 +28,8 @@ namespace Cultiway.Core;
 
 public partial class ActorExtend
 {
-    /// <summary>通知仍存活的原目标已经实际扣除生命，携带本次已确认的接触位置。</summary>
-    internal static event Action<Actor, BaseSimObject, Vector3?> HealthLossConfirmed;
+    /// <summary>通知已经实际扣除的生命及确认位置，原目标已回收时身份为空。</summary>
+    internal static event Action<Actor, BaseSimObject, int, Vector3?> HealthLossConfirmed;
 
     public static void RegisterCombatActionOnAttack(Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action)
     {
@@ -627,8 +627,8 @@ public partial class ActorExtend
             pFlash: damage >= 1,
             pAttackType: attack_type_for_vanilla,
             pAttacker: attributionAttacker);
-        if (lost > 0 && victim.id == victimId && victim.isAlive() && victim.hasHealth())
-            HealthLossConfirmed?.Invoke(victim, attacker, contactPoint);
+        if (lost > 0)
+            HealthLossConfirmed?.Invoke(victim.data?.id == victimId ? victim : null, attacker, lost, contactPoint);
         CombatImpactVisuals.OnHealthLost(this, attacker, lost, damage_composition, attack_type_for_vanilla, metallic_weapon);
         RestoreSpatialRetaliationTarget(attacker, attributionAttacker);
         return new DamageSettlement(lost, shield.Absorbed);

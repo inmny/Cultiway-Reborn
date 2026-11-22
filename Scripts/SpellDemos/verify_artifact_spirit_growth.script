@@ -1,0 +1,231 @@
+// 让同一件正式法剑接收真实伤害、施法和击杀通知。
+PrepareArtifactArena(59, 79, 65, 80);
+Actor source = Make(64.35f), enemy = Make(69f, "wolf");
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 0f });
+owner.SetPowerLevel(4f);
+enemy.GetExtend().SetPowerLevel(4f);
+CombatStatusEffects.ApplyStatus(source, boost, 10000f, source);
+owner.MarkCultiwayStatsDirty();
+await Advance(.19f);
+source.updateStats();
+Place(source, 64.35f, 72f);
+Place(enemy, 69f, 72f);
+source.position_height = enemy.position_height = 0f;
+source.clearAttackTarget();
+enemy.clearAttackTarget();
+World.world.console.Hide();
+WorldTip.hideNow();
+Tooltip.hideTooltipNow();
+
+var asset = ArtifactAbilities.ArtifactSpiritAwakening;
+var recipe = ArtifactBlueprintCodec.FromComposeResult(ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword,
+    Atoms = [ArtifactAtoms.SwordBreaker, ArtifactAtoms.Iron, ArtifactAtoms.SoulCore, ArtifactAtoms.SpiritAwakeningScript],
+    Level = new ItemLevel { Stage = 3, Level = 8 }, Name = "器灵成长原剑"
+}));
+var ids = recipe.AbilitySet.abilities.Select(item => item.ability_id).ToArray();
+Check(ids.Contains(asset.id), "正式配方得到器灵觉醒", ids);
+Entity item = ArtifactBlueprintCodec.Materialize(recipe, source.getName());
+owner.AddSpecialItem(item);
+ArtifactSpiritState SpiritState() => item.GetComponent<ArtifactSpiritState>();
+Actor[] Living()
+{
+    var actors = new List<Actor>();
+    var relations = item.GetRelations<ArtifactSpiritAvatarRelation>();
+    for (int i = 0; i < relations.Length; i++)
+    {
+        Entity avatarEntity = relations[i].avatar;
+        if (avatarEntity.IsNull || !avatarEntity.TryGetComponent(out ActorBinder binder)) continue;
+        if (binder.Actor != null && binder.Actor.isAlive()) actors.Add(binder.Actor);
+    }
+    return actors.ToArray();
+}
+var visuals = (IEnumerable)service.Assembly.GetType("Cultiway.Content.Visuals.ArtifactSpatialVisualRuntime")
+    .GetField("entries", F).GetValue(null);
+ArtifactAbilityVisualContext[] Feedback(string channel) => visuals.Cast<object>()
+    .Where(value => (double)Field(value, "Closing") < 0d)
+    .Select(value => (ArtifactAbilityVisualContext)Field(value, "Context"))
+    .Where(value => value.artifact == item && value.channel == channel).ToArray();
+bool NearValue(float a, float b) => Mathf.Abs(a - b) < .006f;
+Check(!SpiritState().awakened && Living().Length == 0, "原剑入库时仍未觉醒");
+Check(owner.EquipArtifact(item, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式装备原剑");
+await WaitFor(() => Living().Length > 0, .48f);
+await Game.NextFrame();
+Actor avatar = Living().Single();
+var link = avatar.GetExtend().GetComponent<ArtifactSpiritAvatar>();
+var manifest = Feedback("spirit_manifest");
+Check(SpiritState().awakened && SpiritState().level == 1 && NearValue(SpiritState().bond, 1f) &&
+      link.artifact == item && link.controller == owner.E && avatar.asset == Actors.GhostFire &&
+      avatar.kingdom == source.kingdom && Feedback("spirit_awaken").Length == 1 &&
+      manifest.Length == 1 && manifest[0].target == avatar && Feedback("spirit_presence").Length == 1,
+    "觉醒留在原器身，显化与反馈绑定唯一的真实器灵", new { avatar = avatar.id, level = SpiritState().level });
+CombatStatusEffects.ApplyStatus(avatar, hold, 10000f, avatar);
+avatar.attack_timer = 999f;
+if (shots)
+    await CaptureArtifactViews("spirit-manifestation", source.current_position, 1.9f,
+        () => Living().Length == 1 && Feedback("spirit_manifest").Any(value => value.target == avatar),
+        nativeZoom: 2.55f, closeSubject: source);
+
+var ability = Definition(item, asset.id);
+var control = owner.E.GetRelation<EquippedArtifactRelation, Entity>(item).state;
+var execution = new ArtifactAbilityExecutionContext(owner.E, item, control);
+float scale = execution.effect_scale;
+float growth = ability.GetNumber("spirit_growth_multiplier");
+var receipts = new List<(BaseSimObject from, int lost)>();
+var loss = typeof(ActorExtend).GetField("HealthLossConfirmed", F);
+object formerLoss = loss.GetValue(null);
+Action<Actor, BaseSimObject, int, Vector3?> observe = (_, from, lost, _) =>
+{
+    if (from == source || from == avatar) receipts.Add((from, lost));
+};
+loss.SetValue(null, Delegate.Combine((Delegate)formerLoss, observe));
+var kills = new List<long>();
+var killField = typeof(ActorExtend).GetField("action_on_kill", F);
+object formerKills = killField.GetValue(null);
+ActorExtend.RegisterActionOnKill((killer, victim, _) =>
+{
+    if (killer == owner) kills.Add(victim.id);
+});
+var fees = new List<float>();
+var feeField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+object formerFee = feeField.GetValue(null);
+void Paid(ActorExtend payer, in WakanMutation change)
+{
+    if (payer == owner && change.Kind == WakanMutationKind.Spend) fees.Add(-change.Delta);
+}
+WakanResourceService.RegisterMutationCommitted(Paid);
+void Strike(Actor from, Actor victim, float amount)
+{
+    var iron = ElementComposition.Static.Iron;
+    victim.GetExtend().GetHit(amount, ref iron, from, AttackType.Other, ignore_damage_reduction: true,
+        attacker_power_level_override: 4f);
+}
+void SetBalance(float value) => WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), value);
+try
+{
+    if (section is "all" or "growth")
+    {
+        var spell = new AbilityDefinition
+        {
+            Id = "test.spirit-growth.paid", Name = "器灵施法复验", Lifetime = .092f, TargetRange = 12f,
+            Resource = "wakan", Cost = 6f, Power = 2f, Cooldown = 0f,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = false, Height = .28f },
+            Impact = new ConstructionImpact { DamageScale = 3f },
+            Root = new ConstructionNode
+            {
+                Id = "blade", Form = "sword_qi", Matter = "iron",
+                Operations = [new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                    WorldVelocity = true, InheritVelocity = false, Vector = [0f, 780f, 0f] }]
+            }
+        };
+        ConstructedAbilityService.Register(spell);
+        ConstructedAbilityService.Learn(owner, spell.Id);
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, spell.Id);
+        var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos());
+        var before = SpiritState();
+        source.addAggro(enemy);
+        SetBalance(0f);
+        Check(!ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) &&
+              NearValue(SpiritState().experience, before.experience) && fees.Count == 0 && Feedback("spirit_growth").Length == 0,
+            "欠费拒绝后没有额外成长或画面");
+        SetBalance(700f);
+        Check(ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script), "真实付费构造受理");
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        source.clearAttackTarget();
+        source.finishAngryStatus();
+        await Advance(.20f);
+        float castExperience = SpiritState().experience - before.experience;
+        Check(fees.Count == 1 && NearValue(fees[0], 6f) && NearValue(castExperience, .12f * growth * scale) &&
+              NearValue(SpiritState().bond - before.bond, .008f * growth * scale) && receipts.Count == 0 &&
+              Feedback("spirit_growth").Length == 1,
+            "付费构造一次入账，没有借空击重复成长", new { paid = fees.LastOrDefault(), castExperience });
+        before = SpiritState();
+        int hp = enemy.data.health;
+        Strike(source, enemy, 120f);
+        int lost = hp - enemy.data.health;
+        Check(lost > 0 && receipts.Count == 1 && receipts[0].lost == lost &&
+              NearValue(SpiritState().experience - before.experience, Mathf.Sqrt(lost) * .018f * growth),
+            "主人普通来伤按实际扣血成长", new { lost, experience = SpiritState().experience - before.experience });
+        before = SpiritState();
+        hp = enemy.data.health;
+        Strike(avatar, enemy, 75f);
+        lost = hp - enemy.data.health;
+        Check(lost > 0 && receipts.Count == 2 && receipts[1].from == avatar && receipts[1].lost == lost &&
+              NearValue(SpiritState().experience - before.experience, Mathf.Sqrt(lost) * .035f),
+            "器灵自身伤害沿原归属和系数单独入账", new { lost, experience = SpiritState().experience - before.experience });
+
+        var status = typeof(BaseSimObject).GetMethod("addStatusEffect", F, null,
+            new[] { typeof(string), typeof(float), typeof(bool) }, null);
+        status.Invoke(enemy, new object[] { "invincible", .48f, false });
+        before = SpiritState();
+        Strike(source, enemy, 120f);
+        Check(enemy.hasStatus("invincible") && receipts.Count == 2 && NearValue(SpiritState().experience, before.experience),
+            "免疫不给伤害成长");
+        await Advance(.53f);
+        long enemyId = enemy.id;
+        float fatal = enemy.getMaxHealth() * 4f;
+        Strike(source, enemy, fatal);
+        await WaitFor(() => kills.Contains(enemyId), .64f);
+        int finalLoss = receipts.Count == 3 ? receipts[2].lost : 0;
+        float expected = Mathf.Sqrt(finalLoss) * .018f * growth + 1.5f * growth * scale;
+        Check(kills.SequenceEqual(new[] { enemyId }) && receipts.Count == 3 && finalLoss > 0 && finalLoss < fatal &&
+              NearValue(SpiritState().experience - before.experience, expected),
+            "过量致死按实际生命损失和一次击杀分别成长",
+            new { fatal, finalLoss, gained = SpiritState().experience - before.experience, expected });
+    }
+    if (section is "all" or "recovery")
+    {
+        var progress = SpiritState();
+        long previousId = avatar.id;
+        double killedAt = World.world.getCurWorldTime();
+        Strike(null, avatar, avatar.getMaxHealth() * 4f);
+        await WaitFor(() => SpiritState().recovery_until > killedAt && Living().Length == 0, .68f);
+        await Game.NextFrame();
+        double due = SpiritState().recovery_until;
+        Check(Living().Length == 0 && due >= killedAt + link.recovery_duration - .01 &&
+              due <= World.world.getCurWorldTime() + link.recovery_duration + .01 &&
+              Feedback("spirit_presence").Length == 0 && Feedback("spirit_manifest").Length == 0,
+            "真实阵亡只启动原复苏时间，期间收起显化和器身反馈",
+            new { previousId, elapsed = due - killedAt, duration = link.recovery_duration });
+        Config.setWorldSpeed("x3", false);
+        Config.paused = false;
+        await Game.WaitUntil(() => World.world.getCurWorldTime() >= due - .48, 9600);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        double beforeDue = World.world.getCurWorldTime();
+        Check(beforeDue >= due - .48 && beforeDue < due &&
+              Living().Length == 0 && Feedback("spirit_presence").Length == 0,
+            "原时点之前没有提前复苏", new { beforeDue, due });
+        await WaitFor(() => Living().Length > 0, (float)(due - beforeDue) + 1.3f);
+        Config.setWorldSpeed("x1", false);
+        await Game.NextFrame();
+        Check(Living().Length == 1, "等到复苏时点后同一原件只有一个随行器灵",
+            new { time = World.world.getCurWorldTime(), due, living = Living().Length });
+        Actor revived = Living().Single();
+        Check(revived.id != previousId && World.world.getCurWorldTime() >= due &&
+              NearValue(SpiritState().experience, progress.experience) && NearValue(SpiritState().bond, progress.bond) &&
+              revived.GetExtend().GetComponent<ArtifactSpiritAvatar>().artifact == item &&
+              Feedback("spirit_awaken").Length == 0 && Feedback("spirit_manifest").Any(value => value.target == revived),
+            "同一原剑只复苏一位新身份，成长和羁绊保留",
+            new { revived = revived.id, experience = SpiritState().experience, bond = SpiritState().bond });
+    }
+    double recoveryUntil = SpiritState().recovery_until;
+    float experience = SpiritState().experience;
+    Check(owner.UnequipArtifact(item, suppressAutoEquip: true), "卸下原件");
+    await Advance(.77f);
+    Check(Living().Length == 0 && Feedback("spirit_presence").Length == 0 && Feedback("spirit_manifest").Length == 0 &&
+          SpiritState().recovery_until == recoveryUntil && NearValue(SpiritState().experience, experience),
+        "正常收回不算战死，状态保留而显化结束");
+    return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    loss.SetValue(null, formerLoss);
+    killField.SetValue(null, formerKills);
+    feeField.SetValue(null, formerFee);
+    Config.setWorldSpeed("x1", false);
+}

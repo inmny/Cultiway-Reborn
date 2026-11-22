@@ -29,7 +29,9 @@ public enum ArtifactLocalVisualKind
     /// <summary>护甲实际削弱后从接触位置散开的碎甲。</summary>
     ArmorFragments,
     /// <summary>实际收魂时从击杀点进入原件的短暂魂影。</summary>
-    SoulGathering
+    SoulGathering,
+    /// <summary>从原器身的实际部位浮起的器灵轮廓。</summary>
+    SpiritSilhouette
 }
 
 /// <summary>局部形态与实际挂点组合，不再依赖整张动画。</summary>

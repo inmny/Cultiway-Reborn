@@ -1,3 +1,4 @@
+using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
@@ -88,15 +89,16 @@ internal static class ArtifactAbilityRuntimeBridge
         });
     }
 
-    private static void HealthLost(Actor target, BaseSimObject attacker, Vector3? contactPoint)
+    private static void HealthLost(Actor target, BaseSimObject attacker, int lost, Vector3? contactPoint)
     {
         ActorExtend owner = AttackOwner(target, attacker, out SkillCasterContext context);
-        if (owner == null) return;
+        if (owner == null || owner.E.GetRelations<EquippedArtifactRelation>().Length == 0) return;
         using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in context);
         ArtifactAbilityDispatcher.Dispatch(owner.E, new ArtifactHealthDamageEvent
         {
             Target = target,
             Attacker = attacker,
+            HealthLost = lost,
             ContactPoint = contactPoint,
         });
     }

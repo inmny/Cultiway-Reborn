@@ -425,6 +425,14 @@ internal static class ArtifactSpatialVisualRuntime
                     new Vector3(remnant * .7f, remnant * .55f, remnant), color, true, spirit,
                     additive: false, surface: SpatialSurface.Energy);
                 break;
+            case ArtifactLocalVisualKind.SpiritSilhouette:
+                float rise = cue.loop ? .34f + Mathf.Sin(age * 2.6f) * .05f : Mathf.SmoothStep(0f, 1f, progress);
+                float silhouette = size * Mathf.Lerp(.42f, 1f, rise);
+                Vector3 lifted = point + Vector3.forward * (size * rise * .84f);
+                SpatialVisualDraw.Mesh(meshes, SpatialEnergyGeometry.Avatar, lifted,
+                    Quaternion.Euler(0f, 0f, age * 32f), new Vector3(silhouette * .72f, silhouette * .66f, silhouette),
+                    color, true, point, additive: false, surface: SpatialSurface.Energy);
+                break;
             default:
                 SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, point, Quaternion.Euler(age * 90f, age * 45f, 0f), Vector3.one * size, color, true); break;
         }

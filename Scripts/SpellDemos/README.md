@@ -2885,3 +2885,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 鼎辅炼丹与百炼炉心（10.06）
 
 用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_production.py` 核对实际炼丹、炼器、制符的工序与定型结果。用 `--section alchemy|refining|talisman` 选择单项，或用 `--skip-views` 只检查游戏行为。炼丹部分采集开炉与成丹的原版和 Worldfall 画面。
+
+### 器灵觉醒、成长与复苏（10.06）
+
+用 `dev.py exec --timeout 190 -- python3 Scripts/SpellDemos/verify_artifact_spirit_growth.py` 检查原件觉醒、付费施法与实伤成长、阵亡复苏及卸装。用 `--section growth|recovery` 选择单项，或用 `--skip-views` 跳过原版与 Worldfall 的显化取景。

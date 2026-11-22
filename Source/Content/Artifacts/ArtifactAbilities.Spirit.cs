@@ -98,7 +98,7 @@ public partial class ArtifactAbilities
             ResolveRecoveryDuration = (ability, _) => ability.GetNumber(SpiritRecoveryDuration),
         });
         ArtifactSpiritAwakening
-            .Handle<ArtifactDamageDealtEvent>(GrowSpiritFromDamage)
+            .Handle<ArtifactHealthDamageEvent>(GrowSpiritFromDamage)
             .Handle<ArtifactKillEvent>(GrowSpiritFromKill)
             .Handle<ArtifactSkillCastEvent>(GrowSpiritFromSkill);
     }
@@ -121,12 +121,12 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry _,
-        ArtifactDamageDealtEvent evt)
+        ArtifactHealthDamageEvent evt)
     {
         float growth = ability.GetNumber(SpiritGrowthMultiplier);
         ArtifactSpiritService.AddExperience(
             context.artifact,
-            Mathf.Sqrt(Mathf.Max(0f, evt.Damage)) * 0.018f * growth,
+            Mathf.Sqrt(evt.HealthLost) * 0.018f * growth,
             0.001f * growth * context.effect_scale);
     }
 
@@ -160,45 +160,56 @@ public partial class ArtifactAbilities
 
     private static void ConfigureArtifactSpiritAbilityVisuals()
     {
-        ArtifactGlyphVisualCue spiritGlyph = Glyph(
-                    ArtifactVisualAnchorKind.Artifact,
-                    context => 0.28f * ArtifactAbilityVisuals.ResolveActorScale(context),
-                    ArtifactVisualColorRole.Secondary,
-                    ArtifactVfxStyles.Spirit,
-                    matchActorScale: true);
-        spiritGlyph.sides = 6;
-        spiritGlyph.rotation_speed = 28f;
-        ArtifactCompositeVisualCue awakening = new(
-            ExpandingArea(
-                ArtifactVisualAnchorKind.Artifact,
-                context => 0.72f * ArtifactAbilityVisuals.ResolveActorScale(context),
-                ArtifactVisualColorRole.Glow,
-                ArtifactVfxStyles.Spirit),
-            Burst(ArtifactVisualAnchorKind.Artifact, ArtifactVisualColorRole.Glow, 8, 0.45f),
-            Pulse(1.32f, 1f, 0.18f));
-        ArtifactCompositeVisualCue manifestation = new(
-            ExpandingArea(
-                ArtifactVisualAnchorKind.Point,
-                _ => 0.62f,
-                ArtifactVisualColorRole.Glow,
-                ArtifactVfxStyles.Soul),
-            Burst(ArtifactVisualAnchorKind.Point, ArtifactVisualColorRole.Primary, 7, 0.38f));
+        ArtifactLocalVisualCue presence = new(ArtifactLocalVisualKind.SpiritSilhouette)
+        {
+            scale = .041f,
+            alpha = .53f,
+            offset = new Vector3(0f, 0f, .13f),
+        };
+        ArtifactLocalVisualCue awakening = new(ArtifactLocalVisualKind.SpiritSilhouette)
+        {
+            scale = .083f,
+            alpha = .93f,
+            loop = false,
+        };
+        ArtifactLocalVisualCue manifestation = new(ArtifactLocalVisualKind.Flame)
+        {
+            anchor = ArtifactVisualAnchorKind.Target,
+            color_role = ArtifactVisualColorRole.Glow,
+            scale = .053f,
+            alpha = .88f,
+            loop = false,
+        };
+        ArtifactProjectionVisualCue growth = new()
+        {
+            anchor = ArtifactVisualAnchorKind.Artifact,
+            offset = new Vector3(0f, 0f, .12f),
+            start_scale = .84f,
+            end_scale = 1.16f,
+            alpha = .69f,
+            follow_artifact_rotation = true,
+        };
         ArtifactSpiritAwakening.Visualize(Theme(SkillVfxElements.Neg.AccentColor)
             .Loop(
-                "spirit_glyph",
-                spiritGlyph,
-                context => context.artifact.GetComponent<ArtifactSpiritState>().awakened,
+                "spirit_presence",
+                presence,
+                HasReadySpirit,
                 "artifact.spirit.awakened",
                 ArtifactVisualStackPolicy.Independent)
-            .Signal("spirit_awaken", awakening, 0.9f)
-            .Signal("spirit_manifest", manifestation, 0.7f)
+            .Signal("spirit_awaken", awakening, .68f)
+            .Signal("spirit_manifest", manifestation, .58f)
             .Signal(
                 "spirit_growth",
-                new ArtifactCompositeVisualCue(
-                    Sparkle(ArtifactVisualAnchorKind.Artifact, 0.07f, 0.9f, loop: false),
-                    Pulse(1.12f, 1f, 0.1f)),
+                growth,
                 0.42f,
                 "artifact.spirit.growth",
-                ArtifactVisualStackPolicy.SinglePerController));
+                ArtifactVisualStackPolicy.SinglePerArtifact));
+    }
+
+    private static bool HasReadySpirit(ArtifactAbilityVisualContext context)
+    {
+        ArtifactSpiritState state = context.artifact.GetComponent<ArtifactSpiritState>();
+        return state.awakened && World.world.getCurWorldTime() >= state.recovery_until &&
+            ArtifactAbilityLifecycle.MeetsState(context.control_state, context.asset.spirit_use.minimum_state);
     }
 }

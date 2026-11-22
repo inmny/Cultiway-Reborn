@@ -57,11 +57,12 @@ public sealed class ArtifactDamageDealtEvent
     public AttackType AttackType;
 }
 
-/// <summary>一次已经真实扣除生命且目标仍存活的攻击。</summary>
+/// <summary>一次已经真实扣除生命的攻击，包含致死伤害。</summary>
 internal sealed class ArtifactHealthDamageEvent
 {
     internal Actor Target;
     internal BaseSimObject Attacker;
+    internal int HealthLost;
     internal Vector3? ContactPoint;
 }
 

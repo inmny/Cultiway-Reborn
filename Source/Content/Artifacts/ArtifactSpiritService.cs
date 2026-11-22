@@ -16,7 +16,7 @@ public static class ArtifactSpiritService
     public static void Init()
     {
         ActorExtend.RegisterCachedStatsBuilder(ContributeAvatarStats);
-        ActorExtend.RegisterActionOnDamageResolved(OnDamageResolved);
+        ActorExtend.HealthLossConfirmed += OnHealthLost;
         ActorExtend.RegisterActionOnKill(OnKill);
         ActorExtend.RegisterActionOnDeath(OnDeath);
     }
@@ -69,16 +69,11 @@ public static class ArtifactSpiritService
         stats[S.armor] += avatar.armor_bonus;
     }
 
-    private static void OnDamageResolved(
-        ActorExtend _,
-        BaseSimObject attacker,
-        float damage,
-        ElementComposition __,
-        AttackType ___)
+    private static void OnHealthLost(Actor _, BaseSimObject attacker, int lost, Vector3? __)
     {
         if (attacker == null || attacker.isRekt() || !attacker.isActor() ||
             !attacker.a.GetExtend().TryGetComponent(out ArtifactSpiritAvatar avatar)) return;
-        AddExperience(avatar.artifact, Mathf.Sqrt(Mathf.Max(0f, damage)) * 0.035f, 0.002f);
+        AddExperience(avatar.artifact, Mathf.Sqrt(lost) * 0.035f, 0.002f);
     }
 
     private static void OnKill(ActorExtend killer, Actor _, Kingdom __)

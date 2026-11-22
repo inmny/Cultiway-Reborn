@@ -282,7 +282,9 @@ public partial class ArtifactAbilities
         {
             event_minimum_state = ArtifactControlState.Operating,
         });
-        ArmorPiercingSwordAura.Handle<ArtifactHealthDamageEvent>(ApplyArmorPiercingSwordAura);
+        ArmorPiercingSwordAura.Handle<ArtifactHealthDamageEvent>(
+            (_, _, _, hit) => hit.Target?.isAlive() == true && hit.Target.hasHealth(),
+            ApplyArmorPiercingSwordAura);
     }
 
     private static void ApplyArmorPiercingSwordAura(
