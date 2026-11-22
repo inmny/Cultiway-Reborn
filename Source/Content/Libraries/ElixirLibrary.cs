@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
@@ -11,6 +12,8 @@ namespace Cultiway.Content.Libraries;
 
 public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
 {
+    private readonly HashSet<string> _unusedRecipes = new(StringComparer.Ordinal);
+
     /// <summary>初始化空丹方库，并注册角色按需自动服用属性状态类丹药的钩子。</summary>
     public override void init()
     {
@@ -83,6 +86,26 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
     {
         ElixirRecipeDefinition definition = ElixirRecipeBuilder.Build(ingredients);
         return GetOrAddDefinition(definition, out _);
+    }
+
+    protected override void RemoveUnknownAssets(IEnumerable<string> candidates)
+    {
+        _unusedRecipes.Clear();
+        _unusedRecipes.UnionWith(candidates);
+
+        var world = ModClass.I.W;
+        var inactive = Tags.Get<TagPrefab, TagRecycle>();
+        foreach (Entity entity in world.Query<Elixir>().Entities)
+            if (!entity.Tags.HasAny(inactive))
+                _unusedRecipes.Remove(entity.GetComponent<Elixir>().elixir_id);
+        foreach (Entity entity in world.Query<CraftingElixir>().Entities)
+            if (!entity.Tags.HasAny(inactive))
+                _unusedRecipes.Remove(entity.GetComponent<CraftingElixir>().elixir_id);
+        foreach (Entity entity in world.Query<StatusComponent>().Entities)
+            if (!entity.Tags.HasAny(inactive))
+                _unusedRecipes.Remove(entity.GetComponent<StatusComponent>().id);
+
+        if (_unusedRecipes.Count > 0) RemoveAll(_unusedRecipes);
     }
 
     protected override void OnRemoveDynamic(ElixirAsset asset)

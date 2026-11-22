@@ -1,0 +1,52 @@
+Actor source = Make(64.5f), attacker = Make(66.5f, "wolf");
+ActorExtend owner = source.GetExtend();
+source.removeTrait("super_health");
+owner.AddComponent(new Xian { level = XianLevels.Yuanying, wakan = 0f });
+owner.AddComponent(new Yuanying
+{
+    formation = new CoreFormationSnapshot
+    {
+        version = CoreFormationSnapshot.CurrentVersion, signature = "verify.yuanying.escape",
+        canonical_name = "出逃验证原元婴", finalized = true, realm = CoreFormationRealm.Yuanying,
+        strength = 2f, composition = ElementComposition.Static.Earth,
+        atoms = new[] { new CoreFormationAtomState { atom_id = CoreFormationAtoms.ElementIron.id, weight = 1f } },
+        stats = Array.Empty<CoreFormationStatValue>(), semantics = Array.Empty<SemanticContribution>()
+    }
+});
+source.setStatsDirty();
+source.updateStats();
+source.setHealth(3);
+long sourceId = source.id;
+source.getHit(1f, true, AttackType.Weapon, attacker, pSkipIfShake: false);
+await Advance(.15f);
+Check(source.isAlive() && !owner.HasComponent<YuanyingSoulState>() &&
+      !CombatStatusEffects.HasStatus(source, StatusEffects.YuanyingEscape),
+    "非致命一击保持原身体");
+source.getHit(10000f, true, AttackType.Weapon, attacker, pSkipIfShake: false);
+await Advance(.15f);
+Check(source.isAlive() && source.id == sourceId && source.asset == Actors.YuanyingSoul &&
+      owner.HasComponent<YuanyingSoulState>() &&
+      CombatStatusEffects.HasStatus(source, StatusEffects.YuanyingEscape),
+    "致命普通攻击使同一人物以实际元婴和原状态继续",
+    new { alive = source.isAlive(), asset = source.asset?.id, soul = owner.HasComponent<YuanyingSoulState>() });
+
+string archive = Path.Combine(folder, "archive");
+double expiry = owner.GetComponent<YuanyingSoulState>().expires_at;
+SaveManager.saveWorldToDirectory(archive);
+World.world.save_manager.loadWorld(archive);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+Actor restored = World.world.units.get(sourceId);
+ActorExtend restoredOwner = restored.GetExtend();
+Check(restored.isAlive() && restored.asset == Actors.YuanyingSoul &&
+      restoredOwner.GetComponent<YuanyingSoulState>().expires_at == expiry &&
+      CombatStatusEffects.HasStatus(restored, StatusEffects.YuanyingEscape),
+    "正式读回同一元婴身份、实际状态和原出逃期限", new { sourceId, expiry });
+
+// 复用读回的人物，推进最后一小段自然退出，不额外搭建寻主场景。
+restoredOwner.GetComponent<YuanyingSoulState>().expires_at = World.world.getCurWorldTime() + .25;
+await Advance(.75f);
+Check(World.world.units.get(sourceId) == null || !restored.isAlive(),
+    "出逃超时在正常世界周期结束原人物");
+return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, checks };

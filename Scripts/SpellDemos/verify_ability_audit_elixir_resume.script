@@ -1,0 +1,48 @@
+long actorId = (long)expected["actor"];
+Actor patient = World.world.units.get(actorId);
+ActorExtend owner = patient.GetExtend();
+const string bodyId = "Cultiway.Verify.Elixir.body.StatusGain";
+const string restoreId = "Cultiway.Verify.Elixir.wakan_restore.Restore";
+Entity Status() => owner.GetStatuses().SingleOrDefault(item => item.GetComponent<StatusComponent>().id == bodyId);
+bool Close(float a, float b) => Mathf.Abs(a - b) <= .015f;
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+Check(process != (int)expected["process"], "另一进程读取原正式世界", process);
+var status = Status();
+float statusTime = status.IsNull ? 0f : status.GetComponent<AliveTimeLimit>().value -
+    status.GetComponent<AliveTimer>().value;
+float savedTime = (float)expected["remaining"];
+Check(!status.IsNull && status.GetComponent<StatusComponent>().Type != null &&
+      statusTime >= savedTime - .1f && statusTime <= savedTime &&
+      Close(owner.GetComponent<PermanentStats>().Stats["health"], (float)expected["health"]) &&
+      Close(owner.GetComponent<PermanentStats>().Stats["intelligence"], (float)expected["intelligence"]) &&
+      patient.hasTrait(ActorTraits.OpenSource.id) && owner.HasElementRoot() &&
+      owner.GetComponent<Jindan>().stage == 1, "原临时药效及各类长期结果读取后保留", new { statusTime, savedTime });
+
+var unused = owner.GetItems().Where(item => item.HasComponent<Elixir>()).ToArray();
+Check(unused.Length == 3 && unused.All(item => item.GetComponent<Elixir>().Type != null) &&
+      unused.All(item => owner.GetMaster(item.GetComponent<Elixir>().Type) == 0f),
+    "没有人掌握丹方时，库存实际原药仍能解析丹方");
+Entity restoredPill = unused.Single(item => item.GetComponent<Elixir>().elixir_id == restoreId);
+float cap = (float)expected["cap"];
+float Wakan() => owner.GetComponent<Xian>().wakan;
+Check(Close(patient.stats[BaseStatses.MaxWakan.id], (float)expected["max"]) &&
+      Close(Wakan(), cap) && Close(restoredPill.GetComponent<Elixir>().value, (float)expected["dose"]),
+    "同一修士读回上限、满额余额与同剂量原药");
+Check(!owner.TryConsumeElixir(restoredPill) && !restoredPill.IsNull && Wakan() == cap,
+    "已到上限时拒绝服用，原药保持");
+owner.GetComponent<Xian>().wakan = cap * .25f;
+float before = Wakan();
+Check(owner.TryConsumeElixir(restoredPill) && restoredPill.IsNull && Close(Wakan(), before + (float)expected["dose"]),
+    "腾出余量后原药可以服用，实际增加后才消耗",
+    new { before, after = Wakan(), cap });
+Entity large = SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime())
+    .AddComponent(new Elixir { elixir_id = restoreId, value = cap }).Build();
+owner.AddSpecialItem(large);
+Check(owner.TryConsumeElixir(large) && large.IsNull && Wakan() == cap,
+    "恢复再次达到同一个上限，没有越界");
+await Advance(.85f);
+patient.updateStats();
+var library = Cultiway.Content.Libraries.Manager.ElixirLibrary;
+Check(Status().IsNull && library.get(bodyId) == null && library.get(restoreId) == null,
+    "读回的临时药效按余时到期，没有剩余引用的丹方正常回收");
+return new { passed = true, section, process, actor = actorId, checks };

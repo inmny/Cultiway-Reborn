@@ -3062,4 +3062,6 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 在原版独立游戏运行 `dev.py exec --timeout 110 -- python3 Scripts/SpellDemos/verify_ability_audit.py --section sect`。用原宗门入口确认弟子资格、讲法掌握增长和外人保持原样。再从同一宗门验证原法宝借用、实际报价、一次支付和归还。已有的正式存读及逐项证据见[能力逐项迁移验收](../../Doc/技能系统全面重构/能力逐项迁移验收.md)。
 
+同一脚本用 `--section status-escape` 验证实际致命伤触发元婴出逃、读档和超时。用 `--section elixir-atoms` 查普通药性的实际组合与消耗，`--section elixir-effects` 查服用资格、剂量和保存。已有补气丹专项档可以用 `--section elixir-resume --archive 保存目录` 在新进程复验，目录包含 `archive/map.wbox` 与 `expected.json`。
+
 其他来源的自然触发、正式读回和对应证据见[10.15 复验和证据](../../Doc/技能系统全面重构/自然施放与结算验收.md#e-复验和证据)。
