@@ -12,7 +12,9 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('core', 'runtime', 'all', 'actor', 'actor-clear', 'artifact', 'artifact-clear', 'artifact-varied', 'capacity', 'staging', 'editor', 'creation', 'restart'), default='all')
+    parser.add_argument('--section', choices=('core', 'runtime', 'all', 'actor', 'actor-clear', 'artifact',
+                        'artifact-clear', 'artifact-varied', 'capacity', 'staging', 'staging-source',
+                        'editor', 'creation', 'restart'), default='all')
     parser.add_argument('--pending', type=Path, help='creation 输出目录，仅 restart 使用')
     args = parser.parse_args()
     section = args.section

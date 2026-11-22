@@ -93,6 +93,26 @@ try
     await Advance(.12f);
     Check(contacts.Count(c => c.TargetId == passengerId) == 1, "暂存来自一次正常接触");
     Waiting(opens);
+    if (section == "staging-source")
+    {
+        long formerSource = source.id;
+        source.dieAndDestroy(AttackType.Other);
+        Check(World.world.units.get(formerSource)?.isAlive() != true, "通过原版死亡入口真实失去施术者");
+        await Advance(.28f);
+        var released = passenger.current_position;
+        Check(ReferenceEquals(World.world.units.get(passengerId), passenger) && passenger.isAlive() &&
+              !Held() && !StopsMovement() && AtEntrance() && Results(opens).Length == 0 && opens.Finished,
+            "来源死亡后同一旅客在入口恢复移动，旧出口没有抵达",
+            new { position = released.ToString(), held = Held(), paused = StopsMovement(), result = Results(opens).Length });
+        await Advance(1.15f);
+        Check(!Held() && !StopsMovement() && Results(opens).Length == 0 &&
+              opens.StepStateOf("batch") != ConstructionStepState.Completed,
+            "经过原开门和等待时限后仍无补发");
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+            passenger = passengerId, formerSource, exitX,
+            entryPosition = new[] { released.x, released.y }, checks };
+    }
+
     await Advance(.23f);
     ConstructionWorldReceipt[] arrivals = Results(opens);
     Check(ReferenceEquals(World.world.units.get(passengerId), passenger) && passenger.current_tile == exitTile &&
