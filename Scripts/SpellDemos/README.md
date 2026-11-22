@@ -3058,4 +3058,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 用 `verify_organ_ability.py --section natural-core` 复验火行妖丹换世界后保有两种神通，及在自然交战中一次实际支付和结算。共用登记的雷角撤下及装回可用同入口的 `--section source`。
 
+### 能力逐项迁移验收（10.16）
+
+在原版独立游戏运行 `dev.py exec --timeout 110 -- python3 Scripts/SpellDemos/verify_ability_audit.py --section sect`。用原宗门入口确认弟子资格、讲法掌握增长和外人保持原样。再从同一宗门验证原法宝借用、实际报价、一次支付和归还。已有的正式存读及逐项证据见[能力逐项迁移验收](../../Doc/技能系统全面重构/能力逐项迁移验收.md)。
+
 其他来源的自然触发、正式读回和对应证据见[10.15 复验和证据](../../Doc/技能系统全面重构/自然施放与结算验收.md#e-复验和证据)。

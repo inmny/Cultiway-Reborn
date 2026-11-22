@@ -1,0 +1,60 @@
+Actor lecturer = Make(64.5f);
+Actor disciple = Make(66.5f);
+Actor outsider = Make(68.5f);
+await Advance(.2f);
+var lecturerExtend = lecturer.GetExtend();
+var discipleExtend = disciple.GetExtend();
+var sect = WorldboxGame.I.Sects.newObject();
+sect.Setup(lecturer);
+
+var book = CultibookRuleComposer.CreateDraft(lecturerExtend);
+Cultiway.Content.Libraries.Manager.CultibookLibrary.AddDynamic(book);
+lecturerExtend.AddComponent(new Xian { level = XianLevels.Yuanying });
+lecturerExtend.SetMainCultibook(book);
+lecturerExtend.AddMainCultibookMastery(100f);
+lecturerExtend.Master(book, 100f);
+Check(sect.JoinSect(disciple) && disciple.HasSectRole(SectRoles.OuterDisciple),
+    "有合格师父时，听众通过原入宗流程取得外门身份");
+bool foundLecture = SectLectureService.TryPickLecture(lecturer, sect, out var selected, out var audience);
+Check(foundLecture &&
+      selected == book && audience.Contains(disciple) && !audience.Contains(outsider),
+    "讲法按讲师实际功法和听众宗门资格选取",
+    new { foundLecture, selected = selected?.id, members = sect.GetLivingMembers().Select(actor => actor.id).ToArray() });
+int taught = SectLectureService.ApplyLecture(lecturer, sect, selected, audience);
+float mastery = SectLectureService.GetKnownMastery(discipleExtend, book);
+Check(taught == 1 && mastery > 0f && SectLectureService.GetKnownMastery(outsider.GetExtend(), book) == 0f,
+    "宗门结算只增加实际听众掌握度", new { taught, mastery });
+
+var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword,
+    Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+    Level = new ItemLevel { Stage = 1, Level = 3 },
+    Name = "宗门借用原剑"
+});
+var recipe = ArtifactBlueprintCodec.FromComposeResult(design);
+Entity sword = ArtifactBlueprintCodec.Materialize(recipe, lecturer.getName());
+lecturerExtend.AddSpecialItem(sword);
+Check(SectTreasureService.TryContribute(lecturer, sword) && sect.Treasures.IsStored(sword),
+    "原剑由掌门从背包正式入库");
+int unfundedCost = SectTreasurePolicy.GetClaimCost(disciple, sword);
+Check(unfundedCost > 0 && unfundedCost < int.MaxValue && !SectTreasureService.TryClaim(disciple, sword) &&
+      sect.Treasures.IsStored(sword), "贡献不足时不能取得原剑", unfundedCost);
+sect.AddContribution(disciple, unfundedCost + 20);
+// 增加贡献会重新评定职分，受理时需要读取当前身份的报价。
+int cost = SectTreasurePolicy.GetClaimCost(disciple, sword);
+int balance = disciple.GetAvailableSectContribution();
+Check(SectTreasureService.TryClaim(disciple, sword) && sect.Treasures.Owns(sword) &&
+      !sect.Treasures.IsStored(sword) && SectTreasureService.GetBorrower(sword) == disciple &&
+      discipleExtend.GetEquippedArtifacts().Contains(sword) &&
+      disciple.GetAvailableSectContribution() == balance - cost,
+    "借用同一原剑、一次扣费并沿实际原件装备", new { cost, balance });
+Check(sword.GetComponent<ArtifactAbilitySet>().abilities.Any(ability =>
+      ability.ability_id == ArtifactAbilities.FlyingSwordAttack.id), "借给弟子的原物保留原飞剑能力");
+Check(!SectTreasureService.TryClaim(disciple, sword) && disciple.GetAvailableSectContribution() == balance - cost,
+    "同一原剑已借出时不重复领取或支付");
+Check(SectTreasureService.TryReturnBorrowed(disciple, sword) &&
+      sect.Treasures.IsStored(sword) && !discipleExtend.GetEquippedArtifacts().Contains(sword) &&
+      !sword.HasComponent<SectTreasureLoan>() && disciple.GetAvailableSectContribution() == balance - cost,
+    "归还使同一原剑回库，装备关系退出，保留已经支付的贡献");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sector = sect.id, checks };
