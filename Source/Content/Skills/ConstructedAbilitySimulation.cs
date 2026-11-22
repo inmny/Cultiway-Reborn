@@ -180,6 +180,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 {
                     ConfirmLegacyGroundTravel(running, generation);
                     if (generation != worldGeneration) yield break;
+                    ConfirmUtilityGravity(running, generation);
+                    if (generation != worldGeneration) yield break;
                     ConfirmLegacyAreaImpact(running);
                     if (generation != worldGeneration) yield break;
                 }

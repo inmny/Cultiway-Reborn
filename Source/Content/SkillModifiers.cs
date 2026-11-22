@@ -1836,33 +1836,20 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
 
         var attacker = context.SourceObj;
 
-        // 对范围内的敌人施加引力
         foreach (var obj in SkillUtils.IterEnemyInSphere(
                      skillPos.v2, radius, attacker, context.ResolveAttackKingdom()))
-        {
-            if (!obj.isActor()) continue;
+            if (obj.isActor()) TryApplyGravity(obj.a, attacker, skillPos.value, radius, strength);
+    }
 
-            var actor = obj.a;
-            if (!actor.asset.can_be_moved_by_powers) continue;
-            if (actor.position_height > 0f) continue;
-
-            // 计算从敌人到技能实体的方向
-            var targetPos = obj.GetSimPos();
-            var direction = (skillPos.value - targetPos).normalized;
-            if (direction.sqrMagnitude < 0.01f) continue;
-
-            // 计算距离，距离越近引力越强
-            var distance = Vector3.Distance(skillPos.value, targetPos);
-            var distanceFactor = Mathf.Clamp01(1f - distance / radius);
-            var forceStrength = strength * distanceFactor;
-
-            // 施加引力（只施加水平方向的力，不施加垂直力）
-            var vx = direction.x * forceStrength;
-            var vy = direction.y * forceStrength;
-            var vz = forceStrength;
-
-            actor.GetExtend().GetForce(attacker, vx, vy, vz);
-        }
+    /// <summary>旧词条与共同执行共用距离衰减、朝中心的水平分量和实际离地力度。</summary>
+    internal static bool TryApplyGravity(Actor actor, BaseSimObject attacker, Vector3 centre, float radius, float strength)
+    {
+        if (!actor.asset.can_be_moved_by_powers || actor.position_height > 0f) return false;
+        Vector3 delta = centre - actor.GetSimPos();
+        Vector3 direction = delta.normalized;
+        if (direction.sqrMagnitude < .01f) return false;
+        float force = strength * Mathf.Clamp01(1f - delta.magnitude / radius);
+        return actor.GetExtend().TryGetForce(attacker, direction.x * force, direction.y * force, force);
     }
 
     private static bool TryGetModifierContext<TModifier>(Entity skillEntity, out TModifier modifier,

@@ -37,7 +37,7 @@ internal static class UtilityConstructionMigration
         typeof(FertilizeModifier),
         typeof(Trajectory), typeof(BurstCount), typeof(SalvoCount), typeof(HugeModifier), typeof(HasteModifier),
         typeof(ProficiencyModifier), typeof(ComboModifier), typeof(VolleyModifier), typeof(EmpowerModifier),
-        typeof(ChaosModifier)
+        typeof(ChaosModifier), typeof(GravityModifier)
     };
 
     /// <summary>保留同次落地的地块结果处理窗口。</summary>
@@ -52,7 +52,7 @@ internal static class UtilityConstructionMigration
             !emission.Sourceless && emission.Source?.isActor() != true) return SkillEmissionResult.Unhandled;
         if (!emission.Sourceless && emission.Source.isRekt()) return SkillEmissionResult.Rejected;
         var caster = emission.Sourceless ? null : emission.Source.a.GetExtend();
-        AbilityDefinition definition = Convert(emission, caster, out LegacyAreaImpact landing);
+        AbilityDefinition definition = Convert(emission, caster, out LegacyAreaImpact landing, out LegacyUtilityGravity gravity);
         if (definition == null) return SkillEmissionResult.Unhandled;
         Func<Vector3> trackTarget = null;
         Vector3 point = emission.TargetPos;
@@ -67,6 +67,7 @@ internal static class UtilityConstructionMigration
         var target = new ActiveAbilityTarget(null, point, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
+        var travel = new LegacyUtilityTravel(trackTarget, gravity);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
         GetHitEvent? source = null;
         if (landing != null)
@@ -79,25 +80,29 @@ internal static class UtilityConstructionMigration
         bool accepted = emission.Sourceless
             ? ConstructedAbilityService.StartWorld(definition, target, emission.SourcePos, source.GetValueOrDefault(),
                 sourceInstance: skill.Id, sourceIsWorld: emission.SourceIsWorld, legacyArea: landing,
-                trackTarget: trackTarget) != 0
+                utilityTravel: travel) != 0
             : ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos,
                 emission.Payment, source, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing, trackTarget: trackTarget);
+                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing, utilityTravel: travel);
         return accepted ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>从当前真实容器读取数值，转换结果不保存旧实体或委托。</summary>
     /// <param name="emission">当前实际步骤。</param><param name="caster">实际范围成长的归属，世界发射为空。</param>
     /// <param name="landing">落地词条使用的原中心、范围和强度。</param>
-    private static unsafe AbilityDefinition Convert(SkillEmission emission, Core.ActorExtend caster, out LegacyAreaImpact landing)
+    /// <param name="gravity">原引力词条按实际范围和作用时点展开的数值。</param>
+    private static unsafe AbilityDefinition Convert(SkillEmission emission, Core.ActorExtend caster,
+        out LegacyAreaImpact landing, out LegacyUtilityGravity gravity)
     {
         landing = null;
+        gravity = default;
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
         foreach (Type type in skill.GetComponentTypes())
             if (typeof(IModifier).IsAssignableFrom(type) && !modifiers.Contains(type) && !ContactEffectMigration.SupportsUtilityLanding(type))
                 return null;
         if (container.OnEffectObj != null && !ContactEffectMigration.MatchesCallbacks(skill)) return null;
+        if (container.OnTravel != null && !ContactEffectMigration.MatchesTravelCallbacks(skill)) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool follow = trajectory == SkillTrajectories.FieldFollowTarget.id;
         bool advance = trajectory == SkillTrajectories.FieldAdvance.id;
@@ -167,6 +172,10 @@ internal static class UtilityConstructionMigration
             ? Mathf.Max(4f, skill.GetComponent<SummonRainCloudModifier>().Duration)
             : null);
         if (effects.Count == 0) return null;
+        if (skill.TryGetComponent(out GravityModifier pull))
+            gravity = new LegacyUtilityGravity(
+                SkillEffectRadius.ResolveForCaster(caster, skill, Mathf.Clamp(pull.Radius, .5f, 10f)),
+                Mathf.Clamp(pull.Strength * emission.RuntimeData.ResolveEffectScale(), 0f, 10f), formation, activeEnd);
         var operations = new List<ConstructionOperation>();
         float setupScale = ContactEffectMigration.SetupStrengthScale(skill, out float angle, out float speedScale);
         if (advance)

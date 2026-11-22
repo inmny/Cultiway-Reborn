@@ -3013,3 +3013,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 功能法术的移动领域（10.13 A2c1）
 
 在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_motion.py`。可用 `--section advance` 单独检查起步、巡航、逐发混沌和再用，用 `--section vortex` 检查世界来源的涡旋与实际净化。用 `--section follow` 或 `--section building` 分别检查人物跟随及建筑落点，包括移除目标后回到原坐标继续净化。场景沿用正式旧发射队列和现成地图。
+
+`--section gravity` 检查跟随净土与瞬时抬地的实际引力、成形时点、敌我范围、落地恢复和再次发射。

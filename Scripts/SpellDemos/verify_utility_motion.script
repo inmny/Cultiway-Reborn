@@ -31,12 +31,13 @@ void Legacy(Entity execution)
     if (IsTest(correlation)) legacy.Add(correlation);
 }
 
-Entity FieldSkill(TrajectoryAsset trajectory, float duration, bool chaos = false)
+Entity FieldSkill(TrajectoryAsset trajectory, float duration, bool chaos = false, bool gravity = false)
 {
     var builder = new SkillContainerBuilder(SkillEntities.CleanLandField).UseAnimation(0);
     builder.AddModifier(new Trajectory { ID = trajectory.id });
     builder.AddModifier(new CleanLandModifier { Duration = duration });
     if (chaos) builder.AddModifier(new ChaosModifier { AngleVariance = 40, SpeedVariance = .25f });
+    if (gravity) builder.AddModifier(new GravityModifier { Radius = 5f, Strength = 5f });
     Entity skill = builder.Build(SkillContainerBuildMode.RuleOnly);
     containers.Add(skill);
     Check(SkillOwnershipService.Learn(owner, skill) == SkillOwnershipResult.Added, "保留原容器直到复验结束");
@@ -196,6 +197,70 @@ try
             "建筑移除后回原坐标继续结算");
         await Advance(1.5f);
         Check(EndedNormally(101346), "建筑目标分段自然结束");
+    }
+    if (section is "gravity" or "all")
+    {
+        Entity skill = FieldSkill(SkillTrajectories.FieldFollowTarget, 1.2f, gravity: true);
+        Actor followed = Make(68), enemy = Make(70), ally = Make(69), outside = Make(74);
+        Actor wolf = Make(12, "wolf");
+        enemy.setKingdom(wolf.kingdom);
+        outside.setKingdom(wolf.kingdom);
+        ally.setKingdom(source.kingdom);
+        var stillStats = new BaseStats();
+        stillStats.addTag("frozen_ai");
+        var still = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.UtilityGravity.Still") ??
+            Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UtilityGravity.Still")
+                .SetStats(stillStats).SetDuration(1000).Build();
+        foreach (Actor actor in new[] { enemy, ally, outside })
+        {
+            CombatStatusEffects.RemoveStatus(actor, hold);
+            CombatStatusEffects.ApplyStatus(actor, still, 1000, actor);
+            actor.updateStats();
+        }
+        Check(source.kingdom.isEnemy(enemy.kingdom) && !source.kingdom.isEnemy(ally.kingdom),
+            "跟随中心周围有敌人、同阵营人物和范围外敌人");
+        Pollute(68);
+        Emit(skill, 101347, birth, followed);
+        await Advance(Formation(skill) * .45f);
+        Check(enemy.position_height == 0f && !enemy.under_forces && !Changed(101347, 68),
+            "成形期间未开始施力或净化");
+        await Advance(Formation(skill) + .12f);
+        Check(enemy.position_height > 0f && enemy.current_position.x < 70f &&
+            ally.position_height == 0f && Mathf.Abs(ally.current_position.x - 69f) < .03f &&
+            outside.position_height == 0f && Mathf.Abs(outside.current_position.x - 74f) < .03f,
+            "真正拉起范围内敌人，并跳过同阵营和范围外人物", new
+            {
+                x = enemy.current_position.x, height = enemy.position_height,
+                ally = ally.current_position.x, outside = outside.current_position.x
+            });
+        await Advance(3f);
+        Check(EndedNormally(101347) && Changed(101347, 68) && enemy.position_height <= .01f && !enemy.under_forces,
+            "净化照常结算，领域结束后人物重新落地");
+        Place(followed, 72);
+        Place(enemy, 71);
+        Emit(skill, 101348, birth, followed);
+        await Advance(Formation(skill) + .17f);
+        Check(Position(101348).x > 71.9f && enemy.position_height > 0f && enemy.current_position.x > 71f,
+            "再次施放从新中心向相反方向拉起人物", new { x = enemy.current_position.x, height = enemy.position_height });
+        await Advance(3f);
+        Check(EndedNormally(101348) && enemy.position_height <= .01f && !enemy.under_forces,
+            "再施放后也能自然结束并归还运动");
+
+        var builder = new SkillContainerBuilder(SkillEntities.RaiseTerrain).UseAnimation(0);
+        builder.AddModifier(new GravityModifier { Radius = 5f, Strength = 5f });
+        Entity instant = builder.Build(SkillContainerBuildMode.RuleOnly);
+        containers.Add(instant);
+        Check(SkillOwnershipService.Learn(owner, instant) == SkillOwnershipResult.Added,
+            "保留带旧引力的瞬时抬地容器");
+        Place(enemy, 70);
+        Tile(68).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        Emit(instant, 101349, new Vector3(68, 72, 0));
+        await Advance(Formation(instant) + .12f);
+        Check(enemy.position_height > 0f && enemy.current_position.x < 70f && Changed(101349, 68),
+            "瞬时抬地成形时提交范围引力及真实抬地");
+        await Advance(3f);
+        Check(EndedNormally(101349) && enemy.position_height <= .01f && !enemy.under_forces,
+            "瞬时引力结束后归还普通运动");
     }
     Check(legacy.Count == 0, "本次真实发射都只使用共同构造执行");
     return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, checks };
