@@ -1,0 +1,143 @@
+var source = World.world.units.get(sourceId);
+var owner = source.GetExtend();
+var city = source.city;
+Check(city != null, "使用存档中的原城和原修士", new { sourceId, city = city?.id });
+var protectedPlot = city.zones.SelectMany(zone => zone.tiles).First(tile => tile.building != null);
+var protectedBuilding = protectedPlot.building;
+var protectedTerrain = protectedPlot.main_type;
+var oldHeight = protectedPlot.Height;
+var elements = new float[ElementIndex.Count];
+elements[ElementIndex.Earth] = 2f;
+if (!owner.HasElementRoot()) owner.GetOrAddComponent<ElementRoot>() = new ElementRoot(elements);
+owner.MarkCultiwayStatsDirty();
+owner.E.RemoveComponent<Xian>();
+var xian = Cultisyses.Xian;
+int highest = xian.GetHighestGrantableRealm(xian.DefaultComponent.CurrLevel);
+xian.GrantToRealm(owner, highest);
+source.setStatsDirty();
+source.updateStats();
+float maximum = source.stats[BaseStatses.MaxWakan.id];
+
+var access = ConstructionEditing.Access;
+var ends = new List<ConstructedCastEnded>();
+var changes = new List<ConstructedWorldContact>();
+string currentId = null;
+void End(ConstructedCastEnded value) { if (value.AbilityId == currentId) ends.Add(value); }
+void Change(ConstructedWorldContact value)
+{
+    if (value.AbilityId == currentId && value.Result.Changed) changes.Add(value);
+}
+int width = MapBox.width, height = MapBox.height;
+Vector3 center = new Vector3(width * .5f, height * .5f, 0f);
+float reach = Mathf.Ceil(Mathf.Sqrt(center.x * center.x + center.y * center.y));
+const float siteRadius = 2.4f;
+WorldTile[] Sample(int x, int y)
+{
+    var tiles = new List<WorldTile>();
+    for (int dx = 0; dx < 3; dx++)
+    for (int dy = 0; dy < 3; dy++)
+    {
+        var tile = World.world.GetTileSimple(x + dx, y + dy);
+        tile.building?.removeBuildingFinal();
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.Height = 140;
+        tiles.Add(tile);
+    }
+    return tiles.ToArray();
+}
+
+async Task<object> Verify(string tag, string action, bool terrain)
+{
+    var first = Sample(7, 7);
+    var opposite = Sample(width - 10, height - 10);
+    var targets = first.Concat(opposite).ToArray();
+    var edit = new ConstructionEditSession(access.Read("Cultiway.WorldUtility.CityCleanse"));
+    edit.Draft.Name = terrain ? "川原抬升" : "寰野催绿";
+    ConstructionNode Site(string id, WorldTile tile) => new ConstructionNode
+    {
+        Id = id, Form = "world_domain", Matter = terrain ? "earth" : "wood", Scale = siteRadius,
+        Offset = new[] { tile.x + 1.5f - center.x, tile.y + 1.5f - center.y, 0f },
+        ActiveFrom = .18f, ActiveUntil = .26f
+    };
+    edit.Draft.Root = new ConstructionNode
+    {
+        Id = "sites", Form = "pivot", Matter = "physical", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { Site("first", first[0]), Site("opposite", opposite[0]) }
+    };
+    edit.Draft.TargetRange = reach;
+    edit.Draft.Impact.WorldEffects[0].Action = action;
+    edit.Draft.Impact.WorldEffects[0].MaximumTiles = 32;
+    var learned = access.Apply(owner, edit, false);
+    currentId = learned.Id;
+    Check(ConstructedAbilityService.Knows(owner, learned.Id), "用现有底稿另创实际可以施放的世界尺度用法", learned.Id);
+
+    var main = targets.ToDictionary(tile => tile.tile_id, tile => tile.main_type.increase_to);
+    var between = World.world.GetTileSimple((int)center.x, (int)center.y);
+    int betweenHeight = between.Height;
+    var betweenTerrain = between.main_type;
+    var expectedFlag = terrain ? SkillEffectOutcomeFlags.TerrainRaised : SkillEffectOutcomeFlags.FloraCreated;
+    Vector3 Point(WorldTile tile) => new Vector3(tile.x + .5f, tile.y + .5f, 0f);
+    Check(targets.All(tile => Vector2.Distance(Point(tile), center) < reach) &&
+        Vector2.Distance(Point(first[0]), Point(opposite[0])) > Mathf.Max(width, height) * .9f,
+        "两个地块样本分属远隔地域，作用范围分别覆盖两处实地",
+        new { first = first[0].tile_id, second = opposite[0].tile_id, reach, siteRadius });
+
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), maximum);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, learned.Id);
+    float before = owner.GetCultisys<Xian>().wakan;
+    source.attack_timer = 0;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, center), ActiveAbilityUseOrigin.Player) &&
+          before - owner.GetCultisys<Xian>().wakan == learned.Cost, "原人物通过玩家入口实际付费", new { tag, before, after = owner.GetCultisys<Xian>().wakan });
+    Config.paused = false;
+    await Game.WaitUntil(() => ends.Any(end => end.AbilityId == learned.Id), 4800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+
+    var confirmed = changes.Where(receipt => receipt.AbilityId == learned.Id &&
+        (receipt.Result.Flags & expectedFlag) != 0).ToArray();
+    var byTile = confirmed.ToLookup(receipt => World.world.GetTileSimple(receipt.X, receipt.Y).tile_id);
+    bool Done(WorldTile tile) => byTile[tile.tile_id].Count() == 1 &&
+        (terrain ? tile.main_type == main[tile.tile_id] : tile.building != null);
+    var finished = ends.Single(end => end.AbilityId == learned.Id);
+    Check(!finished.Cancelled && finished.SourceId == sourceId &&
+        (terrain ? targets.All(Done) : first.Any(Done) && opposite.Any(Done)) &&
+        protectedPlot.building == protectedBuilding && protectedPlot.main_type == protectedTerrain &&
+        protectedPlot.Height == oldHeight && between.Height == betweenHeight && between.main_type == betweenTerrain &&
+        !byTile.Contains(between.tile_id), "两端产生真实且唯一的作用，中间及原建筑用地保持，施放正常结束",
+        new { tag, near = first.Select(tile => Done(tile)).ToArray(), far = opposite.Select(tile => Done(tile)).ToArray(), done = confirmed.Length });
+    File.WriteAllText(Path.Combine(folder, tag + "-definition.json"), JsonConvert.SerializeObject(learned, Formatting.Indented));
+    return new { tag, size = confirmed.Length, finish = finished, first = first.Where(Done).Select(tile => tile.tile_id).ToArray(),
+        second = opposite.Where(Done).Select(tile => tile.tile_id).ToArray() };
+}
+
+float oldFps = PerformanceSettings.TargetRenderFps;
+float oldBudget = PerformanceSettings.MaxSimulationMillisecondsPerFrame;
+ConstructedAbilityService.CastEnded += End;
+ConstructedAbilityService.WorldContactConfirmed += Change;
+var results = new List<object>();
+try
+{
+    PerformanceSettings.SetTargetRenderFps(15f);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+    Config.setWorldSpeed("x1", false);
+    var starting = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler").GetMethod("IsWorldInitializationPending", F);
+    await Game.WaitUntil(() => !(bool)starting.Invoke(null, null), 3600);
+    Ready(source);
+    if (testTerrain) results.Add(await Verify("terrain", "terrain.raise", true));
+    if (testEcology) results.Add(await Verify("ecology", "nature.grow", false));
+    var result = new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, width, height, reach, siteRadius, results };
+    File.WriteAllText(Path.Combine(folder, "world-coverage.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, sourceId, width, height, reach, siteRadius };
+}
+finally
+{
+    Config.paused = true;
+    PerformanceSettings.SetTargetRenderFps(oldFps);
+    PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.WorldContactConfirmed -= Change;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "changes.json"), JsonConvert.SerializeObject(
+        changes.Select(entry => new { entry.AbilityId, entry.X, entry.Y, entry.Result.Flags, entry.Age }), Formatting.Indented));
+}
