@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Content.Components.Skill;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -47,31 +48,41 @@ internal static class UtilityConstructionMigration
             !emission.Sourceless && emission.Source?.isActor() != true) return SkillEmissionResult.Unhandled;
         if (!emission.Sourceless && emission.Source.isRekt()) return SkillEmissionResult.Rejected;
         var caster = emission.Sourceless ? null : emission.Source.a.GetExtend();
-        AbilityDefinition definition = Convert(emission, caster);
+        AbilityDefinition definition = Convert(emission, caster, out LegacyAreaImpact landing);
         if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(
             definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
+        GetHitEvent? source = null;
+        if (landing != null)
+        {
+            var statusSource = new GetHitEvent { AttackerPowerLevel = emission.PowerLevel, DamageOrigin = emission.RuntimeData.DamageOrigin };
+            if (caster != null) statusSource.BindAttacker(caster.Base);
+            source = statusSource;
+        }
         bool accepted = emission.Sourceless
-            ? ConstructedAbilityService.StartWorld(definition, target, emission.SourcePos, default,
-                sourceInstance: skill.Id, sourceIsWorld: emission.SourceIsWorld) != 0
+            ? ConstructedAbilityService.StartWorld(definition, target, emission.SourcePos, source.GetValueOrDefault(),
+                sourceInstance: skill.Id, sourceIsWorld: emission.SourceIsWorld, legacyArea: landing) != 0
             : ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos,
-                emission.Payment, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-                sourceIsWorld: emission.SourceIsWorld);
+                emission.Payment, source, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
+                sourceIsWorld: emission.SourceIsWorld, legacyArea: landing);
         return accepted ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>从当前真实容器读取数值，转换结果不保存旧实体或委托。</summary>
     /// <param name="emission">当前实际步骤。</param><param name="caster">实际范围成长的归属，世界发射为空。</param>
-    private static unsafe AbilityDefinition Convert(SkillEmission emission, Core.ActorExtend caster)
+    /// <param name="landing">落地状态使用的原中心和范围规则。</param>
+    private static unsafe AbilityDefinition Convert(SkillEmission emission, Core.ActorExtend caster, out LegacyAreaImpact landing)
     {
+        landing = null;
         Entity skill = emission.SkillContainer;
         var container = skill.GetComponent<SkillContainer>();
         foreach (Type type in skill.GetComponentTypes())
-            if (typeof(IModifier).IsAssignableFrom(type) && !modifiers.Contains(type))
+            if (typeof(IModifier).IsAssignableFrom(type) && !modifiers.Contains(type) && !ContactEffectMigration.IsControlStatus(type))
                 return null;
+        if (container.OnEffectObj != null && !ContactEffectMigration.MatchesCallbacks(skill)) return null;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
         bool follow = trajectory == SkillTrajectories.FieldFollowTarget.id;
         bool advance = trajectory == SkillTrajectories.FieldAdvance.id;
@@ -192,6 +203,18 @@ internal static class UtilityConstructionMigration
             });
         }
 
+        // 原落地冲击会单独挑选敌人。持续地块的周期不调用旧命中词条，也不借用地块碰撞面来选人。
+        ConstructionImpact landingImpact = null;
+        if (instantPulse && container.OnEffectObj != null)
+        {
+            List<ConstructionStatus> statuses = ContactEffectMigration.ControlStatuses(skill, emission.RuntimeData.ResolveEffectScale());
+            if (statuses.Count > 0)
+            {
+                landing = LegacyAreaImpact.ForUtility(radius);
+                landingImpact = new ConstructionImpact { DamageScale = 0f, Statuses = statuses.ToArray() };
+            }
+        }
+
         return new AbilityDefinition
         {
             Id = asset.id,
@@ -225,7 +248,9 @@ internal static class UtilityConstructionMigration
             {
                 Id = "origin",
                 Form = "pivot",
-                ContactRole = ConstructionContactRole.Decoration,
+                ActiveFrom = landingImpact == null ? 0f : formation,
+                ContactRole = landingImpact == null ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
+                Impact = landingImpact,
                 Children = domains.ToArray(),
                 Operations = operations.ToArray()
             }

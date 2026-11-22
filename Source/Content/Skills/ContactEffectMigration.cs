@@ -16,9 +16,14 @@ internal static partial class ContactEffectMigration
 {
     /// <summary>已经完整接管的原接触附加词条。</summary>
     /// <param name="type">原容器中的词条类型。</param>
-    internal static bool Supports(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) || type == typeof(DazeModifier) ||
-        type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) || type == typeof(SilenceModifier) ||
+    internal static bool Supports(Type type) => IsControlStatus(type) ||
         type == typeof(BurnModifier) || type == typeof(PoisonModifier) || type == typeof(EternalCurseModifier) || type == typeof(MercyModifier) || type == typeof(ChaosModifier) || type == typeof(KnockbackModifier) || type == typeof(GravityModifier) || type == typeof(SwapModifier) || type == typeof(RandomAffixModifier) || type == typeof(BurnoutModifier) || type == typeof(DeathSentenceModifier) || type == typeof(ReincarnationTrialModifier) || type == typeof(ExplosionModifier);
+
+    /// <summary>只在原对象结算时改变状态、无需基础伤害或行进回调的词条。</summary>
+    /// <param name="type">原容器中的词条类型。</param>
+    internal static bool IsControlStatus(Type type) => type == typeof(SlowModifier) || type == typeof(FreezeModifier) ||
+        type == typeof(DazeModifier) || type == typeof(WeakenModifier) || type == typeof(ArmorBreakModifier) ||
+        type == typeof(SilenceModifier);
 
     /// <summary>在真实逐发转换时一次确定原设置词条，运行及预测只读取已经展开的数值。</summary>
     /// <param name="skill">真实原容器。</param>
@@ -73,17 +78,11 @@ internal static partial class ContactEffectMigration
         return expected.Count == 0;
     }
 
-    /// <summary>在真实攻击面附加状态和恢复；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
-    /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
-    /// <param name="effectScale">本次固定效果倍率。</param>
-    /// <param name="contactForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
-    /// <param name="includeRoot">本体是否已经是实际作用面，爆发载体在后段作用。</param>
-    /// <param name="caster">本次真实施法者，仅在资料展开时读取范围成长。</param>
-    /// <param name="runtimeData">本次发射的动态元素，独立附加作用仍用自身声明。</param>
-    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f, Core.ActorExtend caster = null, SkillCastRuntimeData runtimeData = default)
+    /// <summary>展开原落地或接触附带的状态，时机和受影响的人物由实际落点或接触确定。</summary>
+    /// <param name="skill">原容器。</param><param name="effectScale">本次固定效果倍率。</param>
+    internal static List<ConstructionStatus> ControlStatuses(Entity skill, float effectScale)
     {
         var statuses = new List<ConstructionStatus>();
-        var additionalDamage = new List<ConstructionContactDamage>();
         if (skill.TryGetComponent(out SlowModifier slow))
         {
             float duration = Mathf.Clamp(slow.Duration, 0f, 999f), strength = Mathf.Clamp01(slow.Strength * effectScale);
@@ -115,6 +114,20 @@ internal static partial class ContactEffectMigration
             AddReduction(statuses, StatusEffects.ArmorBreak.id, armorBreak.Duration, S.armor, armorBreak.ArmorReduction * effectScale);
         if (skill.TryGetComponent(out SilenceModifier silence))
             AddReduction(statuses, StatusEffects.Silence.id, silence.Duration, S.damage, silence.DamageReduction * effectScale);
+        return statuses;
+    }
+
+    /// <summary>在真实攻击面附加状态和恢复；飞行中的零伤害爆发载体及纯防御面不提前施加。</summary>
+    /// <param name="definition">已经转换的普通构造。</param><param name="skill">原容器。</param>
+    /// <param name="effectScale">本次固定效果倍率。</param>
+    /// <param name="contactForceScale">本体量换回原附加作用强度的比例，不重复乘来源效果倍率。</param>
+    /// <param name="includeRoot">本体是否已经是实际作用面，爆发载体在后段作用。</param>
+    /// <param name="caster">本次真实施法者，仅在资料展开时读取范围成长。</param>
+    /// <param name="runtimeData">本次发射的动态元素，独立附加作用仍用自身声明。</param>
+    internal static AbilityDefinition Bind(AbilityDefinition definition, Entity skill, float effectScale, bool includeRoot = true, float contactForceScale = 1f, Core.ActorExtend caster = null, SkillCastRuntimeData runtimeData = default)
+    {
+        List<ConstructionStatus> statuses = ControlStatuses(skill, effectScale);
+        var additionalDamage = new List<ConstructionContactDamage>();
         if (skill.TryGetComponent(out BurnModifier burn))
             AddTick(statuses, StatusEffects.Burn.id, burn.Duration, Mathf.Clamp01(burn.DamageRatio) * contactForceScale, Core.ElementComposition.Static.Fire);
         if (skill.TryGetComponent(out PoisonModifier poison))

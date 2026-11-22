@@ -1,0 +1,166 @@
+// 通过旧蓝图编译与已学入口，检查落地状态和持续地块的区别。
+Actor source = Make(64), enemy = Make(68), outside = Make(72), ally = Make(68), wolf = Make(12, "wolf");
+var owner = source.GetExtend();
+owner.NewCultisys(Cultisyses.Magic);
+owner.GetCultisys<Magic>().level = 1;
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+owner.MarkCultiwayStatsDirty();
+source.setStatsDirty();
+source.updateStats();
+enemy.setKingdom(wolf.kingdom);
+outside.setKingdom(wolf.kingdom);
+ally.setKingdom(source.kingdom);
+var armor = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.UtilityTarget.Armor") ??
+    Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.UtilityTarget.Armor")
+        .SetStats(new BaseStats { [strings.S.armor] = 10, [strings.S.damage] = 7 }).SetDuration(1000).Build();
+CombatStatusEffects.ApplyStatus(enemy, armor, 1000, enemy);
+enemy.setStatsDirty();
+enemy.updateStats();
+await Advance(.2f);
+Check(source.kingdom.isEnemy(enemy.kingdom) && !source.kingdom.isEnemy(ally.kingdom) && enemy.stats[strings.S.armor] > 0,
+    "现成对练人物包含可受破甲的敌人和同阵营对象");
+
+var effects = new[] { StatusEffects.Slow, StatusEffects.Freeze, StatusEffects.Daze,
+    StatusEffects.Weaken, StatusEffects.ArmorBreak, StatusEffects.Silence };
+var affixes = new[] { SkillModifiers.Slow, SkillModifiers.Freeze, SkillModifiers.Daze,
+    SkillModifiers.Weaken, SkillModifiers.ArmorBreak, SkillModifiers.Silence };
+var point = new Vector3(68, 72, 0);
+var starts = new List<ConstructedCastStarted>();
+var results = new List<ConstructedWorldContact>();
+var ended = new List<ConstructedCastEnded>();
+var legacy = new List<long>();
+var payment = new List<object>();
+var owned = new List<Entity>();
+bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101323;
+int Count(Actor actor) => effects.Count(effect => CombatStatusEffects.HasStatus(actor, effect, source));
+void Started(ConstructedCastStarted cast)
+{
+    if (!IsTest(cast.CorrelationId)) return;
+    starts.Add(cast);
+    Check(Count(enemy) == 0, "开始施放时尚未产生落地状态");
+}
+void WorldHit(ConstructedWorldContact hit)
+{
+    if (starts.Any(cast => cast.CastId == hit.CastId)) results.Add(hit);
+}
+void Finished(ConstructedCastEnded cast)
+{
+    if (starts.Any(start => start.CastId == cast.CastId)) ended.Add(cast);
+}
+void Legacy(Entity execution)
+{
+    long correlation = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
+    if (IsTest(correlation)) legacy.Add(correlation);
+}
+
+Entity Learn(SkillEntityAsset asset, bool field)
+{
+    var baseSkill = new SkillContainerBuilder(asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+    var exported = new SkillBlueprintExporter().Export(baseSkill);
+    SkillBlueprintCompiler.Recycle(baseSkill);
+    Check(exported.Success, "原容器可从正式入口导出蓝图", new { asset.id });
+    SkillBlueprint blueprint = exported.Blueprint;
+    if (!field) blueprint.TrajectoryAssetId = SkillTrajectories.GroundEruptAtTarget.id;
+    foreach (SkillModifierAsset modifier in affixes)
+    {
+        SkillModifierSpec spec = modifier.CreateDefaultSpec();
+        spec.Parameters["Duration"] = "2";
+        blueprint.Modifiers.Add(spec);
+    }
+    var compiled = new SkillBlueprintCompiler().Compile(blueprint, SkillBlueprintCompileMode.Runtime);
+    Check(compiled.Success && SkillOwnershipService.Learn(owner, compiled.Container) == SkillOwnershipResult.Added,
+        "六个词条和原兼容轨迹可由正式蓝图编译、学习", compiled.Validation.Issues.Select(issue => issue.Message).ToArray());
+    owned.Add(compiled.Container);
+    return compiled.Container;
+}
+
+bool Use(Entity skill, long correlation)
+{
+    source.setMana(source.getMaxMana(), false);
+    return ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, point, runtimeData: new SkillCastRuntimeData { CorrelationId = correlation, EffectScale = .75f }),
+        ActiveAbilityUseOrigin.Script);
+}
+
+var emit = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+{
+    if (!IsTest(request.RuntimeData.CorrelationId)) return emit(request);
+    int debited = source.getMana();
+    var accepted = emit(request);
+    payment.Add(new { request.RuntimeData.CorrelationId, accepted = accepted.ToString(), debited, after = source.getMana() });
+    Check(accepted == SkillEmissionResult.Accepted && debited < source.getMaxMana() && source.getMana() == debited,
+        "原入口按逐发支付，新执行没有再次扣费");
+    return accepted;
+};
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+ConstructedAbilityService.CastEnded += Finished;
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
+try
+{
+    WorldTile tile = World.world.GetTileSimple(68, 72);
+    if (section != "field")
+    {
+        Entity spell = Learn(SkillEntities.RaiseTerrain, field: false);
+        float radius = SkillEffectRadius.ResolveForCaster(owner, spell, 2f);
+        Place(outside, point.x + radius + .05f);
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        int health = enemy.getHealth();
+        Check(Use(spell, 101321), "正式入口允许在真实地块施放带状态的抬地");
+        await Advance(.58f);
+        var first = starts.Single(cast => cast.CorrelationId == 101321);
+        var actual = effects.Select(effect =>
+        {
+            bool found = CombatStatusEffects.TryGetStatus(enemy, effect, source, out Entity state);
+            return new { effect.id, found, duration = found ? state.GetComponent<AliveTimeLimit>().value : 0,
+                sourcePower = found ? state.GetComponent<StatusComponent>().SourcePowerLevel : null };
+        }).ToArray();
+        Check(actual.All(state => state.found && state.duration > 0f && state.sourcePower == owner.GetPowerLevel()),
+            "落地后六种实际状态保留来源与境界", actual);
+        Check(Count(ally) == 0 && Count(outside) == 0 && enemy.getHealth() == health,
+            "同阵营和范围外敌人没有状态，范围内的敌人只受词条状态", new { radius, enemy = enemy.id, outside = outside.id });
+        Check(results.Any(hit => hit.CastId == first.CastId && hit.Action == "terrain.raise" && hit.Result.Changed && hit.X == 68 && hit.Y == 72),
+            "同一次真实施放仍修改原地块");
+        await Advance(2.15f);
+        Check(ended.Any(cast => cast.CastId == first.CastId && !cast.Cancelled) && Count(enemy) == 0,
+            "落地结束、状态到期后离开人物");
+
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        Check(Use(spell, 101322), "冷却后可再次从已学入口施放");
+        await Advance(.58f);
+        var second = starts.Single(cast => cast.CorrelationId == 101322);
+        Check(second.CastId != first.CastId && Count(enemy) == effects.Length &&
+            results.Any(hit => hit.CastId == second.CastId && hit.Result.Changed), "再次落地独立施加状态和地块效果");
+        await Advance(2.15f);
+    }
+
+    if (section != "landing")
+    {
+        Entity field = Learn(SkillEntities.CleanLandField, field: true);
+        tile.heat = 50;
+        tile.burned_stages = 2;
+        Check(Use(field, 101323), "同六个词条的净土仍从原入口施放");
+        await Advance(1.2f);
+        var fieldCast = starts.Single(cast => cast.CorrelationId == 101323);
+        Check(results.Any(hit => hit.CastId == fieldCast.CastId && hit.Action == "land.cleanse" && hit.Result.Changed) &&
+            Count(enemy) == 0 && Count(ally) == 0, "持续区域保留真实净土周期和原对象状态条件");
+    }
+
+    Check(legacy.Count == 0 && payment.Count == starts.Count, "实际发射全部走共同执行且没有旧实体");
+    return new { passed = true, section, checks, starts, ended, results, payment, legacy };
+}
+finally
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emit;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.CastEnded -= Ended;
+    foreach (Entity skill in owned)
+    {
+        owner.ForgetSkillV3(skill);
+        SkillBlueprintCompiler.Recycle(skill);
+    }
+}

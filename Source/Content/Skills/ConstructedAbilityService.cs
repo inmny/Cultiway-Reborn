@@ -503,14 +503,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="position">环境出生位置。</param><param name="damage">已经确定的无攻击者伤害及境界。</param>
     /// <param name="sourceInstance">原环境容器，供同来源并存计数。</param>
     /// <param name="sourceIsWorld">该出生位置是否已包含地形高度。</param>
+    /// <param name="legacyArea">旧来源按落地中心结算的额外作用。</param>
     internal static long StartWorld(AbilityDefinition definition, in ActiveAbilityTarget target,
-        Vector3 position, GetHitEvent damage, int sourceInstance = 0, bool sourceIsWorld = false)
+        Vector3 position, GetHitEvent damage, int sourceInstance = 0, bool sourceIsWorld = false, LegacyAreaImpact legacyArea = null)
     {
         CompiledAbility plan = ValidateDefinition(definition);
         if (plan.Body != null || plan.Binding?.Anchor == AbilityAnchor.Carrier || damage.HasAttacker) return 0;
         return Start(null, plan, target, target.RuntimeData.Origin, out long castId,
             position, prepaid: true, sourceDamage: damage, sourceInstance: sourceInstance,
-            sourceIsWorld: sourceIsWorld) ? castId : 0;
+            sourceIsWorld: sourceIsWorld, legacyArea: legacyArea) ? castId : 0;
     }
 
     /// <summary>发起来源主动撤销自己保存的施放；实际退出和额度归还仍由共同推进完成。</summary>

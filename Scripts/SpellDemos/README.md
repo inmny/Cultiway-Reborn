@@ -2999,3 +2999,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 世界来源的功能法术（10.13 A1）
 
 在原版独立游戏运行 `dev.py exec --timeout 120 -- python3 Scripts/SpellDemos/verify_utility_world_source.py`。可用 `--section terrain` 单独复验抬地延时、范围和实际建筑保护，或用 `--section field` 复验净土并存、任务失效和再次施放。脚本读入现成世界，并记录实际发射的归属、费用读数、地块结果和结束情况。
+
+### 功能法术的落地状态（10.13 A2a）
+
+在原版独立游戏运行 `dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_utility_status.py`。可用 `--section landing` 只检查正式蓝图学习、六种状态、地块、阵营与范围、逐发扣费及再次施放，也可用 `--section field` 只检查持续净土的地块周期与对象条件。
