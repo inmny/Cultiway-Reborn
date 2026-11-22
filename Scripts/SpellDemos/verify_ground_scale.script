@@ -1,5 +1,6 @@
 // 4.32B2：复用城市或完整平坦世界，实际推进同一地表过程。
 bool cityCase = "GROUND_SCALE_CASE" == "city";
+bool useWorldCatalog = "GROUND_SCALE_CATALOG" == "yes";
 if (!cityCase)
     for (int y = 0; y < MapBox.height; y++)
     {
@@ -49,35 +50,91 @@ foreach (Vector2 point in positions)
     Actor actor = Make(point.x); Place(actor, point.x, point.y); actor.setKingdom(foe.kingdom); targets.Add(actor);
     var tile = World.world.GetTileSimple((int)point.x, (int)point.y); tile.burned_stages = 2;
 }
-var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 4, wakan = 100000f });
-var definition = BodyActionCatalog.Create("test.ground-scale.GROUND_SCALE_CASE", cityCase ? "城域地脉传力" : "全域地脉传力",
-    new BodyActionRequest { Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.2f });
-definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
-definition.Resource = "wakan"; definition.Cost = cityCase ? 100f : 500f; definition.Cooldown = 0; definition.Power = 100f; definition.Lifetime = 12f;
-definition.Body.Impact = new ConstructionImpact { DamageScale = 0f };
-definition.Body.ActiveFrom = .45f; definition.Body.ActiveUntil = .65f; definition.Body.MatchDistance = false;
-foreach (var key in definition.Body.Keys) { key.Foot = new[] { .1f, key.Foot[1], 0f }; key.Torso = new[] { 0f, 0f, -.12f }; }
-definition.Impact = new ConstructionImpact { DamageScale = .005f, WorldEffects = new[]
-    { new ConstructionWorldEffect { Action = "land.cleanse", TileCentreOnly = true, MaximumTiles = MapBox.width * MapBox.height } } };
-definition.Root = new ConstructionNode
+var owner = source.GetExtend();
+float wakanMaximum = 0f;
+AbilityDefinition definition;
+if (useWorldCatalog)
 {
-    Id = "front", Form = "fracture_slab", Matter = "physical", Surface = "stone",
-    Activation = new ConstructionActivation { Source = "body", Trigger = ConstructionChangeTrigger.WorldContact, Placement = ConstructionEventPlacement.Event },
-    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Propagate,
-        Propagation = new ConstructionPropagation { Range = cityCase ? 48f : Mathf.Max(MapBox.width, MapBox.height) * 2f,
-            Speed = cityCase ? 16f : 70f, Seconds = cityCase ? .8f : .2f, InnerRadius = 2f,
-            Height = cityCase ? 2f : 5f, Angle = 360f, Attenuation = .004f, MaximumCells = 65536 } } }
-};
+    var rootElements = new float[Cultiway.Const.ElementIndex.Count];
+    rootElements[Cultiway.Const.ElementIndex.Earth] = 2f;
+    owner.GetOrAddComponent<Cultiway.Core.Components.ElementRoot>() =
+        new Cultiway.Core.Components.ElementRoot(rootElements);
+    owner.MarkCultiwayStatsDirty();
+    var xian = Cultisyses.Xian;
+    int highest = xian.GetHighestGrantableRealm(xian.DefaultComponent.CurrLevel);
+    xian.GrantToRealm(owner, highest);
+    Check(owner.HasCultisys<Xian>() && owner.GetCultisys<Xian>().CurrLevel == highest && highest >= 4,
+        "实际进阶规则授予当前最高可达境界", new { highest, name = xian.GetLevelName(highest) });
+    source.setStatsDirty();
+    source.updateStats();
+    wakanMaximum = source.stats[BaseStatses.MaxWakan.id];
+    var access = ConstructionEditing.Access;
+    string id = cityCase ? "Cultiway.GroundPulse.City" : "Cultiway.GroundPulse.World";
+    Check(access.List().Any(row => row.Id == id) && !ConstructedAbilityService.Knows(owner, id),
+        "从当前世界目录能取得正式底稿，未自动授予知识", id);
+    var original = access.Read(id);
+    definition = access.Apply(owner, new ConstructionEditSession(original), false);
+    Check(original.Cost == (cityCase ? 100f : 500f) && wakanMaximum >= original.Cost &&
+        definition.Parent.Id == id && ConstructedAbilityService.Knows(owner, definition.Id),
+        "正式另创后学会独立成品，原真元上限可支付", new { basis = id, definition.Id, definition.Cost, wakanMaximum });
+}
+else
+{
+    owner.AddComponent(new Xian { level = 4, wakan = 100000f });
+    definition = LegacyDefinition();
+}
+
+AbilityDefinition LegacyDefinition()
+{
+    var definition = BodyActionCatalog.Create("test.ground-scale.GROUND_SCALE_CASE", cityCase ? "城域地脉传力" : "全域地脉传力",
+        new BodyActionRequest { Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.2f });
+    definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+    definition.Resource = "wakan"; definition.Cost = cityCase ? 100f : 500f; definition.Cooldown = 0; definition.Power = 100f; definition.Lifetime = 12f;
+    definition.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    definition.Body.ActiveFrom = .45f; definition.Body.ActiveUntil = .65f; definition.Body.MatchDistance = false;
+    foreach (var key in definition.Body.Keys) { key.Foot = new[] { .1f, key.Foot[1], 0f }; key.Torso = new[] { 0f, 0f, -.12f }; }
+    definition.Impact = new ConstructionImpact { DamageScale = .005f, WorldEffects = new[]
+        { new ConstructionWorldEffect { Action = "land.cleanse", TileCentreOnly = true, MaximumTiles = MapBox.width * MapBox.height } } };
+    definition.Root = new ConstructionNode
+    {
+        Id = "front", Form = "fracture_slab", Matter = "physical", Surface = "stone",
+        Activation = new ConstructionActivation { Source = "body", Trigger = ConstructionChangeTrigger.WorldContact, Placement = ConstructionEventPlacement.Event },
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Propagate,
+            Propagation = new ConstructionPropagation { Range = cityCase ? 48f : Mathf.Max(MapBox.width, MapBox.height) * 2f,
+                Speed = cityCase ? 16f : 70f, Seconds = cityCase ? .8f : .2f, InnerRadius = 2f,
+                Height = cityCase ? 2f : 5f, Angle = 360f, Attenuation = .004f, MaximumCells = 65536 } } }
+    };
+    return definition;
+}
 var actions = new List<ConstructedActionEvent>();
 var worlds = new List<ConstructedWorldContact>();
 var finishes = new List<ConstructedCastEnded>();
 var samples = new List<object>();
 var watch = System.Diagnostics.Stopwatch.StartNew();
 double started = -1d;
+int[] health = null;
+int[] healthAtGroundContact = null;
+int? farHealthAtNearHit = null;
+object catalogWave = null;
+int deferred = cityCase ? 1 : targets.Count - 1;
 /// <summary>记录正式受理的共同开始时间。</summary><param name="fact">实际受理。</param>
 void Started(ConstructedCastStarted fact) { if (fact.AbilityId == definition.Id) started = fact.WorldTime; }
 /// <summary>记录实际动作，未确认预测不计入。</summary><param name="fact">已确认动作。</param>
-void ActionFact(ConstructedActionEvent fact) { if (fact.AbilityId == definition.Id) actions.Add(fact); }
+void ActionFact(ConstructedActionEvent fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    actions.Add(fact);
+    if (useWorldCatalog && fact.Fact.Node < 0 && fact.Fact.ContactKind == AbilityActionContactKind.World)
+        healthAtGroundContact ??= targets.Select(target => target.data.health).ToArray();
+}
+void ObserveCatalogContact(ConstructedContact fact)
+{
+    if (!useWorldCatalog || fact.AbilityId != definition.Id || fact.Node < 0) return;
+    var running = Live();
+    if (running != null) catalogWave ??= ((Array)Field(running, "propagations")).GetValue(0);
+    if (fact.TargetId != targets[deferred].id)
+        farHealthAtNearHit ??= targets[deferred].data.health;
+}
 /// <summary>保留实际地块操作。</summary><param name="fact">世界结果。</param>
 void WorldFact(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) worlds.Add(fact); }
 /// <summary>保留真实结束。</summary><param name="fact">结束事实。</param>
@@ -196,6 +253,9 @@ async Task To(float age)
 }
 ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.ActionConfirmed += ActionFact;
 ConstructedAbilityService.WorldContactConfirmed += WorldFact; ConstructedAbilityService.CastEnded += Finished;
+if (useWorldCatalog) ConstructedAbilityService.ContactConfirmed += ObserveCatalogContact;
+float oldTargetFps = Cultiway.Const.PerformanceSettings.TargetRenderFps;
+float oldFrameBudget = Cultiway.Const.PerformanceSettings.MaxSimulationMillisecondsPerFrame;
 try
 {
     nativeTarget = new RenderTexture(1280, 720, 24, RenderTextureFormat.ARGB32); nativeTarget.Create();
@@ -208,16 +268,67 @@ try
         var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
         ground(new Rect(0, 0, MapBox.width, MapBox.height));
     }
+    if (useWorldCatalog)
+    {
+        // 调度规则和世界步长保留。软件渲染下多给模拟留一些时间，退出后复原。
+        Cultiway.Const.PerformanceSettings.SetTargetRenderFps(15f);
+        Cultiway.Const.PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(60f);
+        var initialization = service.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler")
+            .GetMethod("IsWorldInitializationPending", F);
+        await Game.WaitUntil(() => !(bool)initialization.Invoke(null, null), 3600);
+        Config.setWorldSpeed("x1", false);
+    }
     await Advance(.15f); await Shot("before");
-    float balance = owner.GetCultisys<Xian>().wakan;
-    var health = targets.Select(a => a.data.health).ToArray();
-    Ready(source); await Fire(definition, source, targets[0], aim: new Vector3(source.current_position.x + 1f, source.current_position.y, 0f), aggro: false);
-    owner.E.RemoveComponent<ConstructedKnowledge>();
-    Check(balance - owner.GetCultisys<Xian>().wakan == definition.Cost, "整次宏观施放支付一次");
-    await To(.25f); await Shot("source", true);
-    await To(.5f);
-    var live = Live(); Check(live != null, "实际触地之后普通传播仍在运行");
-    var wave = ((Array)Field(live, "propagations")).GetValue(0); Check(wave != null, "真实身体接触已经建立地面过程");
+    health = targets.Select(a => a.data.health).ToArray();
+    var aim = new Vector3(source.current_position.x + 1f, source.current_position.y, 0f);
+    Ready(source);
+    if (useWorldCatalog)
+    {
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+        var choice = new ActiveAbilityTarget(null, aim);
+        if (!cityCase)
+        {
+            WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), definition.Cost - 1f);
+            Check(!ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Player) &&
+                started < 0d && Live() == null && owner.GetCultisys<Xian>().wakan == definition.Cost - 1f,
+                "真元不足拒绝世界术，原存量和动作均未改变");
+        }
+        WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), wakanMaximum);
+        float balance = owner.GetCultisys<Xian>().wakan;
+        Check(ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Player) &&
+            balance - owner.GetCultisys<Xian>().wakan == definition.Cost,
+            "玩家正常入口受理，同一修士只支付一次", new { source = source.id, balance, after = owner.GetCultisys<Xian>().wakan });
+        source.attack_timer = 999;
+    }
+    else
+    {
+        float balance = owner.GetCultisys<Xian>().wakan;
+        await Fire(definition, source, targets[0], aim: aim, aggro: false);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        Check(balance - owner.GetCultisys<Xian>().wakan == definition.Cost, "整次宏观施放支付一次");
+    }
+    object wave;
+    if (useWorldCatalog)
+    {
+        await Shot("source", true);
+        Config.paused = false;
+        await Game.WaitUntil(() => finishes.Count > 0, 3600);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Check(healthAtGroundContact != null && healthAtGroundContact.SequenceEqual(health),
+            "实际脚下触地时，所有对手保持原生命", healthAtGroundContact);
+        Check(farHealthAtNearHit == health[deferred],
+            "传播已命中近处，远处仍保持原生命", new { before = health[deferred], observed = farHealthAtNearHit });
+        wave = catalogWave;
+    }
+    else
+    {
+        await To(.25f); await Shot("source", true);
+        await To(.5f);
+        var live = Live(); Check(live != null, "实际触地之后普通传播仍在运行");
+        wave = ((Array)Field(live, "propagations")).GetValue(0);
+    }
+    Check(wave != null, "真实身体接触已经建立地面过程");
     var route = ((IEnumerable)Field(wave, "Route")).Cast<object>().Select(c => new
         { x = (int)Field(c, "X"), y = (int)Field(c, "Y"), distance = (float)Field(c, "Distance"), at = (float)Field(c, "At") }).ToArray();
     var reached = new HashSet<int>(route.Select(c => c.x + c.y * MapBox.width));
@@ -230,19 +341,22 @@ try
     Check(cityCase ? cityTiles.Count > 0 && cityTiles.All(id => World.world.GetTileSimple(id % MapBox.width, id / MapBox.width).Type.liquid || reached.Contains(id)) :
         reached.Count == landCount && reached.Any(id => id % MapBox.width == 0) && reached.Any(id => id / MapBox.width == MapBox.height - 1),
         cityCase ? "真实路径覆盖已有城市及周围地面" : "同一过程覆盖整个平坦世界，包含地图边缘");
-    Check(!contacts.Any(c => c.AbilityId == definition.Id), "宏观范围没有变成出手瞬间全域伤害");
-    await To(1.8f); await Shot("middle");
-    int deferred = cityCase ? 1 : targets.Count - 1;
-    Check(targets[deferred].data.health == health[deferred], "尚未到达的远处目标没有提前损失生命");
-    await To(3f); await Shot("front");
-    await To(6f); await Shot("ended");
+    if (useWorldCatalog) await Shot("ended");
+    else
+    {
+        Check(!contacts.Any(c => c.AbilityId == definition.Id), "宏观范围没有变成出手瞬间全域伤害");
+        await To(1.8f); await Shot("middle");
+        Check(targets[deferred].data.health == health[deferred], "尚未到达的远处目标没有提前损失生命");
+        await To(3f); await Shot("front");
+        await To(6f); await Shot("ended");
+    }
     Check(finishes.Count == 1 && !finishes[0].Cancelled && !BodyControlState.IsBusy(source.id), "宏观过程自然结束并归还控制");
     Check(targets.All(t => contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == t.id) == 1) &&
         targets.Select((t, i) => t.data.health < health[i]).All(v => v), "各处实际到达后才受击一次");
     Check(targets.All(t => World.world.GetTileSimple(t.current_tile.pos.x, t.current_tile.pos.y).burned_stages == 0) &&
         worlds.Any(w => w.Result.Changed), "两种尺度均产生真实地块结果");
     Check(quietTile.burned_stages == 2, "来源安静区既不显示波面，也不产生隐藏地块作用");
-    if (cityCase && mod == null)
+    if (!useWorldCatalog && cityCase && mod == null)
     {
         // 本轮改动了离开检查的启用条件，仅复用一个已有旋转形体核对重新进入。
         if (!((IDictionary)typeof(ConstructionWorldActions).GetField("actions", F).GetValue(null)).Contains("test.ground-scale.reentry"))
@@ -300,6 +414,7 @@ try
     }
     File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
     var result = new { passed = true, view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", cells = route.Length,
+        catalog = useWorldCatalog, damage = targets.Select((actor, i) => health[i] - actor.data.health).ToArray(),
         process = System.Diagnostics.Process.GetCurrentProcess().Id, wallMs = watch.ElapsedMilliseconds };
     File.WriteAllText(Path.Combine(folder, "result.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
     return result;
@@ -308,6 +423,16 @@ finally
 {
     ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ActionConfirmed -= ActionFact;
     ConstructedAbilityService.WorldContactConfirmed -= WorldFact; ConstructedAbilityService.CastEnded -= Finished;
+    if (useWorldCatalog)
+    {
+        ConstructedAbilityService.ContactConfirmed -= ObserveCatalogContact;
+        Cultiway.Const.PerformanceSettings.SetTargetRenderFps(oldTargetFps);
+        Cultiway.Const.PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldFrameBudget);
+        File.WriteAllText(Path.Combine(folder, "health-at-contact.json"), JsonConvert.SerializeObject(new
+        {
+            before = health, ground = healthAtGroundContact, deferred = targets[deferred].id, farHealthAtNearHit
+        }, Formatting.Indented));
+    }
     ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
     DebugConfig.setOption(DebugOption.SystemBuildTick, originalBuild);
     if (originalGodZoom.HasValue)

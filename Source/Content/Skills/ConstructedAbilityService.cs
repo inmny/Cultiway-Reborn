@@ -117,7 +117,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PatchMapBox.RegisterActionOnClearWorld(Clear);
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
-        foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
+        RegisterBuiltInDefinitions();
         ValidateDefinition(BodyActionCatalog.KnightCounterRiposte);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
                 16,
@@ -222,6 +222,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definitions[copy.Id] = copy;
         compiled[copy.Id] = plan;
         IndexConstruction(copy, plan);
+    }
+
+    /// <summary>两个入口使用同一目录，换世界后也能在万法阁选择原底稿。</summary>
+    private static void RegisterBuiltInDefinitions()
+    {
+        foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
+        GroundScaleConstruction.Register();
     }
 
     /// <summary>创建、编辑预览和正式登记使用同一资料及来源规则，不在界面另推支付限制。</summary>
@@ -1021,7 +1028,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ConstructedActorImpulse.Clear();
         AbilityCompiler.Clear();
         FormVisualScene.Clear();
-        foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
+        RegisterBuiltInDefinitions();
     }
 
     /// <summary>无论正常收势还是中断，解除本次控制，不销毁借用身体和器物。</summary>

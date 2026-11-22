@@ -3127,3 +3127,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 世界过程与地形提交开销（11.15）
 
 在独立游戏运行 `dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/measure_world_commit.py`。用同一角色通过正式入口执行两种大小的抬升操作。逐格核对世界变化和提交收据，并输出实际提交总耗时及最忙一帧内的提交耗时。见[世界过程调度与提交开销](../../Doc/技能系统全面重构/世界过程调度与提交开销.md)。
+
+### 顶尖修士的城域及全域攻击（11.16）
+
+在独立原版游戏运行 `dev.py exec --timeout 390 -- python3 Scripts/SpellDemos/verify_ground_scale.py --catalog --archive <4.32使用的现成世界目录> --case city`。用目前最高可达的化神境界，从万法阁正式目录另创并施放，核对一次付费、传播到达前后的实际生命及收势。将 `city` 改为 `world` 检查全域术。见[城域与全域攻击](../../Doc/技能系统全面重构/顶尖修士的城域与全域攻击.md)。
