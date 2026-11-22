@@ -112,32 +112,31 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
                 timeout,
                 out long executionToken)) return false;
 
+        long actorId = actor.Base.getID();
+        bool learnedSkill = option.Construction == null;
         var pending = new PendingCast(
             project.ProjectId,
             executionToken,
             option.Skill,
-            settleDelay, option.Construction == null ? null : option.Ability.EntryId,
-            option.Action, new HashSet<int>(payload.PlannedActionTileIds));
+            settleDelay, learnedSkill ? option.Skill.GetComponent<SkillContainer>().SkillEntityAssetID : option.Ability.EntryId,
+            option.Action ?? CityMagicUtilityProjectRules.ActionFor(payload.EffectSemantic),
+            new HashSet<int>(payload.ExecutionFootprintTileIds), learnedSkill);
         lock (Sync)
         {
-            PreparedByActor.Remove(actor.Base.getID());
-            PendingByActor[actor.Base.getID()] = pending;
+            PreparedByActor.Remove(actorId);
+            PendingByActor[actorId] = pending;
         }
 
-        ConstructionWorldScope worldScope = null;
-        if (option.Construction != null)
-        {
-            long projectId = project.ProjectId;
-            City city = actor.Base.city;
-            var footprint = new HashSet<int>(payload.PlannedFootprintTileIds);
-            ConstructionWorldScope cityScope = CityConstructionWorldScope.Create(city.id,
-                () => actor.Base.isAlive() && actor.Base.city == city &&
-                      CollectiveProjectService.TryGetProject(projectId, out var current) &&
-                      current.State == CollectiveProjectState.Executing &&
-                      PendingByActor.TryGetValue(actor.Base.id, out var active) && ReferenceEquals(active, pending));
-            worldScope = new ConstructionWorldScope(cityScope.IsValid,
-                (action, tile) => footprint.Contains(tile.tile_id) && cityScope.Allows(action, tile));
-        }
+        long projectId = project.ProjectId;
+        City city = actor.Base.city;
+        HashSet<int> footprint = learnedSkill ? pending.Footprint : new HashSet<int>(payload.PlannedFootprintTileIds);
+        ConstructionWorldScope cityScope = CityConstructionWorldScope.Create(city.id,
+            () => actor.Base.id == actorId && actor.Base.isAlive() && actor.Base.city == city &&
+                  CollectiveProjectService.TryGetProject(projectId, out var current) &&
+                  current.State == CollectiveProjectState.Executing &&
+                  PendingByActor.TryGetValue(actorId, out var active) && ReferenceEquals(active, pending));
+        var worldScope = new ConstructionWorldScope(cityScope.IsValid,
+            (action, tile) => footprint.Contains(tile.tile_id) && cityScope.Allows(action, tile));
 
         var executionTarget = new ActiveAbilityTarget(
             null,
@@ -223,16 +222,12 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         lock (Sync)
         {
             if (!PendingByActor.TryGetValue(actorId, out pending) ||
-                pending.AbilityId != null || pending.Skill != evt.SkillContainer ||
+                !pending.WaitingForSequence || pending.Skill != evt.SkillContainer ||
                 pending.ExecutionToken != evt.RuntimeData.CorrelationId) return;
-            PendingByActor.Remove(actorId);
+            pending.WaitingForSequence = false;
         }
 
-        CollectiveProjectService.TryBeginVerification(
-            pending.ProjectId,
-            actorId,
-            pending.ExecutionToken,
-            pending.VerificationDelay);
+        TryCompleteCast(actorId, pending);
     }
 
     /// <summary>将真实受理编号连接到已经受理的城市执行令牌。</summary>
@@ -241,14 +236,14 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
     {
         if (PendingByActor.TryGetValue(evt.SourceId, out var pending) &&
             pending.AbilityId == evt.AbilityId && pending.ExecutionToken == evt.CorrelationId)
-            pending.CastId = evt.CastId;
+            (pending.RunningCasts ??= new HashSet<long>()).Add(evt.CastId);
     }
 
     /// <summary>只累计本次工程要求的原理、足迹和实际世界改变。</summary>
     /// <param name="evt">已经提交的地块结果。</param>
     internal static void HandleConstructedContact(ConstructedWorldContact evt)
     {
-        if (PendingByActor.TryGetValue(evt.SourceId, out var pending) && pending.CastId == evt.CastId &&
+        if (PendingByActor.TryGetValue(evt.SourceId, out var pending) && pending.RunningCasts?.Contains(evt.CastId) == true &&
             pending.AbilityId == evt.AbilityId && pending.Action == evt.Action && evt.Result.Changed)
         {
             WorldTile tile = World.world.GetTileSimple(evt.X, evt.Y);
@@ -260,13 +255,26 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
     /// <param name="evt">已经释放本次施放的结束事实。</param>
     internal static void HandleConstructedEnded(ConstructedCastEnded evt)
     {
-        if (!PendingByActor.TryGetValue(evt.SourceId, out var pending) || pending.CastId != evt.CastId ||
-            pending.AbilityId != evt.AbilityId || pending.ExecutionToken != evt.CorrelationId) return;
-        PendingByActor.Remove(evt.SourceId);
-        if (pending.Changed)
-            CollectiveProjectService.TryBeginVerification(pending.ProjectId, evt.SourceId,
-                pending.ExecutionToken, VerificationSettleMargin);
-        else CollectiveProjectService.TryFailExecution(pending.ProjectId, pending.ExecutionToken, true);
+        if (!PendingByActor.TryGetValue(evt.SourceId, out var pending) ||
+            pending.AbilityId != evt.AbilityId || pending.ExecutionToken != evt.CorrelationId ||
+            pending.RunningCasts?.Remove(evt.CastId) != true) return;
+        TryCompleteCast(evt.SourceId, pending);
+    }
+
+    /// <summary>最后一次实际作用结束且原队列不再发射，才提交本次工程的真实结果。</summary>
+    private static void TryCompleteCast(long actorId, PendingCast pending)
+    {
+        if (pending.WaitingForSequence || pending.RunningCasts is { Count: > 0 }) return;
+        lock (Sync)
+        {
+            if (!PendingByActor.TryGetValue(actorId, out var current) || !ReferenceEquals(current, pending)) return;
+            PendingByActor.Remove(actorId);
+        }
+        if (pending.RunningCasts != null && !pending.Changed)
+            CollectiveProjectService.TryFailExecution(pending.ProjectId, pending.ExecutionToken, true);
+        else
+            CollectiveProjectService.TryBeginVerification(pending.ProjectId, actorId, pending.ExecutionToken,
+                pending.RunningCasts != null ? VerificationSettleMargin : pending.VerificationDelay);
     }
 
     /// <summary>解析项目城市、目标、合法边界以及角色当前最合适的法术版本。</summary>
@@ -409,10 +417,11 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         /// <summary>在正式支付前连接工程、原理和真实结束等待。</summary>
         /// <param name="projectId">当前工程。</param><param name="executionToken">本次执行令牌。</param>
         /// <param name="skill">旧技能容器或新构造来源。</param><param name="verificationDelay">结果稳定等待。</param>
-        /// <param name="abilityId">新构造编号。</param><param name="action">本次要求的原理。</param>
+        /// <param name="abilityId">实际执行编号。</param><param name="action">本次要求的原理。</param>
         /// <param name="footprint">该原理预估的实际地块。</param>
+        /// <param name="waitingForSequence">原已学入口仍可能安排后续发射。</param>
         public PendingCast(long projectId, long executionToken, Entity skill, double verificationDelay,
-            string abilityId, string action, HashSet<int> footprint)
+            string abilityId, string action, HashSet<int> footprint, bool waitingForSequence)
         {
             ProjectId = projectId;
             ExecutionToken = executionToken;
@@ -421,6 +430,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
             AbilityId = abilityId;
             Action = action;
             Footprint = footprint;
+            WaitingForSequence = waitingForSequence;
         }
 
         public long ProjectId { get; }
@@ -428,7 +438,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         public Entity Skill { get; }
         public double VerificationDelay { get; }
 
-        /// <summary>新构造编号；旧容器为空。</summary>
+        /// <summary>实际执行使用的稳定能力编号。</summary>
         internal readonly string AbilityId;
 
         /// <summary>本次需求要求的原理。</summary>
@@ -437,8 +447,11 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         /// <summary>冻结的任务主作用足迹。</summary>
         internal readonly HashSet<int> Footprint;
 
-        /// <summary>实际受理编号。</summary>
-        internal long CastId;
+        /// <summary>已受理且仍运行的各发；未进入共同执行时为空。</summary>
+        internal HashSet<long> RunningCasts;
+
+        /// <summary>原队列仍可能发出下一步，先结束的几发不能提前验收。</summary>
+        internal bool WaitingForSequence;
 
         /// <summary>主作用是否实际改变过冻结的地块。</summary>
         internal bool Changed;

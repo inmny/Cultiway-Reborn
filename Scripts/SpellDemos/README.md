@@ -3024,4 +3024,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 用 `dev.py exec --timeout 175 -- python3 Scripts/SpellDemos/verify_utility_archive.py --case prepare --legacy 历史交付目录` 读入带有 `restart-expected.json` 和 `save/map.wbox` 的原功能术存档。脚本从恢复的实际容器写书及导入万法阁，然后保存正式世界。
 
-退出并重启同一独立环境，使用 `--case cold --archive 准备阶段的输出目录`。脚本核对正式存档校验值、旧词条、全球蓝图、书籍与阅读，实际再次施放时记录逐发扣费并再次存读。两段都加载世界副本。
+退出并重启同一独立环境，使用 `--case cold --archive 准备阶段的输出目录`。脚本核对正式存档校验值、旧词条、全局蓝图、书籍与阅读，实际再次施放时记录逐发扣费并再次存读。两段都加载世界副本。
+
+### 原功能术的城市工程（10.13 C1）
+
+运行 `dev.py exec --timeout 210 -- python3 Scripts/SpellDemos/verify_utility_city.py --archive 正式存读准备目录`。同一城市检查原候选、自然认领、两发结束时点、实际足迹、失效停止及重新认领。可用 `--section eligibility` 或 `--section work` 分开验证。工作阶段保存进行中的实际城市任务。
