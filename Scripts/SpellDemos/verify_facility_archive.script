@@ -35,11 +35,16 @@ string Identity(Entity item)
     object[] args = { null };
     return (bool)readIdentity.Invoke(item, args) ? (string)Field(args[0], "Id") : null;
 }
-async Task Queue(Actor traveler)
+async Task Queue(Actor traveler, bool showWaiting = false)
 {
     Stand(traveler, new Vector2(inTile.x, inTile.y));
     Check(PortalManager.NewRequest(PortalOn(inTile), PortalOn(outTile), traveler), "实际请求进入原传送阵");
-    await Advance(5.16f);
+    if (showWaiting)
+    {
+        ArchiveEvent("原旅客发起新的真实通行");
+        await FilmAdvance(5.16f, () => Held(traveler) ? "两端阵门充能" : "原旅客等待阵门受理");
+    }
+    else await Advance(5.16f);
     Check(Held(traveler) && traveler.current_tile == inTile, "单人依原等待时间进入真实充能");
 }
 void Freeze(Actor actor)
@@ -175,12 +180,29 @@ void StartedCharge(ConstructedCastStarted fact) { if (fact.AbilityId is charge o
 ConstructedAbilityService.CastStarted += StartedCharge;
 try
 {
-    await Queue(passenger);
-    await Advance(.51f);
+    if (recordArchive)
+    {
+        var centre = ((Vector2)inTile.posV3 + (Vector2)outTile.posV3) * .5f;
+        await OpenArchiveFilm(passenger, centre, 6.2f);
+        ArchiveEvent("正式读回原设施及旅客位置，充能已经归还");
+        await FilmAdvance(.23f, () => "正式冷读，原旅客停在入口");
+    }
+    await Queue(passenger, recordArchive);
+    await FilmAdvance(.51f, () => passenger.current_tile == outTile ? "原人实际抵达出口" : "重新通行，两端阵门充能");
     Check(passenger.current_tile == outTile && !Held(passenger) &&
         starts.Count(fact => fact.AbilityId == charge && fact.CorrelationId == passenger.id) == 2 &&
         starts.Count(fact => fact.AbilityId == arrival && fact.CorrelationId == passenger.id) == 1,
         "读回后从正常新请求再次通行，只到达一次");
+
+    if (recordArchive)
+    {
+        ArchiveEvent("原旅客抵达且控制已归还");
+        await FilmAdvance(.26f, () => "原人已到达，旅客控制归还");
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "rerouted"));
+        ArchiveEvent("实际另存原旅客的新落点");
+        ArchiveFrame("已正式另存新落点");
+        return new { passed = true, process, phase = "cold", events = starts.ToArray() };
+    }
 
     await Queue(passenger);
     var oldPath = path.destination;
@@ -197,5 +219,6 @@ try
 finally
 {
     Config.paused = true;
+    CloseArchiveFilm(new { gateIn = saved["gateIn"], gateOut = saved["gateOut"], passenger = (long)saved["beast"] });
     ConstructedAbilityService.CastStarted -= StartedCharge;
 }

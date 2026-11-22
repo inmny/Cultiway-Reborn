@@ -60,9 +60,11 @@ void Damage(ConstructedQueuedDamage hit)
 ConstructedAbilityService.QueuedDamageConfirmed += Damage;
 try
 {
+    await OpenArchiveFilm(source, new Vector2(64.70f, 72.25f), 2.7f);
     if (section == "cold")
     {
-        await Advance(expected.Value<float>("cooldown") + .25f);
+        ArchiveEvent("新进程从正式档载入，未恢复旧施放");
+        await FilmAdvance(expected.Value<float>("cooldown") + .25f, () => "冷读归还双手与铁锤，等待原冷却");
         Check(applied.Count == 0 && target.data.health == expected.Value<int>("health") && Running() == null,
             "推进超过旧命中时点仍没有重放落锤");
     }
@@ -87,7 +89,8 @@ try
             occupied = BodyControlState.IsBusy(sourceId), borrowed = ConstructedAbilityService.HasWeaponControl(source) });
     if (section == "prepare")
     {
-        await Advance(.20f);
+        ArchiveEvent("开始蓄势并支付费用");
+        await FilmAdvance(.20f, () => "已扣费，原动作仍在蓄势");
         var cast = Running();
         float cooldown = SavedCooldown();
         Check(cast != null && cast.Age > 0f && cast.Age < .5f && cooldown > 0f && applied.Count == 0 &&
@@ -95,6 +98,8 @@ try
             "已扣费的动作仍在蓄势且尚未命中", new { age = cast?.Age, cooldown });
         CombatStatusEffects.RemoveStatus(target, idle);
         SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+        ArchiveEvent("在命中前实际写入正式档");
+        ArchiveFrame("正式存档，命中尚未发生");
         File.WriteAllText(Path.Combine(folder, "expected.json"), JsonConvert.SerializeObject(new
         {
             process, source = sourceId, target = targetId, weapon = hammer.data.id, edited = id,
@@ -103,7 +108,9 @@ try
     }
     else
     {
-        await Advance(definition.Lifetime + .25f);
+        ArchiveEvent("读档后重新支付并实际施放");
+        await FilmAdvance(definition.Lifetime + .25f,
+            () => applied.Count == 0 ? "冷却结束，新一击开始" : "新一击命中，收势归还控制");
         Check(applied.Count(hit => hit.Damage.HealthLost > 0) == 1 && target.data.health < health &&
             !BodyControlState.IsBusy(sourceId) && !ConstructedAbilityService.IsWeaponBorrowed(source) &&
             ReferenceEquals(hammer, source.getWeapon()),
@@ -116,6 +123,7 @@ finally
 {
     ConstructedAbilityService.QueuedDamageConfirmed -= Damage;
     CombatStatusEffects.RemoveStatus(target, idle);
+    CloseArchiveFilm(new { source = sourceId, target = targetId, ability = id, section });
     ControllableUnit.clear(false);
     Config.paused = true;
 }

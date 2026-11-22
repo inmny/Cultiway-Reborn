@@ -25,7 +25,7 @@ object[] Conditions() => all.Cast<object>().Concat(
     regions.Values.Cast<IEnumerable>().SelectMany(list => list.Cast<object>())).Distinct().ToArray();
 double Remaining(object condition) => (double)Field(condition, "EndsAt") - World.world.getCurWorldTime();
 bool Entire(object condition) => (bool)Field(Field(condition, "Rule"), "EntireWorld");
-string archive = Path.Combine(sourceFolder, "archive");
+string archive = recordArchive ? fixture : Path.Combine(sourceFolder, "archive");
 
 if (!restoring)
 {
@@ -154,17 +154,34 @@ var globalTerm = restored.Cast<object>().Single(Entire);
 Check(Math.Abs(Remaining(globalTerm) - saved["terms"].Single(term => term.Value<bool>("entire")).Value<double>("remaining")) < .08 &&
     Remaining(local) > Remaining(globalTerm) + 4f && Protected(Grass(106, 76)),
     "实际剩余时间保留，世界点火仍受已付条件限制");
-await Advance(.12f);
-Check(FormVisualScene.Instances.Any(form => form.Resource.Description.Id == "truth_mirror" &&
-    Mathf.Abs(form.Transform.m03 - 67.5f) < .01f && Mathf.Abs(form.Transform.m00 - 4f) < .01f),
-    "冷读后的区域标记来自同一实际范围");
-await Advance((float)Remaining(globalTerm) + .08f);
-Check(all.Count == 0 && restored.Count == 1 && Protected(Grass(67, 72)) &&
-    Ignites(Grass(77, 72)) && Ignites(Grass(106, 76)),
-    "全图条件到期后，只有原区域继续保护，普通区域条件没有恢复");
-await Advance((float)Remaining(local) + .08f);
-Check(restored.Count == 0 && regions.Count == 0 && Ignites(Grass(67, 72)),
-    "原区域条件也按剩余世界时间退出并恢复实际点火");
+try
+{
+    await OpenArchiveFilm(caster, new Vector2(72.3f, 72.5f), 7.4f);
+    if (recordArchive)
+        Check(Protected(Grass(77, 72)), "镜头内的区外草地仍被全图条件保护");
+    ArchiveEvent("正式冷读恢复已付的全图和区域条件，实际点火失败");
+    await FilmAdvance(.12f, () => "正式冷读，两份条件继续生效");
+    Check(FormVisualScene.Instances.Any(form => form.Resource.Description.Id == "truth_mirror" &&
+        Mathf.Abs(form.Transform.m03 - 67.5f) < .01f && Mathf.Abs(form.Transform.m00 - 4f) < .01f),
+        "冷读后的区域标记来自同一实际范围");
+    await FilmAdvance((float)Remaining(globalTerm) + .08f, () => "全图防火仍生效，保存的时长继续扣减");
+    Check(all.Count == 0 && restored.Count == 1 && Protected(Grass(67, 72)) &&
+        Ignites(Grass(77, 72)) && Ignites(Grass(106, 76)),
+        "全图条件到期后，只有原区域继续保护，普通区域条件没有恢复");
+    ArchiveEvent("全图到期，区外实际点火成功");
+    await FilmAdvance((float)Remaining(local) + .08f, () => "全图已到期，原范围内仍防火");
+    Check(restored.Count == 0 && regions.Count == 0 && Ignites(Grass(67, 72)),
+        "原区域条件也按剩余世界时间退出并恢复实际点火");
+    ArchiveEvent("区域到期，原保护点实际点火成功");
+    if (recordArchive)
+    {
+        await FilmAdvance(.54f, () => "区域也已到期，原位置恢复点火");
+        SaveManager.saveWorldToDirectory(Path.Combine(folder, "ended"));
+        ArchiveEvent("到期后正式另存，不再保存已经结束的条件");
+        ArchiveFrame("保存到期后的实际世界");
+    }
+}
+finally { CloseArchiveFilm(new { sourceId, savedLocal = saved["local"], savedGlobal = saved["global"] }); }
 
 World.world.save_manager.loadWorld(archive);
 await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);

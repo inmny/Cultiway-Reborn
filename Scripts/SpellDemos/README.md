@@ -3197,3 +3197,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 万法阁同库局部恢复（12.11）
 
 运行 `dev.py exec --timeout 70 -- python3 Scripts/SpellDemos/verify_wanfa_partial_recovery.py --archive <12.05 写回的当前 wanfa_pavilion.json>`。用同一份有效蓝图构造错误字段、已移除主体、过新格式三种情况。用正式万法阁读入隔离目录，核对逐条日志、原文件副本和有效选择，再保存并读回。
+
+### 战斗、功能和世界过程的存读录像（12.15）
+
+铁锤的 `verify_instant_cast_archive.py` 两段、阵门的 `verify_facility_archive.py --archive`、防火的 `verify_world_condition_archive.py --section cold --archive` 都可加 `--film`。用独立原版游戏运行，并保留原先的正式资料与存读检查。录像按真实世界时间编码。输入和交付见[存档与载入实机验收](../../Doc/技能系统全面重构/存档与载入实机验收.md)。
