@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""复验迁移前保存的骑士学习资料，以及新战技等待档。"""
+"""复验骑士学习资料及新战技等待档。"""
 import argparse
 import json
 import os
@@ -11,10 +11,10 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('section', choices=('prepare-legacy', 'restore-legacy', 'restore-study'))
+    parser.add_argument('section', choices=('prepare-legacy', 'restore-legacy', 'restore-study', 'all-known'))
     parser.add_argument('--archive', type=Path, help='前次生成的正式存档和预期目录')
     args = parser.parse_args()
-    if (args.section != 'prepare-legacy') != (args.archive is not None):
+    if args.section.startswith('restore-') != (args.archive is not None):
         parser.error('读档阶段需要 --archive')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')
@@ -47,7 +47,8 @@ def main():
         body = (scripts / 'verify_knight_archive_restore.script').read_text()
     else:
         settings = ''
-        body = (scripts / 'verify_knight_archive_prepare.script').read_text()
+        name = 'verify_knight_all_known.script' if args.section == 'all-known' else 'verify_knight_archive_prepare.script'
+        body = (scripts / name).read_text()
     script = output / 'input.script'
     script.write_text(imports + helpers + settings + body)
 
