@@ -108,8 +108,93 @@ async Task FinishCue(string name, int currentHealth)
     resultRows.Add(new { id = Id(name), cast = ended.CastId, age = ended.Age });
 }
 
+bool ambientHealing = Cultiway.Const.GeneralSettings.EnableNaturalHealthRestore;
 try
 {
+    if (caseName == "vital")
+    {
+        Cultiway.Const.GeneralSettings.SwitchNaturalHealthRestore(false);
+        var vital = Install(CoreFormationAtoms.StructureVital, "vital", CoreFormationRealm.Jindan);
+        int lost = Strike(enemy, source, 90f).HealthLost;
+        int hurt = source.getHealth();
+        Entity status = State(vital);
+        var stored = status.IsNull ? default : status.GetComponent<CoreFormationEffectState>();
+        Check(lost > 0 && !status.IsNull && stored.value > 0 && stored.value < lost &&
+            Math.Abs(stored.auxiliary_timer - 3f) < .03f,
+            "精元回生保存实际承伤的一部分以及三秒等待", new { lost, hurt, stored.value, stored.auxiliary_timer });
+        await Advance(2.7f);
+        Check(source.getHealth() == hurt && !State(vital).IsNull, "等待期间没有提前恢复");
+        await Advance(1.05f);
+        int healedBefore = source.getHealth() - hurt;
+        float remaining = State(vital).GetComponent<CoreFormationEffectState>().value;
+        Check(healedBefore > 0 && remaining > 0 && healedBefore + Mathf.RoundToInt(remaining) == Mathf.RoundToInt(stored.value),
+            "恢复中已到账的生命和剩余储备吻合", new { healedBefore, remaining, stored.value });
+
+        long sourceId = source.id;
+        World.world.units.checkContainer();
+        foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.RemoveStatus(source, resources, source);
+        string archive = Path.Combine(folder, "archive");
+        SaveManager.saveWorldToDirectory(archive);
+        var previous = Cultiway.ModClass.I.WorldSaves.LastReport;
+        World.world.save_manager.loadWorld(archive);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading() &&
+            !ReferenceEquals(previous, Cultiway.ModClass.I.WorldSaves.LastReport), 1800);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+
+        source = World.world.units.get(sourceId);
+        owner = source.GetExtend();
+        CombatStatusEffects.ApplyStatus(source, hold, 10000f, source);
+        source.updateStats();
+        Check(CoreFormationEffectResolver.TryResolveFamily(owner, "vital", out vital) &&
+            State(vital).TryGetComponent(out CoreFormationEffectState restored) &&
+            restored.value <= remaining + .01f && source.getHealth() - hurt + Mathf.RoundToInt(restored.value)
+                == Mathf.RoundToInt(stored.value),
+            "正式读回继续原回生储备，已恢复的生命没有重复增加");
+        for (int frame = 0; frame < 40 && !State(vital).IsNull; frame++) await Advance(.18f);
+        int healed = source.getHealth() - hurt;
+        Check(State(vital).IsNull && healed == Mathf.RoundToInt(stored.value),
+            "整段精元回生只返还蓄积的生命", new { lost, healed, expected = Mathf.RoundToInt(stored.value), archive });
+        await Advance(.25f);
+        Check(source.getHealth() - hurt == healed, "储备耗尽后停止恢复");
+    }
+    if (caseName == "reservoir")
+    {
+        var reservoir = Install(CoreFormationAtoms.PathReservoir, "reservoir", CoreFormationRealm.Jindan);
+        int tile = WorldWakanService.GetTileId(source.current_tile.pos.x, source.current_tile.pos.y);
+        WorldWakanService.SetClean(tile, 100f);
+        float maximum = source.stats[BaseStatses.MaxWakan.id];
+        owner.GetCultisys<Xian>().wakan = maximum;
+        await Advance(.4f);
+        Entity filled = State(reservoir);
+        float stored = filled.IsNull ? 0 : filled.GetComponent<CoreFormationEffectState>().value;
+        Check(stored > 0f && WorldWakanService.GetClean(tile) < 100f,
+            "灵气充足时真正从脚下地块收存储备", new { stored, tileWakan = WorldWakanService.GetClean(tile) });
+        float initial = maximum * .5f;
+        owner.GetCultisys<Xian>().wakan = initial;
+        await Advance(.12f);
+        Check(State(reservoir) == filled && filled.GetComponent<CoreFormationEffectState>().value == stored &&
+            Mathf.Abs(owner.GetCultisys<Xian>().wakan - initial) < .004f, "主灵气充足时不释放储备");
+        float received = 0f, ambient = 0f;
+        void ObserveReserve(ActorExtend actor, in WakanMutation mutation)
+        {
+            if (actor != owner || mutation.Kind != WakanMutationKind.Gain) return;
+            bool fromReserve = new System.Diagnostics.StackTrace(false).GetFrames().Any(frame =>
+                frame.GetMethod()?.Name == "Reservoir" &&
+                frame.GetMethod()?.DeclaringType?.FullName == "Cultiway.Content.CoreFormationEffectHandlers");
+            if (fromReserve) received += mutation.Delta;
+            else ambient += mutation.Delta;
+        }
+        WakanResourceService.RegisterMutationCommitted(ObserveReserve);
+        owner.GetCultisys<Xian>().wakan = 0;
+        await Advance(.8f);
+        Check(State(reservoir).IsNull && Mathf.Abs(received - stored) < .004f,
+            "主灵气不足时只归还刚收存的储备", new { stored, received, ambient });
+        float paidBack = received;
+        await Advance(.20f);
+        Check(State(reservoir).IsNull && received == paidBack, "储备归还后停止回注");
+    }
     if (Allowed("ward"))
     {
         var earth = Install(CoreFormationAtoms.ElementEarth, "earth", CoreFormationRealm.Jindan);
@@ -1097,6 +1182,7 @@ try
 finally
 {
     Config.paused = true;
+    Cultiway.Const.GeneralSettings.SwitchNaturalHealthRestore(ambientHealing);
     mutationField.SetValue(null, previousMutations);
     ConstructedAbilityService.CastStarted -= Started;
     Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyStarted;

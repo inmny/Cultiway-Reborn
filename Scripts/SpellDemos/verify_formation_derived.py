@@ -8,6 +8,8 @@ from verify_legacy_variants import run
 SECTIONS = {
     'ward': ('EarthWard', 'EarthWardImpact', 'BalancedAdaptation'),
     'casting': ('ReservoirOrb', 'SpiritEcho'),
+    'reservoir': ('ReservoirOrb',),
+    'vital': ('ReservoirOrb',),
     'survival': ('IllusionDecoy', 'InfantGuard', 'ChaosRebirth'),
     'dragon': ('DragonMight', 'DragonAspectMight'),
     'strikes': ('ChaosEcho', 'ChaosRebirthEcho', 'FivePhaseStrike'),
