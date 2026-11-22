@@ -58,8 +58,7 @@ public sealed class ModSaveManager
             try
             {
                 LoadEnvelope(definition, SaveCopy.Primary, out var migrated, out var data);
-                if (migrated) _storage.PreserveLegacy(definition.StorageKey, SaveCopy.Primary);
-                return CompleteLoad(definition, data, migrated, false);
+                return CompleteLoad(definition, data, migrated, SaveCopy.Primary);
             }
             catch (SaveVersionTooNewException)
             {
@@ -71,8 +70,7 @@ public sealed class ModSaveManager
                 try
                 {
                     LoadEnvelope(definition, SaveCopy.Backup, out var migratedBackup, out var backupData);
-                    if (migratedBackup) _storage.PreserveLegacy(definition.StorageKey, SaveCopy.Backup);
-                    var loaded = CompleteLoad(definition, backupData, true, true);
+                    var loaded = CompleteLoad(definition, backupData, migratedBackup, SaveCopy.Backup);
                     ModClass.LogWarning($"持久化文档 {definition.Id} 已从备份恢复: {primaryError.Message}");
                     return loaded;
                 }
@@ -173,11 +171,21 @@ public sealed class ModSaveManager
     }
 
     private TData CompleteLoad<TData>(SaveDocumentDefinition<TData> definition, JObject data,
-        bool writeBack, bool mirrorBackup)
+        bool migrated, SaveCopy source)
     {
         var loaded = DeserializeCurrent(definition, data);
-        writeBack |= !JToken.DeepEquals(data, JObject.FromObject(loaded));
-        if (writeBack) Write(definition, loaded, mirrorBackup);
+        bool recovered = source == SaveCopy.Backup;
+        if (!migrated && !recovered)
+        {
+            var current = JObject.FromObject(loaded);
+            // 读入的小数和内存单精度值可能不同，按实际写回的数字比较。
+            if (JToken.DeepEquals(data, current) ||
+                JToken.DeepEquals(data, JObject.Parse(current.ToString(Formatting.None)))) return loaded;
+        }
+        // 自动写回会替换主文件，也可能更新备份；保留这次恢复前的原字节。
+        _storage.PreserveLegacy(definition.StorageKey, SaveCopy.Primary);
+        if (recovered) _storage.PreserveLegacy(definition.StorageKey, SaveCopy.Backup);
+        Write(definition, loaded, recovered);
         return loaded;
     }
 

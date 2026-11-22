@@ -3191,3 +3191,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 永久世界结果重复读档（12.09）
 
 运行 `dev.py exec --timeout 112 -- python3 Scripts/SpellDemos/verify_world_result_ownership.py --case weapon|facility|condition --archive <正式档输出目录>`。三组依次使用 9.40 原剑、10.12 设施、11.22 防火的原档输出目录，各含 `archive/map.wbox` 和 `expected.json`。脚本读取副本，另存后读回，比较原剑、阵门互通、供奉原件、锚点和防火条件。见[永久世界结果的归属](../../Doc/技能系统全面重构/长期世界结果的归属.md#永久结果归属与重复恢复1209)。
+
+### 万法阁同库局部恢复（12.11）
+
+运行 `dev.py exec --timeout 70 -- python3 Scripts/SpellDemos/verify_wanfa_partial_recovery.py --archive <12.05 写回的当前 wanfa_pavilion.json>`。用同一份有效蓝图构造错误字段、已移除主体、过新格式三种情况。用正式万法阁读入隔离目录，核对逐条日志、原文件副本和有效选择，再保存并读回。

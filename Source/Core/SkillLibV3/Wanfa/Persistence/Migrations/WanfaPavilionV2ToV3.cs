@@ -23,7 +23,7 @@ internal sealed class WanfaPavilionV2ToV3 : ISaveMigration
         {
             var version = FindProperty(blueprint, "SchemaVersion");
             if (version == null) blueprint["SchemaVersion"] = TargetBlueprintSchemaVersion;
-            else if ((int?)version.Value == FromVersion) version.Value = TargetBlueprintSchemaVersion;
+            else if (JToken.DeepEquals(version.Value, FromVersion)) version.Value = TargetBlueprintSchemaVersion;
         }
         return data;
     }

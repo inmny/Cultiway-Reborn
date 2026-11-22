@@ -69,7 +69,8 @@ internal static class SkillSettingsMigrationTests
         {"SchemaVersion":1,"Blueprints":[
             {"Id":"old","EntityAssetId":"Cultiway.Fireball","AreaMultiplier":1.8},
             {"Id":"current","SchemaVersion":5,"AnimationIndex":2},
-            {"Id":"future","SchemaVersion":6,"FutureData":{"Value":23}}
+            {"Id":"future","SchemaVersion":6,"FutureData":{"Value":23}},
+            {"Id":"broken","SchemaVersion":[],"EntityAssetId":{}}
         ],"SelectedBlueprintIds":["old","current"]}
         """);
         string original = oldLibrary.ToString();
@@ -85,6 +86,8 @@ internal static class SkillSettingsMigrationTests
         Check(JToken.DeepEquals(blueprints[1], oldLibrary["Blueprints"][1]) &&
             JToken.DeepEquals(blueprints[2], oldLibrary["Blueprints"][2]),
             "早期转换应保留当前和过新蓝图，让当前读取器按真实版本处理");
+        Check(JToken.DeepEquals(blueprints[3], oldLibrary["Blueprints"][3]),
+            "单条蓝图损坏应留给逐条读取，不能让其它蓝图的转换中断");
         Check(JToken.DeepEquals(upgraded["SelectedBlueprintIds"], oldLibrary["SelectedBlueprintIds"]) &&
             oldLibrary.ToString() == original, "选择关系和原库内容应保留");
     }

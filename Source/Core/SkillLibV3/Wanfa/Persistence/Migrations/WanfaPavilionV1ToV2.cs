@@ -26,8 +26,7 @@ internal sealed class WanfaPavilionV1ToV2 : ISaveMigration
         foreach (var blueprint in blueprints.OfType<JObject>())
         {
             var schemaProperty = FindProperty(blueprint, "SchemaVersion");
-            var schemaVersion = schemaProperty?.Value.Value<int>() ?? 1;
-            if (schemaVersion >= TargetBlueprintSchemaVersion) continue;
+            if (schemaProperty != null && !JToken.DeepEquals(schemaProperty.Value, FromVersion)) continue;
 
             SetProperty(blueprint, "AnimationIndex", 0);
             SetProperty(blueprint, "SchemaVersion", TargetBlueprintSchemaVersion);

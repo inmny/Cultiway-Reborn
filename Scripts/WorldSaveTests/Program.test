@@ -125,6 +125,8 @@ try
     var currentDocument = JObject.Parse(File.ReadAllText(Path.Combine(directory, "progress.json")));
     Check(currentDocument.Value<int>("dataVersion") == 3 && currentDocument["data"]["oldXp"] == null &&
         new ModSaveManager(storage).Register(definition).Data.xp == 12, "全局资料只回写和重读当前格式");
+    Check(Directory.GetFiles(directory, "progress.json*.legacy.bak").Length == 1,
+        "纯读取已保存的小数不能引起额外写回或备份");
     File.WriteAllText(Path.Combine(directory, "progress.json"), "损坏");
     var recovered = new ModSaveManager(storage).Register(definition);
     Check(recovered.Data.xp == 12, "转换后的全局资料必须保留原有备份恢复能力");
@@ -146,7 +148,7 @@ public sealed class Probe
     [JsonIgnore] public int jsonTransient;
     public object Asset => throw new Exception("不能读取运行时资产属性");
 }
-public sealed class SimpleProgress { public int xp; public string title; }
+public sealed class SimpleProgress { public int xp; public string title; public float scale = .7f; }
 public sealed class OldProgress { public int oldXp; }
 public sealed class RenameXp : ISaveMigration
 {
