@@ -21,16 +21,11 @@ internal sealed class WanfaPavilionV2ToV3 : ISaveMigration
 
         foreach (var blueprint in blueprints.OfType<JObject>())
         {
-            SetProperty(blueprint, "SchemaVersion", TargetBlueprintSchemaVersion);
+            var version = FindProperty(blueprint, "SchemaVersion");
+            if (version == null) blueprint["SchemaVersion"] = TargetBlueprintSchemaVersion;
+            else if ((int?)version.Value == FromVersion) version.Value = TargetBlueprintSchemaVersion;
         }
         return data;
-    }
-
-    private static void SetProperty(JObject root, string name, JToken value)
-    {
-        var property = FindProperty(root, name);
-        if (property == null) root[name] = value;
-        else property.Value = value;
     }
 
     private static JProperty FindProperty(JObject root, string name)

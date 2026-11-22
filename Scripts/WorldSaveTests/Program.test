@@ -40,6 +40,10 @@ string current = registry.Capture(context, "测试版");
 Check((int)JObject.Parse(current)["sections"]["growth"]["version"] == 3 &&
     !current.Contains("oldXp") && !current.Contains("transient") && !current.Contains("jsonTransient") &&
     !current.Contains("Asset"), "再次保存只能写当前版本与稳定字段");
+context = new ProbeContext(); report = new SaveLoadReport();
+registry.Restore(context, current, report, "人物 7");
+Check(context.Growth.xp == 12 && context.Growth.title == "第三版" && context.Other.xp == 9 &&
+    report.Upgraded == 0 && report.Skipped.Count == 0, "当前世界资料直接还原，不再经过旧版转换");
 
 foreach (JToken badVersion in new JToken[] { 4, "未知版本", new JObject(), long.MaxValue })
 {
@@ -118,6 +122,9 @@ try
     upgraded.Save();
     Check(File.ReadAllText(Path.Combine(directory, "progress.json.legacy.bak")) == oldFile,
         "转换前的原文件必须独立保留，后续保存不能覆盖它");
+    var currentDocument = JObject.Parse(File.ReadAllText(Path.Combine(directory, "progress.json")));
+    Check(currentDocument.Value<int>("dataVersion") == 3 && currentDocument["data"]["oldXp"] == null &&
+        new ModSaveManager(storage).Register(definition).Data.xp == 12, "全局资料只回写和重读当前格式");
     File.WriteAllText(Path.Combine(directory, "progress.json"), "损坏");
     var recovered = new ModSaveManager(storage).Register(definition);
     Check(recovered.Data.xp == 12, "转换后的全局资料必须保留原有备份恢复能力");
