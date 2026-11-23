@@ -2,13 +2,24 @@
 var worldfall = AppDomain.CurrentDomain.GetAssemblies().Select(item => item.GetType("FirstPerson.WorldBoxMod", false))
     .FirstOrDefault(type => type != null) ?? throw new InvalidOperationException("独立游戏未加载 Worldfall");
 var viewMode = worldfall.GetProperty("Instance", Flags).GetValue(null);
+var renderBridge = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+var lastDrawCount = renderBridge.GetProperty("LastDrawCount", Flags);
+worldfallDraws = (Func<int>)lastDrawCount.GetGetMethod(true).CreateDelegate(typeof(Func<int>));
 object ViewValue(object target, string name) => target.GetType().GetField(name, Flags)?.GetValue(target) ??
     target.GetType().GetProperty(name, Flags).GetValue(target);
 object ViewCall(object target, string name, params object[] arguments) =>
     target.GetType().GetMethod(name, Flags).Invoke(target, arguments);
+object settings = ViewValue(viewMode, "Settings");
+var syncOption = settings.GetType().GetField("VSync", Flags);
+object originalSync = null;
 
 async Task EnterWorldfall()
 {
+    if (fpsCheck)
+    {
+        originalSync = syncOption.GetValue(settings);
+        syncOption.SetValue(settings, Convert.ChangeType(false, syncOption.FieldType));
+    }
     var sampler = ViewValue(viewMode, "_sampler");
     ViewCall(sampler, "Invalidate");
     ViewCall(sampler, "EnsureWorld");
@@ -37,4 +48,8 @@ async Task EnterWorldfall()
 }
 
 beginView = EnterWorldfall;
-endView = () => ViewCall(viewMode, "SetGodView", false);
+endView = () =>
+{
+    ViewCall(viewMode, "SetGodView", false);
+    if (originalSync != null) syncOption.SetValue(settings, originalSync);
+};
