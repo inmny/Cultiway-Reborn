@@ -8,8 +8,10 @@ public sealed partial class AbilityCast
 {
     /// <summary>只有存在碎解操作时才保存的状态与预测前态。</summary>
     private readonly FractureState[] fractures, savedFractures;
-    /// <summary>各真实分件上一姿态的数值运动资料，不读取网格。</summary>
-    private readonly FragmentMotion[] fragmentMotion, savedFragmentMotion;
+    /// <summary>每个碎解源体在上一时点的骨架变化。没有骨架的源体不存矩阵。</summary>
+    private readonly Matrix4x4[][] fractureSkins, savedFractureSkins;
+    /// <summary>分件出生后冻结的装饰运动边界，不用于攻击。</summary>
+    private readonly Bounds[] fragmentBounds, savedFragmentBounds;
 
     /// <summary>原部位结束时只继承可见姿态，落物不继承作用量、材料或控制关系。</summary>
     private void DropInterruptedPart(int node)
@@ -33,24 +35,30 @@ public sealed partial class AbilityCast
         drop.Revision++;
     }
 
-    /// <summary>在改变源体姿态前保存各分件真实中心和主要朝向，供脱落继承。</summary>
+    /// <summary>通过源体部位取得紧凑的碎解资料。</summary>
+    /// <param name="node">实际拥有分件的部位。</param>
+    private ref FractureState FractureFor(int node) => ref fractures[Plan.Nodes[node].FractureIndex];
+
+    /// <summary>仅保存源体的前一姿态，到实际碎解时才求各分件的点速度。</summary>
     /// <param name="node">正在推进的完整主体。</param>
-    private void CaptureFragmentMotion(int node)
+    /// <param name="index">源体对应的碎解状态位置。</param>
+    private void CaptureFragmentMotion(int node, int index)
     {
-        CompiledFracture fracture = Plan.Nodes[node].Fracture;
-        if (fracture == null) return;
-        ref FractureState state = ref fractures[node];
+        ref FractureState state = ref fractures[index];
         if (!nodes[node].Visible || nodes[node].LastStep < .00001f) return;
         state.Captured = true; state.MotionStep = nodes[node].LastStep; state.VelocityAdjustment = Vector3.zero;
-        foreach (int piece in fracture.Pieces)
-        {
-            var resource = Plan.Nodes[piece].Resource;
-            fragmentMotion[piece] = new FragmentMotion
-            {
-                Centre = nodes[node].Transform.MultiplyPoint3x4(resource.PosedCentre(poses[node])),
-                Rotation = nodes[node].Transform.rotation * resource.PosedRotation(poses[node])
-            };
-        }
+        state.PreviousTransform = nodes[node].Transform;
+        if (fractureSkins[index] is { } skin) Array.Copy(poses[node].Skin, skin, skin.Length);
+    }
+
+    /// <summary>预测及回退只复制真正捕获过的骨架。</summary>
+    /// <param name="source">当前保存方向的原姿态。</param>
+    /// <param name="destination">当前保存方向的目标缓冲。</param>
+    private void CopyFractureSkins(Matrix4x4[][] source, Matrix4x4[][] destination)
+    {
+        for (int i = 0; i < fractures.Length; i++)
+            if (fractures[i].Captured && source[i] is { } skin)
+                Array.Copy(skin, destination[i], skin.Length);
     }
 
     /// <summary>反射或事件改变整体速度后，点运动立即继承该次变化，不沿用反射前方向。</summary>
@@ -58,8 +66,8 @@ public sealed partial class AbilityCast
     /// <param name="previous">改变前的整体速度。</param>
     private void AdjustFragmentVelocity(int node, Vector3 previous)
     {
-        if (fractures != null && Plan.Nodes[node].Fracture != null && fractures[node].Captured)
-            fractures[node].VelocityAdjustment += nodes[node].Velocity - previous;
+        if (Plan.Nodes[node].FractureIndex >= 0 && FractureFor(node).Captured)
+            FractureFor(node).VelocityAdjustment += nodes[node].Velocity - previous;
     }
 
     /// <summary>交锋尚未扣减时只登记请求，其他已确认过程可立即碎解。</summary>
@@ -67,7 +75,7 @@ public sealed partial class AbilityCast
     /// <param name="groundImpact">此次碎解是否由实际地面接触确认。</param>
     private void RequestFracture(int node, bool groundImpact = false)
     {
-        ref FractureState state = ref fractures[node];
+        ref FractureState state = ref FractureFor(node);
         if (state.Broken || !nodes[node].Exists || !nodes[node].Started) return;
         state.Pending = true; state.GroundImpact = groundImpact;
         if (!state.AwaitingSpend) FractureNode(node);
@@ -77,25 +85,30 @@ public sealed partial class AbilityCast
     /// <param name="node">已经完成本次真实扣减的主体。</param>
     private void FractureNode(int node)
     {
-        ref FractureState execution = ref fractures[node];
+        int fractureIndex = Plan.Nodes[node].FractureIndex;
+        ref FractureState execution = ref fractures[fractureIndex];
         if (!execution.Pending || execution.Broken || !nodes[node].Exists) return;
         execution.Pending = false; execution.Broken = true;
         CompiledFracture fracture = Plan.Nodes[node].Fracture; NodeState source = nodes[node];
         float share = fracture.ActiveCount == 0 ? 0f : source.Force / fracture.ActiveCount;
         float remaining = source.Force; int activeLeft = fracture.ActiveCount;
         Quaternion sourceRotation = source.Transform.rotation;
+        Quaternion priorRotation = execution.Captured ? execution.PreviousTransform.rotation : Quaternion.identity;
+        Matrix4x4[] sourceSkin = poses[node]?.Skin, priorSkin = fractureSkins[fractureIndex];
         Vector3 sourceScale = source.Transform.lossyScale, originPoint = source.Transform.GetColumn(3);
         for (int part = 0; part < fracture.Pieces.Length; part++)
         {
             int index = fracture.Pieces[part]; ref NodeState piece = ref nodes[index];
             var resource = Plan.Nodes[index].Resource;
-            Vector3 pivot = resource.PosedCentre(poses[node]), centre = source.Transform.MultiplyPoint3x4(pivot);
+            Vector3 pivot = resource.PosedCentre(sourceSkin), centre = source.Transform.MultiplyPoint3x4(pivot);
             Vector3 velocity = source.Free ? source.Velocity : source.AttachedVelocity;
             Vector3 spin = source.Spin;
             if (execution.Captured)
             {
-                velocity = (centre - fragmentMotion[index].Centre) / execution.MotionStep + execution.VelocityAdjustment;
-                Quaternion delta = (sourceRotation * resource.PosedRotation(poses[node])) * Quaternion.Inverse(fragmentMotion[index].Rotation);
+                Vector3 priorCentre = execution.PreviousTransform.MultiplyPoint3x4(resource.PosedCentre(priorSkin));
+                velocity = (centre - priorCentre) / execution.MotionStep + execution.VelocityAdjustment;
+                Quaternion delta = (sourceRotation * resource.PosedRotation(sourceSkin)) *
+                                   Quaternion.Inverse(priorRotation * resource.PosedRotation(priorSkin));
                 delta.ToAngleAxis(out float angle, out Vector3 axis); if (angle > 180f) angle -= 360f;
                 spin = Mathf.Abs(angle) < .00001f ? Vector3.zero : Quaternion.Inverse(sourceRotation) * axis * (angle / execution.MotionStep);
             }
@@ -121,7 +134,7 @@ public sealed partial class AbilityCast
             piece.SpinAt = Age;
             piece.SpinOffset = Quaternion.identity;
             piece.Velocity = velocity + direction.normalized * fracture.Speed;
-            fragmentMotion[index].Bounds = resource.PosedBounds(poses[node]);
+            fragmentBounds[index] = resource.PosedBounds(poses[node]);
             poses[node]?.CopyTo(poses[index]);
             if (rebound > 0f && piece.Velocity.z < 0f)
             {
@@ -158,16 +171,7 @@ public sealed partial class AbilityCast
         internal float MotionStep;
         /// <summary>本数值边界之后已确认的整体速度改变。</summary>
         internal Vector3 VelocityAdjustment;
-    }
-
-    /// <summary>分件在数值推进前的真实运动输入。</summary>
-    private struct FragmentMotion
-    {
-        /// <summary>当时世界中心。</summary>
-        internal Vector3 Centre;
-        /// <summary>当时世界主要朝向。</summary>
-        internal Quaternion Rotation;
-        /// <summary>出生后冻结的装饰运动边界，不用于攻击。</summary>
-        internal Bounds Bounds;
+        /// <summary>上一推进边界的完整源体变换，与同一时点的骨架一起使用。</summary>
+        internal Matrix4x4 PreviousTransform;
     }
 }

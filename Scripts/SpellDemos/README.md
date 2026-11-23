@@ -3249,3 +3249,15 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scri
 ```
 
 三段分别追踪纯防火的实际世界时钟、纯地块的作用时点，以及同场近身使防火回到共同计算。地波继续用上节的实机入口。防火重读使用原有 `verify_world_condition_archive.py --section cold --archive <原正式档目录>`，不用重做保存场景。
+
+### 空间与部件开销（13.09）
+
+在已启动的独立游戏中按段运行；已有命名环境请传入对应的 `--name`。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_part_cost.py --section parts
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_part_cost.py --section fracture
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_part_cost.py --section parallel
+```
+
+第一段检查不断移动时的候选与去重、多层分布及静止或变形骨架；后两段检查碎解的余力、归属和回退重放。实际战斗用原有 `verify_sword_grave.py --section fracture` 与 `verify_contact_candidates.py --section ordered`。

@@ -72,12 +72,17 @@ try
         }
         foreach (Building building in scenery) building.removeBuildingFinal();
     }
-    var cameraType = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
-    object camera = cameraType.GetProperty("Instance", F).GetValue(null);
-    object View(string key) => cameraType.GetProperty(key, F)?.GetValue(camera) ?? cameraType.GetField(key, F)?.GetValue(camera);
-    cameraType.GetMethod("ViewForTest", F).Invoke(camera, new object[] { false });
-    cameraType.GetMethod("SetGodView", F).Invoke(camera, new object[] { false });
-    await Game.WaitUntil(() => !(bool)View("IsFirstPerson") && !(bool)View("GodShown") && (bool)View("DiveDone") && !(bool)View("Flying"), 1800);
+    var cameraType = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    if (cameraType != null)
+    {
+        object camera = cameraType.GetProperty("Instance", F).GetValue(null);
+        object View(string key) => cameraType.GetProperty(key, F)?.GetValue(camera) ?? cameraType.GetField(key, F)?.GetValue(camera);
+        cameraType.GetMethod("ViewForTest", F).Invoke(camera, new object[] { false });
+        cameraType.GetMethod("SetGodView", F).Invoke(camera, new object[] { false });
+        await Game.WaitUntil(() => !(bool)View("IsFirstPerson") && !(bool)View("GodShown") &&
+            (bool)View("DiveDone") && !(bool)View("Flying"), 1800);
+    }
     World.world.camera.transform.position = new Vector3(68.5f, lane, 0f);
     MoveCamera.instance.forceZoom(7.5f);
     Stage();

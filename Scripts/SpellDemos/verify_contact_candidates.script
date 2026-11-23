@@ -30,6 +30,7 @@ void Check(bool value, string name)
 async Task LoadFixture()
 {
     Config.paused = true;
+    ControllableUnit.clear(false);
     long generation = Generation();
     World.world.save_manager.loadWorld(fixture);
     await Game.NextFrame();
@@ -213,7 +214,8 @@ void Impact(ConstructedContact value)
     ids.Add(value.AbilityId);
     var health = World.world.units.get(value.TargetId)?.data?.health;
     healthAtHit.Add(health);
-    hits.Add(new { value.AbilityId, value.TargetId, value.Age, health });
+    hits.Add(new { value.AbilityId, value.TargetId, value.Age, health, value.DamageAttempted,
+        value.Damage.HealthLost, value.Damage.ShieldAbsorbed });
 }
 ConstructedAbilityService.ContactConfirmed += Impact;
 try

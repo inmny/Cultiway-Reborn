@@ -237,6 +237,9 @@ public sealed class CompiledAbility
     /// <summary>实际要求用闭合屏障施加状态的部位；其他构造不采集闭环。</summary>
     internal int[] EnclosureNodes { get; }
 
+    /// <summary>具有真实分件的源体，按展开顺序保存紧凑的预测前态。</summary>
+    internal int[] FractureSources { get; }
+
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
     /// <param name="nodes">已经解析的部位。</param>
@@ -264,6 +267,8 @@ public sealed class CompiledAbility
         ConcurrentLimit = definition.ConcurrentLimit;
         TargetRange = definition.TargetRange;
         Nodes = nodes;
+        FractureSources = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Fracture != null).ToArray();
+        for (int i = 0; i < FractureSources.Length; i++) nodes[FractureSources[i]].FractureIndex = i;
         HasCorrespondences = nodes.Any(node => node.Correspondence != null);
         MirrorNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].Correspondence?.MirrorImage != null).ToArray();
         LandscapeNodes = Enumerable.Range(0, nodes.Length).Where(i => nodes[i].LandscapeSlice != null).ToArray();
@@ -483,6 +488,9 @@ internal sealed class CompiledForm
     /// <summary>真实分件及后续规则。</summary>
     internal CompiledFracture Fracture;
 
+    /// <summary>本次施放的源体碎解状态位置；普通部位为负一。</summary>
+    internal int FractureIndex = -1;
+
     /// <summary>初始定时碎解，负一表示由事件条件执行。</summary>
     internal float FractureAt = -1f;
 
@@ -509,6 +517,9 @@ internal sealed class CompiledForm
 
     /// <summary>射线开始前不提供尚未建立的作用段或附着点。</summary>
     internal bool HasRay;
+
+    /// <summary>没有动作或变形，骨架可沿用首次建立的静止姿态。</summary>
+    internal bool KeepRestPose;
 
     /// <summary>明确要求着地的主体实际顶点，编译时固定，工作线程不访问网格。</summary>
     internal FormSurfaceVertex[] GroundPoints;
@@ -803,7 +814,10 @@ public static partial class AbilityCompiler
         }
 
         if (definition.Root != null)
-            Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
+        {
+            Dictionary<(ConstructionDistribution, FormResource), FormAnchorBinding[]> distributions = null;
+            Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, ref distributions, connectedRoot);
+        }
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
         AppendInterruptedFalls(definition.Lifetime, nodes);
         foreach (var node in nodes)
@@ -816,6 +830,7 @@ public static partial class AbilityCompiler
                     return true;
                 });
             node.HasRay = node.EventOperations.Any(action => action.Ray != null);
+            node.KeepRestPose = node.Motion == null && !node.HasMotionChanges && !node.HasRay && !node.HasGround;
             if (node.FragmentSource < 0 && node.HasGround)
                 node.GroundPoints = node.Resource.GroundPoints();
         }
@@ -928,11 +943,13 @@ public static partial class AbilityCompiler
     /// <param name="depth">当前嵌套层数。</param>
     /// <param name="lifetime">总持续。</param>
     /// <param name="output">父体先于子体的结果。</param>
+    /// <param name="distributions">本次编译中同一份分布在同一父形体上解析出的位置。</param>
     /// <param name="connectedRoot">根部是否有实际可解除的外部连接。</param>
     /// <param name="anchorBlend">挂点随动的父形体表面控制。</param>
     /// <param name="declarationPath">原资料部位路径，根部沿用当前路径。</param>
     private static void Expand(ConstructionNode node, int parent, FormResource parentResource,
-        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false,
+        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output,
+        ref Dictionary<(ConstructionDistribution, FormResource), FormAnchorBinding[]> distributions, bool connectedRoot = false,
         FormControlBlend anchorBlend = default,
         string declarationPath = null)
     {
@@ -1316,13 +1333,19 @@ public static partial class AbilityCompiler
                 Fail(childPath + "/Distribution", "分布与Anchor不能同时指定，请保留一种实际位置来源");
             if (child.Distribution == null && string.IsNullOrEmpty(child.Anchor))
             {
-                Expand(child, ownIndex, resource, Matrix4x4.identity, childPath, depth + 1, lifetime, output,
+                Expand(child, ownIndex, resource, Matrix4x4.identity, childPath, depth + 1, lifetime, output, ref distributions,
                     declarationPath: declarationPath + "/" + child.Id);
                 continue;
             }
 
             FormAnchorBinding[] matches;
-            if (child.Distribution != null) matches = child.Distribution.Resolve(resource, childPath + "/Distribution");
+            if (child.Distribution != null)
+            {
+                distributions ??= new();
+                var key = (child.Distribution, resource);
+                if (!distributions.TryGetValue(key, out matches))
+                    distributions.Add(key, matches = child.Distribution.Resolve(resource, childPath + "/Distribution"));
+            }
             else
             {
                 bool prefix = child.Anchor.EndsWith("*", StringComparison.Ordinal);
@@ -1340,7 +1363,7 @@ public static partial class AbilityCompiler
             {
                 int childStart = output.Count;
                 Expand(child, ownIndex, resource, point.Transform, childPath + "@" + point.Id, depth + 1, lifetime,
-                    output,
+                    output, ref distributions,
                     anchorBlend: point.Blend, declarationPath: declarationPath + "/" + child.Id);
                 output[childStart].DistributionSource = child.Distribution?.Source;
                 output[childStart].AnchorBuild = point.BuildAt;
