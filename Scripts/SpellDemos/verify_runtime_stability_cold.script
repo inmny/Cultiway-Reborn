@@ -1,0 +1,62 @@
+using System;
+using System.Collections;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+var request = JObject.Parse(File.ReadAllText(__REQUEST_PATH__));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+if (process == (int)request["formerProcess"] ||
+    (string)request["profile"] != Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"))
+    throw new InvalidOperationException("冷读必须在真正退出后的独立进程内运行");
+
+var identity = request["archiveIdentity"];
+var assembly = typeof(AbilityCast).Assembly;
+var runnerType = assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+var boundary = runnerType.GetProperty("IsAtCycleBoundary");
+var initializing = assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler")
+    .GetMethod("IsWorldInitializationPending", Flags);
+var service = typeof(ConstructedAbilityService);
+var casts = (IList)service.GetField("casts", Flags).GetValue(null);
+Game.Resume();
+Config.paused = true;
+World.world.save_manager.loadWorld((string)request["worldPath"]);
+await Game.NextFrame();
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+Config.paused = true;
+await Game.WaitUntil(() => (bool)boundary.GetValue(runner) && !(bool)initializing.Invoke(null, null), 3600);
+var actors = identity["actors"].Select(token => World.world.units.get((long)token)).ToArray();
+string id = (string)identity["definition"];
+var definition = ConstructionEditing.Access.Read(id);
+bool restored = MapBox.width == (int)identity["width"] && MapBox.height == (int)identity["height"] &&
+    actors.All(actor => actor != null && actor.isAlive()) && definition.Id == id &&
+    casts.Count == 0 && FormVisualScene.Instances.Count == 0;
+if (!restored) throw new InvalidOperationException("冷读后的地图、人物或施放还原结果不符");
+var owner = actors[0].GetExtend();
+var target = actors[1];
+target.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+ConstructedAbilityService.Learn(owner, id);
+float before = owner.GetCultisys<Xian>().wakan;
+var handle = new ActiveAbilityHandle("content.constructed", owner.E, id);
+bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
+    ActiveAbilityUseOrigin.Script);
+float paid = before - owner.GetCultisys<Xian>().wakan;
+bool passed = used && Math.Abs(paid - definition.Cost) < .001f && casts.Count == 1;
+var result = new JObject
+{
+    ["passed"] = passed, ["process"] = process, ["actors"] = new JArray(actors.Select(actor => actor.id)),
+    ["definition"] = id, ["mapSha256"] = identity["mapSha256"], ["spent"] = paid,
+    ["loadedEmpty"] = restored, ["newCastCount"] = casts.Count
+};
+File.WriteAllText(Path.Combine((string)request["output"], "cold.json"), result.ToString());
+return new { passed, process };

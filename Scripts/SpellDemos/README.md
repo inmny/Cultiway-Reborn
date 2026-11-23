@@ -3321,3 +3321,21 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 500 -- \
 ```
 
 原版默认跑八人混战和十六人四线交战。用同一存档在 Worldfall 独立环境追加 `--view worldfall --case ordinary`，即可复测普通混战。各场默认独立运行两次，单补一轮用 `--repeat 1 --seed <原种子>`。结果含逐帧间隔和达标标记，以及实际施放、命中、范围及主体与装饰数量。
+
+### 长期运行与状态切换（13.16）
+
+在硬件渲染且加载了 Worldfall 的独立游戏内运行。默认连续采样 300 实际秒，再做四轮暂停、原版与三维往返和换世界，最后直接重载同一战场。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 660 -- \
+  python3 Scripts/SpellDemos/verify_runtime_stability.py --world "$WORLD_FIXTURE"
+```
+
+程序另存正式战场及人物编号，输出逐帧结果、资源快照与切换记录。结束时测试游戏仍有真实部件，使用 `dev.py stop` 正常退出并核对 `exit.json`。确认原进程退出后，用新进程接续冷读。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 95 -- \
+  python3 Scripts/SpellDemos/verify_runtime_stability.py --cold-run "$RUN_OUTPUT"
+```
+
+短轮可用 `--seconds 16 --cycles 1` 检查入口。长期判定使用默认时长及四轮切换的结果。长跑已完整保存时，可追加 `--transitions-from "$RUN_OUTPUT"` 补测后段，程序核对模组和两份世界的内容后复用原战场。
