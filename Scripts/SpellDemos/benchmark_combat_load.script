@@ -1,0 +1,413 @@
+// 同一正式世界中的六类战斗负载，只订阅正常结算事实。
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Const;
+using Cultiway.Content;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+var request = JObject.Parse(File.ReadAllText(__REQUEST_PATH__));
+string scene = (string)request["scenario"], output = (string)request["output"];
+string profile = (string)request["profile"];
+if (Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") != profile ||
+    !Application.persistentDataPath.StartsWith(profile + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+    throw new InvalidOperationException("游戏存档目录未隔离");
+string renderer = SystemInfo.graphicsDeviceName;
+if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null ||
+    new[] { "llvmpipe", "softpipe", "SwiftShader", "Software Rasterizer" }
+        .Any(name => renderer.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0))
+    throw new InvalidOperationException("此负载测量需要硬件渲染，当前为 " + renderer);
+var config = new JObject { ["worldSpeed"] = "x1" };
+bool autonomous = scene == "ordinary" || scene == "groups";
+int groupCount = scene == "groups" ? 4 : 1;
+double duration = scene == "groups" ? 8 : 6;
+var lanes = new Dictionary<long, int>();
+var participants = new List<Actor>();
+var definitions = new List<AbilityDefinition>();
+var funded = new List<object>();
+var starts = new List<ConstructedCastStarted>();
+var incidentalStarts = new List<ConstructedCastStarted>();
+var finishes = new List<ConstructedCastEnded>();
+var active = new HashSet<long>();
+var damageByCast = new Dictionary<long, int>();
+var hitsByCast = new Dictionary<long, int>();
+var damagedActors = new HashSet<long>();
+var confirmedLanes = new HashSet<int>();
+var duels = new List<ConstructedClash>();
+int peakActive = 0, peakMoving = 0, landings = 0, damage = 0, pairs = 0;
+Vector3? firstBlade = null;
+AbilityCast trackedVolley = null;
+float travel = 0;
+double deadline = 0, nextDuel = 0;
+var casts = (IList)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null);
+var castField = casts.GetType().GetGenericArguments()[0].GetField("Cast", Flags);
+var present = (Func<AbilityCast, int, bool>)Delegate.CreateDelegate(typeof(Func<AbilityCast, int, bool>),
+    typeof(AbilityCast).GetMethod("IsNodePresent", Flags));
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+var boundary = runnerType.GetProperty("IsAtCycleBoundary");
+bool AtBoundary() => (bool)boundary.GetValue(runner);
+double Now() => World.world.getCurWorldTime();
+void Save(string name, object data) => File.WriteAllText(Path.Combine(output, name + ".json"),
+    JsonConvert.SerializeObject(data, Formatting.Indented));
+void Place(Actor actor, int x, int y)
+{
+    actor.stopMovement();
+    actor.stopForce();
+    actor.batch.c_action_landed.Remove(actor);
+    actor.current_position = new Vector2(x, y);
+    actor.setCurrentTile(World.world.GetTileSimple(x, y));
+    actor.updatePos();
+}
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld((string)request["worldPath"]);
+await Game.NextFrame();
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(AtBoundary, 1800);
+Config.setWorldSpeed("x1", false);
+GeneralSettings.SwitchSkillSystems(true);
+Randy.resetSeed((int)request["seed"]);
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+var camera = World.world.camera;
+MoveCamera.clearFocusUnitOnly();
+camera.transform.position = new Vector3(73, 72, camera.transform.position.z);
+MoveCamera.instance.forceZoom(scene == "solo" ? 55 : scene == "groups" ? 36 : 20);
+UnityEngine.Screen.SetResolution(1280, 720, false);
+await Game.WaitUntil(() => UnityEngine.Screen.width == 1280 && UnityEngine.Screen.height == 720, 300);
+Application.targetFrameRate = (int)request["frameLimit"];
+QualitySettings.vSyncCount = 0;
+
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.CombatLoadHold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+foreach (var actor in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    Place(actor, 12, 12);
+}
+var enemy = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+Actor Make(int x, int y, bool foe = false, int realm = 0, int lane = 0)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile == null || tile.Type.liquid) throw new InvalidOperationException($"存档需要平坦陆地 ({x}, {y})");
+    var actor = World.world.units.createNewUnit("human", tile, pAdultAge: true, pSpawnWithItems: false);
+    actor.data.name = $"负载·{scene}·{participants.Count + 1}";
+    if (foe) actor.setKingdom(enemy);
+    actor.addTrait("super_health");
+    if (!autonomous) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    var owner = actor.GetExtend();
+    if (realm > 0)
+    {
+        var elements = new float[ElementIndex.Count];
+        elements[ElementIndex.Earth] = 2f;
+        owner.GetOrAddComponent<Cultiway.Core.Components.ElementRoot>() = new Cultiway.Core.Components.ElementRoot(elements);
+        owner.MarkCultiwayStatsDirty();
+        var xian = Cultisyses.Xian;
+        xian.GrantToRealm(owner, realm == 2 ? 2 : xian.GetHighestGrantableRealm(xian.DefaultComponent.CurrLevel));
+    }
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.restoreHealth(1000000);
+    if (realm > 0)
+        WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), actor.stats[BaseStatses.MaxWakan.id]);
+    actor.setMana(actor.getMaxMana());
+    actor.attack_timer = autonomous ? 0 : 999;
+    Place(actor, x, y);
+    lanes.Add(actor.id, lane);
+    participants.Add(actor);
+    return actor;
+}
+void Oppose(Actor first, Actor second)
+{
+    if (!first.kingdom.isEnemy(second.kingdom) || !second.kingdom.isEnemy(first.kingdom))
+        throw new InvalidOperationException("参与双方须真实敌对");
+    first.addAggro(second);
+    second.addAggro(first);
+    if (!autonomous) return;
+    first.setAttackTarget(second);
+    second.setAttackTarget(first);
+}
+void Fire(AbilityDefinition definition, Actor source, Actor target, Vector3 point, ActiveAbilityUseOrigin origin)
+{
+    var owner = source.GetExtend();
+    ConstructedAbilityService.Learn(owner, definition.Id);
+    float Balance() => definition.Resource == "mana" ? source.getMana() : owner.GetCultisys<Xian>().wakan;
+    float before = Balance();
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    var aim = new ActiveAbilityTarget(target, point);
+    bool used = ActiveAbilityService.TryUse(owner, handle, aim, origin);
+    funded.Add(new { source = source.id, definition.Id, definition.Resource, definition.Cost, before, after = Balance(), used });
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (!used || Math.Abs(before - Balance() - definition.Cost) > .001f)
+        throw new InvalidOperationException($"施放未受理或扣费不符 {definition.Id} 人物 {source.id}，{before} 至 {Balance()}");
+}
+AbilityDefinition Sword(Actor actor, bool right)
+{
+    return new AbilityDefinition
+    {
+        Id = "test.combat-load.duel." + (right ? "right" : "left"), Name = "负载交锋剑",
+        Resource = "wakan", Cost = 10, Cooldown = .6f, Lifetime = .8f, TargetRange = 24,
+        Power = (right ? 40f : 100f) / actor.stats["damage"],
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+        Root = new ConstructionNode
+        {
+            Id = "blade", Form = "sword", OnContact = ConstructionContactResponse.End,
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                WorldVelocity = true, Vector = new[] { right ? -22f : 22f, 0f, 0f } } }
+        }
+    };
+}
+AbilityDefinition Volley() => new()
+{
+    Id = "test.combat-load.volley", Name = "负载飞剑阵",
+    Resource = "wakan", Cost = 12, Cooldown = 2.5f, Lifetime = 2.2f, TargetRange = 45, Power = 1,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "host", Form = "sword", ContactRole = ConstructionContactRole.Decoration, Scale = .25f,
+        Children = new[] { new ConstructionNode
+        {
+            Id = "blade", Form = "sword", Matter = "iron", Scale = .8f, OnContact = ConstructionContactResponse.Continue,
+            Distribution = new ConstructionDistribution { Source = ConstructionDistributionSource.Points, Maximum = 32,
+                Points = Enumerable.Range(0, 32).Select(index => new ConstructionDistributionPoint
+                {
+                    Id = "blade_" + index, Position = new[] { -(index / 8) * 1.5f, (index % 8 - 3.5f) * .7f, 0f }
+                }).ToArray() },
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach },
+                new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = .01f,
+                    WorldVelocity = true, Vector = new[] { 15f, 0f, 0f } } }
+        } }
+    }
+};
+
+if (autonomous)
+{
+    for (int lane = 0; lane < groupCount; lane++)
+    {
+        int y = scene == "groups" ? 51 + lane * 14 : 67;
+        for (int pair = 0; pair < (scene == "groups" ? 2 : 4); pair++)
+        {
+            var first = Make(64, y + pair * 3, realm: 2, lane: lane);
+            var second = Make(76, y + pair * 3, foe: true, realm: 2, lane: lane);
+            foreach (var actor in new[] { first, second })
+            {
+                var owner = actor.GetExtend();
+                owner.LearnSkillV3(new SkillContainerBuilder(SkillEntities.Fireball).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly));
+                owner.LearnSkillV3(new SkillContainerBuilder(SkillEntities.WaterArrow).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly));
+            }
+            Oppose(first, second);
+        }
+    }
+}
+else if (scene == "solo")
+{
+    var source = Make(64, 72, realm: 4);
+    foreach (int x in new[] { 75, 86, 94 })
+    {
+        Oppose(source, Make(x, 72, foe: true));
+        World.world.GetTileSimple(x, 72).burned_stages = 2;
+    }
+    var access = ConstructionEditing.Access;
+    definitions.Add(access.Apply(source.GetExtend(), new ConstructionEditSession(access.Read("Cultiway.GroundPulse.City")), false));
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreature(source);
+    source.attack_timer = 0;
+}
+else if (scene == "duel")
+{
+    var left = Make(64, 72, realm: 4);
+    var right = Make(72, 72, foe: true, realm: 4);
+    Oppose(left, right);
+    definitions.Add(Sword(left, false));
+    definitions.Add(Sword(right, true));
+}
+else if (scene == "domains")
+{
+    var target = Make(72, 72, foe: true);
+    Make(73, 72, foe: true);
+    for (int i = 0; i < 8; i++) Oppose(Make(64 + i % 2, 68 + i, realm: 2), target);
+    definitions.Add(JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText((string)request["definitionPath"])));
+}
+else if (scene == "moving")
+{
+    for (int i = 0; i < 4; i++)
+        Oppose(Make(63, 62 + 6 * i, realm: 2), Make(72, 62 + 6 * i, foe: true));
+    definitions.Add(Volley());
+}
+
+foreach (var definition in definitions) ConstructedAbilityService.Register(definition);
+var scheduled = new HashSet<string>(definitions.Select(definition => definition.Id));
+await Game.NextFrame();
+await Game.WaitUntil(AtBoundary, 1800);
+Save("prepared", new
+{
+    participants = participants.Select(actor => new { actor.id, actor.data.name, x = actor.current_position.x,
+        y = actor.current_position.y, health = actor.data.health, mana = actor.getMana(), kingdom = actor.kingdom.id,
+        level = actor.GetExtend().HasCultisys<Xian>() ? actor.GetExtend().GetCultisys<Xian>().CurrLevel : -1,
+        wakan = actor.GetExtend().HasCultisys<Xian>() ? actor.GetExtend().GetCultisys<Xian>().wakan : 0,
+        group = lanes[actor.id] }).ToArray(),
+    learned = autonomous ? new[] { "fireball", "water_arrow" } : Array.Empty<string>(),
+    definitions
+});
+
+void Started(ConstructedCastStarted fact)
+{
+    if (!lanes.ContainsKey(fact.SourceId)) return;
+    if (!autonomous && !scheduled.Contains(fact.AbilityId))
+    {
+        incidentalStarts.Add(fact);
+        return;
+    }
+    starts.Add(fact);
+    active.Add(fact.CastId);
+    peakActive = Math.Max(peakActive, active.Count);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (active.Remove(fact.CastId)) finishes.Add(fact);
+}
+void Hit(ConstructedContact fact)
+{
+    if (!active.Contains(fact.CastId) || !lanes.ContainsKey(fact.TargetId)) return;
+    hitsByCast.TryGetValue(fact.CastId, out int prior);
+    hitsByCast[fact.CastId] = prior + 1;
+    if (fact.Damage.HealthLost <= 0) return;
+    damage += fact.Damage.HealthLost;
+    damagedActors.Add(fact.TargetId);
+    confirmedLanes.Add(lanes[fact.SourceId]);
+    damageByCast.TryGetValue(fact.CastId, out int sum);
+    damageByCast[fact.CastId] = sum + fact.Damage.HealthLost;
+}
+void Clash(ConstructedClash fact)
+{
+    if (active.Contains(fact.LeftCast) && active.Contains(fact.RightCast) && fact.Absorbed > 0) duels.Add(fact);
+}
+object[] ClashFacts() => duels.Select(fact => new
+{
+    fact.LeftCast, fact.RightCast, fact.LeftSource, fact.RightSource, fact.WorldTime,
+    fact.Absorbed, fact.LeftRemaining, fact.RightRemaining,
+    position = new[] { fact.Position.x, fact.Position.y, fact.Position.z }
+}).ToArray();
+void ActionFact(ConstructedActionEvent fact)
+{
+    if (scene == "solo" && fact.AbilityId == definitions[0].Id && fact.Fact.Node < 0 &&
+        fact.Fact.ContactKind == AbilityActionContactKind.World) landings++;
+}
+int[] Counts()
+{
+    int generated = 0, moving = 0;
+    foreach (object running in casts)
+    {
+        var cast = (AbilityCast)castField.GetValue(running);
+        generated += cast.Plan.FormCount;
+        if (scene != "moving" || cast.Plan.Id != definitions[0].Id) continue;
+        for (int part = 1; part < cast.Plan.FormCount; part++)
+            if (cast.Velocity(part).sqrMagnitude > .001f && present(cast, part)) moving++;
+        trackedVolley ??= cast;
+        if (!ReferenceEquals(cast, trackedVolley)) continue;
+        Vector3 position = cast.ContactOrigin(1);
+        if (moving > 0 && !firstBlade.HasValue) firstBlade = position;
+        if (firstBlade.HasValue) travel = Math.Max(travel, Math.Abs(position.x - firstBlade.Value.x));
+    }
+    peakMoving = Math.Max(peakMoving, moving);
+    return new[] { World.world.units.getSimpleList().Count, casts.Count, generated, FormVisualScene.Instances.Count, moving };
+}
+void FireDuel()
+{
+    var left = participants[0];
+    var right = participants[1];
+    Fire(definitions[0], left, right, right.GetSimPos(), ActiveAbilityUseOrigin.Script);
+    Fire(definitions[1], right, left, left.GetSimPos(), ActiveAbilityUseOrigin.Script);
+    pairs++;
+    nextDuel = Now() + .82;
+}
+void Maintain()
+{
+    if (scene == "duel" && pairs < 4 && active.Count == 0 && Now() >= nextDuel) FireDuel();
+}
+bool Ended() => autonomous ? Now() >= deadline :
+    active.Count == 0 && (scene != "duel" || pairs == 4);
+void Begin()
+{
+    deadline = Now() + duration;
+    if (scene == "duel") FireDuel();
+    else if (scene == "solo")
+        Fire(definitions[0], participants[0], null, new Vector3(65, 72, 0), ActiveAbilityUseOrigin.Player);
+    else if (scene == "domains")
+        foreach (var actor in participants.Skip(2))
+            Fire(definitions[0], actor, participants[0], participants[0].GetSimPos(), ActiveAbilityUseOrigin.Script);
+    else if (scene == "moving")
+        for (int i = 0; i < participants.Count; i += 2)
+            Fire(definitions[0], participants[i], participants[i + 1], participants[i + 1].GetSimPos(), ActiveAbilityUseOrigin.Script);
+}
+
+// COMBAT_MEASUREMENT_HELPER
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+ConstructedAbilityService.ContactConfirmed += Hit;
+ConstructedAbilityService.ClashConfirmed += Clash;
+ConstructedAbilityService.ActionConfirmed += ActionFact;
+try
+{
+    var result = await Measure(Counts, Ended, Maintain, Begin);
+    bool settled = Ended() && (autonomous || finishes.Count == starts.Count && finishes.All(f => !f.Cancelled));
+    bool workload = scene switch
+    {
+        "ordinary" => starts.Select(f => f.SourceId).Distinct().Count() >= 2 && damage > 0,
+        "groups" => starts.Select(f => lanes[f.SourceId]).Distinct().Count() == groupCount && confirmedLanes.Count == groupCount,
+        "solo" => starts.Count == 1 && landings > 0 && damagedActors.Count >= 2,
+        "duel" => starts.Count == 8 && duels.Count == 4 && duels.All(f => f.Absorbed > 0),
+        "domains" => starts.Count == 8 && peakActive == 8 && damageByCast.Count >= 2 &&
+            hitsByCast.Values.Count(count => count > 1) >= 2,
+        "moving" => starts.Count == 4 && peakMoving == 128 && travel > 2 && damage > 0,
+        _ => false
+    };
+    bool passed = settled && workload && (int)result["frames"] >= 4 && (double)result["worldSeconds"] > 0;
+    result["passed"] = passed;
+    result["workload"] = JObject.FromObject(new { settled, starts, finishes, damage, hitsByCast, damageByCast,
+        damagedActors, confirmedLanes, peakActive, peakMoving, travel, landings, duels = ClashFacts(), funded, incidentalStarts });
+    result["countColumns"] = new JArray("actors", "runningCasts", "compiledPartsOfRunningCasts", "visibleInstances", "movingBlades");
+    Save("result", result);
+    return new { passed, frames = (int)result["frames"], p95Ms = (double)result["p95Ms"],
+        worldSeconds = (double)result["worldSeconds"], started = starts.Count, damage, peakActive, peakMoving, landings, clashes = duels.Count };
+}
+catch (Exception error)
+{
+    Save("failure", new { message = error.ToString(), starts, finishes, funded, damage, landings, duels = ClashFacts() });
+    return new { passed = false, error = error.Message };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    ConstructedAbilityService.ActionConfirmed -= ActionFact;
+    ControllableUnit.clear(false);
+}
