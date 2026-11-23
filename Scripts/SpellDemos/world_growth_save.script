@@ -1,0 +1,46 @@
+// 场景取样完成后走原版存读入口，额外核对在计时外运行。
+string growthOutput = (string)growthRequest["output"];
+string growthProfile = (string)growthRequest["connection"]["profile"];
+if (Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") != growthProfile ||
+    !UnityEngine.Application.persistentDataPath.StartsWith(growthProfile + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+    throw new InvalidOperationException("游戏存档目录未隔离");
+
+(string Path, double Milliseconds, long MapBytes) SaveWorld(string slot)
+{
+    string path = Path.Combine(growthOutput, slot);
+    Directory.CreateDirectory(path);
+    var watch = Stopwatch.StartNew();
+    SaveManager.saveWorldToDirectory(path);
+    watch.Stop();
+    return (path, watch.Elapsed.TotalMilliseconds, new FileInfo(Path.Combine(path, "map.wbox")).Length);
+}
+async Task<object> ReadWorld(string path)
+{
+    Config.paused = true;
+    ControllableUnit.clear(false);
+    var process = System.Diagnostics.Process.GetCurrentProcess();
+    double cpu = process.TotalProcessorTime.TotalMilliseconds;
+    var watch = Stopwatch.StartNew();
+    World.world.save_manager.loadWorld(path);
+    await Game.NextFrame();
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+    Config.paused = true;
+    var initializing = typeof(AbilityCast).Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler")
+        .GetMethod("IsWorldInitializationPending", BindingFlags.Static | BindingFlags.NonPublic);
+    await Game.WaitUntil(() => !(bool)initializing.Invoke(null, null), 3600);
+    await Boundary();
+    watch.Stop();
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    return new { milliseconds = watch.Elapsed.TotalMilliseconds, cpuMilliseconds = process.TotalProcessorTime.TotalMilliseconds - cpu,
+        skipped = report.Skipped.Count, backupError = report.BackupError, actors = World.world.units.getSimpleList().Count };
+}
+object PublishGrowth(bool passed, object measurements)
+{
+    File.WriteAllText(Path.Combine(growthOutput, "result.json"), JsonConvert.SerializeObject(new
+    {
+        passed, device = new { cpu = UnityEngine.SystemInfo.processorType, gpu = UnityEngine.SystemInfo.graphicsDeviceName,
+            render = UnityEngine.SystemInfo.graphicsDeviceType.ToString(), engine = UnityEngine.Application.unityVersion },
+        measurements, process = System.Diagnostics.Process.GetCurrentProcess().Id
+    }, Formatting.Indented));
+    return new { passed };
+}

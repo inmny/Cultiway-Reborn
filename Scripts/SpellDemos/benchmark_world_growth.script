@@ -1,0 +1,217 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Content;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
+using Cultiway.Core.CollectiveProjects;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
+
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+var boundary = runnerType.GetProperty("IsAtCycleBoundary");
+async Task Boundary() => await Game.WaitUntil(() => (bool)boundary.GetValue(runner), 3600);
+
+// WORLD_GROWTH_SAVE
+var request = growthRequest;
+var config = new JObject { ["worldSpeed"] = "x1" };
+string scenario = (string)request["scenario"];
+var known = request["facts"];
+var saves = Cultiway.ModClass.I.WorldSaves;
+
+Game.Resume();
+Config.setWorldSpeed("x1", false);
+await ReadWorld((string)request["worldPath"]);
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+var camera = World.world.camera;
+camera.transform.position = new Vector3(73, 73, camera.transform.position.z);
+MoveCamera.clearFocusUnitOnly();
+MoveCamera.instance.forceZoom(28);
+UnityEngine.Screen.SetResolution(1280, 720, false);
+await Game.WaitUntil(() => UnityEngine.Screen.width == 1280 && UnityEngine.Screen.height == 720, 300);
+
+JToken Section(string key) => JObject.Parse(saves.World.Capture(World.world, "growth"))["sections"]?[key]?["data"];
+WorldTile Tile(string key) => World.world.tiles_list[(int)known[key]];
+long ProjectId() => (long)known["project"];
+long CityId() => (long)known["city"];
+WorldTile Second() => Tile("second");
+bool Polluted(WorldTile tile) => tile.top_type?.wasteland == true || tile.burned_stages > 0;
+Actor Body() => World.world.units.get((long)known["actor"]);
+Building Facility(string key) => World.world.buildings.get((long)known[key]);
+Friflo.Engine.ECS.Entity Thought()
+{
+    var handle = Body().GetExtend().GetComponent<YuanshenRuntimeState>().thought_nodes.Single();
+    if (!YuanshenNodeLockService.TryResolve(handle, out var node))
+        throw new InvalidOperationException("正式档缺少原在途元神节点");
+    return node;
+}
+YuanshenAnchorHandle Anchor(string key)
+{
+    var actor = Body();
+    var building = Facility(key);
+    if (actor == null || building == null ||
+        !YuanshenAnchorNetworkService.TryGetAuthorizedAtPoint(actor.GetExtend(), building.current_position, out var anchor, out _))
+        throw new InvalidOperationException("正式档缺少可用元神台 " + key);
+    return anchor;
+}
+
+object CityState()
+{
+    var projects = Section("collective-projects")["Projects"];
+    var project = projects.Single(row => (long)row["Id"] == ProjectId());
+    var districts = project["Payload"]["Districts"];
+    if ((int)districts["Completed"] != 1 || !Polluted(Second()) || Polluted(Tile("first")) ||
+        (long)districts["SourceBuilding"] != (long)known["source"] || Tile("routeBreak").zone.city?.id == CityId())
+        throw new InvalidOperationException("正式档缺少已完成一段、等待接通的原分区工程");
+    return new { id = ProjectId(), city = CityId(), districts, jobs = projects.Select(row => (long)row["Id"]).OrderBy(id => id).ToArray() };
+}
+JArray Conditions()
+{
+    var records = (JArray)Section("constructed_world_conditions")?["Records"];
+    if (records == null || records.Count != 2 || records.Count(row => (bool)row["EntireWorld"]) != 1)
+        throw new InvalidOperationException("正式档缺少区域和全局两份防火条件");
+    return records;
+}
+object ConditionState() => Conditions().Select(row => new
+{
+    source = (long)row["Source"], entireWorld = (bool)row["EntireWorld"],
+    x = (float)row["X"], y = (float)row["Y"], radius = (float)row["Radius"]
+}).OrderBy(row => row.entireWorld).ToArray();
+object FacilityState()
+{
+    var hall = Facility("start"); var pavilion = Facility("pavilion");
+    var entrance = Facility("gateIn"); var exit = Facility("gateOut");
+    var actor = Body();
+    var origin = Anchor("start"); var destination = Anchor("pavilion");
+    if (entrance == null || exit == null || entrance == exit || !entrance.isUsable() || !exit.isUsable() ||
+        actor.GetExtend().sect?.id != (long)known["sect"] || origin == destination)
+        throw new InvalidOperationException("缺少实际阵门、元神台或原宗门");
+    var node = Thought();
+    if (!node.HasComponent<YuanshenAnchorTransitState>())
+        throw new InvalidOperationException("正式档缺少原在途过程");
+    var transit = node.GetComponent<YuanshenAnchorTransitState>();
+    if (transit.source != origin || transit.destination != destination)
+        throw new InvalidOperationException("正式档的在途起点或终点发生改变");
+    return new { hall = hall.id, pavilion = pavilion.id, entrance = entrance.id, exit = exit.id, actor = actor.id, transit.completes_at };
+}
+JToken Snapshot() => JToken.FromObject(scenario == "city" ? CityState() : scenario == "conditions" ? ConditionState() : FacilityState());
+var before = Snapshot();
+var saved = SaveWorld("archive");
+var restored = await ReadWorld(saved.Path);
+var after = Snapshot();
+bool preserved = JToken.DeepEquals(before, after) && saves.LastReport.Skipped.Count == 0;
+
+int changed = 0;
+double total = 2;
+double start = World.world.getCurWorldTime();
+bool completed = false;
+var conditionTime = new List<double>();
+Friflo.Engine.ECS.Entity transitNode = default;
+YuanshenAnchorHandle destinationAnchor = default;
+bool Arrived() => transitNode.HasComponent<YuanshenAnchorResidence>() &&
+    !transitNode.HasComponent<YuanshenAnchorTransitState>() &&
+    transitNode.GetComponent<YuanshenAnchorResidence>().anchor == destinationAnchor;
+void AdvanceSamples()
+{
+    if (scenario == "facilities")
+        completed = Arrived();
+    else if (scenario == "conditions" && conditionTime.Count == 0 &&
+        World.world.getCurWorldTime() - start >= 1)
+    {
+        var tile = World.world.GetTileSimple(106, 76);
+        tile.stopFire();
+        tile.heat = 0;
+        tile.burned_stages = 0;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.Height = 140;
+        bool ignited = tile.startFire(pForce: true) && tile.isOnFire();
+        tile.stopFire();
+        completed = !ignited;
+        conditionTime.Add(World.world.getCurWorldTime());
+    }
+}
+bool Finished() => scenario == "city" && changed > 0 || scenario == "facilities" && completed ||
+    World.world.getCurWorldTime() - start >= total;
+void CityContact(ConstructedWorldContact fact)
+{
+    if (scenario == "city" && fact.Action == "land.cleanse" && fact.Result.Changed &&
+        fact.X == Second().x && fact.Y == Second().y) changed++;
+}
+
+// WORLD_GROWTH_FRAMES
+if (scenario == "city")
+{
+    total = 8;
+    var city = World.world.cities.get(CityId());
+    var worker = World.world.units.getSimpleList().Single(actor => actor.city == city &&
+        ConstructedAbilityService.Knows(actor.GetExtend(), "test.city-district-clean"));
+    city.addZone(Tile("routeBreak").zone);
+    worker.setMana(worker.getMaxMana(), false);
+    if (CollectiveProjectService.TryAssignRoutineJob(worker.GetExtend(), out string job))
+    {
+        worker.ai.setJob(job);
+        worker.setTask(ActorTasks.ExecuteCollectiveProject.id, pCleanJob: false, pForceAction: true);
+    }
+}
+else if (scenario == "facilities")
+{
+    var stats = new BaseStats();
+    stats.addTag("frozen_ai");
+    stats.addTag("immovable");
+    var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.FacilityLoadHold")
+        .SetStats(stats).SetDuration(10000).Build();
+    foreach (var actor in new[] { Body(), World.world.units.get((long)known["beast"]) })
+    {
+        CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+        actor.updateStats();
+        actor.attack_timer = 999;
+    }
+    transitNode = Thought();
+    destinationAnchor = Anchor("pavilion");
+}
+
+ConstructedAbilityService.WorldContactConfirmed += CityContact;
+try
+{
+    var frame = await Measure(() => new[] { World.world.units.getSimpleList().Count }, Finished, AdvanceSamples);
+    await Boundary();
+    object outcome;
+    if (scenario == "city")
+    {
+        completed = changed > 0 && !Polluted(Second());
+        outcome = new { changed, stillPolluted = Polluted(Second()) };
+    }
+    else if (scenario == "conditions")
+    {
+        var active = Conditions();
+        outcome = new { conditionTime, active };
+    }
+    else
+    {
+        completed = Arrived();
+        outcome = new { completed, gateIn = Facility("gateIn").id, gateOut = Facility("gateOut").id, pavilion = Facility("pavilion").id,
+            travelling = transitNode.HasComponent<YuanshenAnchorTransitState>(), stationed = transitNode.HasComponent<YuanshenAnchorResidence>() };
+    }
+    return PublishGrowth(preserved && completed && Finished(), new
+    {
+        before, after, preserved, completed, outcome, frame, restored,
+        saved = new { saved.Path, saved.Milliseconds, saved.MapBytes }
+    });
+}
+finally
+{
+    ConstructedAbilityService.WorldContactConfirmed -= CityContact;
+    Config.paused = true;
+}
