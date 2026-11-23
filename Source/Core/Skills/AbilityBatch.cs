@@ -56,11 +56,20 @@ internal static class AbilityBatch
         { for (int i = 0; i < steps.Count; i++) steps[i].Execute(); return; }
         int work = 0;
         for (int i = 0; i < steps.Count; i++) work += steps[i].WorkSize;
-        int grain = System.Math.Max(1, Grain / System.Math.Max(1, work / System.Math.Max(1, steps.Count)));
-        SimulationWorkerPool.Instance.RunIndexed(0, (steps.Count + grain - 1) / grain, part =>
+        RunIndependent(steps.Count, work, index => steps[index].Execute());
+    }
+
+    /// <summary>分批计算各自独占的数值输入或输出，全部完成后才返回。</summary>
+    /// <param name="count">互不依赖的实际工作项数量。</param>
+    /// <param name="work">本批估计的总计算量。</param>
+    /// <param name="execute">按稳定索引处理一项，每项只写自己的状态。</param>
+    internal static void RunIndependent(int count, int work, System.Action<int> execute)
+    {
+        int grain = System.Math.Max(1, Grain / System.Math.Max(1, work / System.Math.Max(1, count)));
+        SimulationWorkerPool.Instance.RunIndexed(0, (count + grain - 1) / grain, part =>
         {
-            int end = System.Math.Min(steps.Count, (part + 1) * grain);
-            for (int i = part * grain; i < end; i++) steps[i].Execute();
+            int end = System.Math.Min(count, (part + 1) * grain);
+            for (int i = part * grain; i < end; i++) execute(i);
         });
     }
 }

@@ -1,0 +1,192 @@
+// 复用独立世界夹具，核对真实施放进入批量采样后仍按原规则交锋。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Content.Combat;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using DebugToolbox.Runtime.Tracing;
+
+string fixture = __CONTACT_BATCH_FIXTURE__;
+if (!File.Exists(Path.Combine(fixture, "map.wbox"))) throw new FileNotFoundException(fixture);
+var generationField = typeof(ConstructedAbilityService).GetField("worldGeneration", BindingFlags.NonPublic | BindingFlags.Static);
+long Generation() => (long)generationField.GetValue(null);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+}
+async Task LoadFixture()
+{
+    Config.paused = true;
+    long generation = Generation();
+    World.world.save_manager.loadWorld(fixture);
+    await Game.NextFrame();
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(Generation() != generation, "须完成一次真实世界加载");
+}
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+void Place(Actor actor, float x, float y)
+{
+    actor.stopMovement();
+    actor.current_position = new Vector2(x, y);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    actor.updatePos();
+}
+void Fire(AbilityDefinition definition, Actor source, Actor target)
+{
+    var owner = source.GetExtend();
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(entry => entry.ProviderId == "content.constructed" && entry.EntryId == definition.Id);
+    var request = new ActiveAbilityTarget(target, target.GetSimPos());
+    if (!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script))
+        throw new InvalidOperationException($"{definition.Id} 未受理。能否施放 {ActiveAbilityService.CanUse(owner, handle, request)}，射程 {ActiveAbilityService.ResolveRange(owner, handle, target)}，来源 {source.id}，目标 {target.id}");
+}
+void Learn(AbilityDefinition definition, Actor actor)
+{
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(actor.GetExtend(), definition.Id);
+}
+AbilityDefinition Sword(string id, Actor source, float force, float speed) => new()
+{
+    Id = "test.contact-batch." + id, Name = "交锋剑", Resource = "none", Cost = 0, Cooldown = 0,
+    Lifetime = .12f, TargetRange = 16, Power = force / source.stats["damage"],
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "blade", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { speed, 0f, 0f } } }
+    }
+};
+ConstructionNode Decoration(string id) => new()
+{
+    Id = id, Form = "sword", ContactRole = ConstructionContactRole.Decoration,
+    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = 120 } }
+};
+
+Game.Resume();
+Config.setWorldSpeed("x1", false);
+await LoadFixture();
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ContactBatchHold")
+    .SetStats(stats).SetDuration(10000).Build();
+void Hold(Actor actor, float x, float y)
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    Place(actor, x, y);
+}
+foreach (var actor in World.world.units.getSimpleList().ToArray()) Hold(actor, 12, 12);
+Actor left = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true);
+Actor right = World.world.units.createNewUnit("human", World.world.GetTileSimple(72, 72), pAdultAge: true);
+var wolf = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(12, 12), pAdultAge: true);
+Hold(wolf, 12, 12);
+right.setKingdom(wolf.kingdom);
+Check(left.kingdom.isEnemy(right.kingdom) && right.kingdom.isEnemy(left.kingdom), "夹具双方须公开敌对");
+foreach (var actor in new[] { left, right })
+{
+    actor.addTrait("super_health");
+    Hold(actor, actor == left ? 64 : 72, 72);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.data.health = Mathf.CeilToInt(actor.stats["health"]);
+    actor.attack_timer = 999;
+}
+left.addAggro(right);
+right.addAggro(left);
+await Advance(.15f);
+Place(left, 64, 72);
+Place(right, 72, 72);
+
+var filler = new AbilityDefinition
+{
+    Id = "test.contact-batch.filler", Name = "装饰负载", Resource = "none", Cost = 0, Cooldown = 0, Lifetime = 120,
+    Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Self },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = Decoration("root")
+};
+filler.Root.Children = Enumerable.Range(0, 127).Select(i => Decoration("decoration_" + i)).ToArray();
+var stronger = Sword("strong", left, 100, 600);
+var weaker = Sword("weak", right, 40, -600);
+Learn(filler, left);
+Learn(stronger, left);
+Learn(weaker, right);
+
+var impacts = new List<ConstructedContact>();
+var clashes = new List<ConstructedClash>();
+void Hit(ConstructedContact value)
+{
+    if (value.AbilityId.StartsWith("test.contact-batch.")) impacts.Add(value);
+}
+void Clash(ConstructedClash value)
+{
+    if (value.LeftSource == left.id || value.RightSource == left.id) clashes.Add(value);
+}
+ConstructedAbilityService.ContactConfirmed += Hit;
+ConstructedAbilityService.ClashConfirmed += Clash;
+try
+{
+    const int fillerCount = 32;
+    int initialHealth = right.data.health;
+    for (int i = 0; i < fillerCount; i++) Fire(filler, left, left);
+    Fire(stronger, left, right);
+    Fire(weaker, right, left);
+    int mainThread = Thread.CurrentThread.ManagedThreadId;
+    int[] threads;
+    double worldBefore = World.world.getCurWorldTime();
+    var timer = Stopwatch.StartNew();
+    using (var trace = Trace.Attach(typeof(AbilityCast).GetMethod("AppendContacts"),
+               new MethodTraceOptions { IncludeArguments = false, IncludeResult = false, MaxEvents = 2048 }))
+    {
+        await Advance(.2f);
+        threads = trace.Events.Select(entry => entry.ThreadId).Distinct().OrderBy(id => id).ToArray();
+    }
+    timer.Stop();
+    double worldSeconds = World.world.getCurWorldTime() - worldBefore;
+    int finalHealth = right.data.health;
+    string observed = $"相撞 {string.Join(",", clashes.Select(value => value.Absorbed))}，接触 {string.Join(",", impacts.Select(value => value.AbilityId + "→" + value.TargetId))}，生命 {initialHealth}→{finalHealth}";
+    Check(clashes.Count == 1 && Mathf.Abs(clashes[0].Absorbed - 40) < .001f &&
+          impacts.Count == 1 && impacts[0].AbilityId == stronger.Id && impacts[0].TargetId == right.id && finalHealth < initialHealth,
+          "实战应只相撞一次，强剑余力命中敌人。" + observed);
+    Check(threads.Any(id => id != mainThread), $"实战中须观察到工作线程采样作用形状。观察线程：{string.Join(",", threads)}，主线程 {mainThread}");
+    var result = new
+    {
+        passed = true, fillerCount, work = fillerCount * AbilityCompiler.Compile(filler).WorkSize,
+        mainThread, threads, worldSeconds, wallMillisecondsWithTrace = timer.Elapsed.TotalMilliseconds,
+        absorbed = clashes[0].Absorbed, target = right.id, initialHealth, finalHealth,
+        impactAge = impacts[0].Age, remaining = new[] { clashes[0].LeftRemaining, clashes[0].RightRemaining }
+    };
+    await LoadFixture();
+    Check(FormVisualScene.Instances.Count == 0, "切世界后须清除旧施放的绘制对象");
+    return new { result, visualsAfterReload = FormVisualScene.Instances.Count };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}

@@ -1,0 +1,170 @@
+// 实际构造数值步的顺序与并行对照，不加载或修改世界，不把数值耗时当作整场战斗耗时。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Diagnostics;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+Config.paused=true;
+const BindingFlags flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static|BindingFlags.Instance;
+var assembly=typeof(AbilityCast).Assembly;
+var runnerType=assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+runnerType.GetMethod("DrainToBoundary",flags).Invoke(runnerType.GetProperty("Instance",flags).GetValue(null),null);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var stepType=assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+var stepConstructor=stepType.GetConstructors(flags).Single();
+var advance=assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance",flags);
+var save=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep",flags).CreateDelegate(typeof(Action<AbilityCast>));
+var restore=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep",flags).CreateDelegate(typeof(Action<AbilityCast>));
+var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
+var pool=poolType.GetProperty("Instance",flags).GetValue(null);
+int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
+var report=new List<object>();
+foreach(string kind in new[]{"forms","mixed","rig","phase"})
+{
+ var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
+ definition.Id="test.batch."+kind;definition.Lifetime=120;
+ foreach(var key in definition.Body.Keys)key.At*=100;
+ definition.Body.ActiveFrom*=100;definition.Body.ActiveUntil*=100;
+ {
+  definition.Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source,Follow=true};
+  definition.Root=new ConstructionNode{Id="branch",Form="branch",Operations=new[]{
+   new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=1},
+   new ConstructionOperation{Kind=ConstructionOperationKind.Spin,Vector=new[]{0f,0f,45f}},
+   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=1.2f,Vector=new[]{0f,0f,3f},TurnRate=180}},
+   Children=new[]{new ConstructionNode{Id="edges",Form="sword",Anchor="tip_*",Scale=.3f,Operations=new[]{
+    new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
+    new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,7f},TurnRate=360}}}}};
+ }
+ if(kind!="mixed")definition.Body=null;
+ if(kind=="rig")definition.Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",Operations=new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,0f}}}};
+ if(kind=="phase")definition.Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",Operations=new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,3f,0f}}}};
+ if(kind=="phase")definition.Root.Operations=definition.Root.Operations.Concat(new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.5f,Matter="water",State="solid"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.9f,Matter="water",State="liquid"}}).ToArray();
+ var plan=AbilityCompiler.Compile(definition);
+ foreach(int count in new[]{64,1024})
+ {
+  var casts=new AbilityCast[count];Array steps=Array.CreateInstance(stepType,count);
+  for(int i=0;i<count;i++)
+  {
+   float height=.4f+(i%19)*.09f;Vector3 foot=new(i%64,i/64,0),direction=Quaternion.Euler(0,0,i%360)*Vector3.right;
+   Vector3 target=foot+direction*8+Vector3.forward*height*.5f;
+   var input=new AbilityInputs(foot,foot+direction*8,direction,height);
+   var body=new BodyFrame(foot,direction,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
+   casts[i]=new AbilityCast(plan,Matrix4x4.identity,plan.Body==null?null:body,input);
+   casts[i].Advance(.25f+(i%97)*.02f,target);save(casts[i]);
+   var nextInput=new AbilityInputs(foot+Vector3.right*.01f,input.Target,direction,height);
+   var nextBody=new BodyFrame(nextInput.Source,direction,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
+   steps.SetValue(stepConstructor.Invoke(new object[]{casts[i],nextInput,plan.Body==null?null:(object)nextBody,target,1f/60,false}),i);
+  }
+  var views=new List<FormVisualInstance>();var contacts=new List<AbilityCapsule>();var observed=new List<float>();var materials=new List<string>();
+  void Snapshot()
+  {
+   observed.Clear();materials.Clear();
+   foreach(var cast in casts)
+   {
+    observed.Add(cast.Age);observed.Add(cast.Finished?1:0);
+    if(cast.BodyPose.HasValue)
+    {
+     var pose=cast.BodyPose.Value;
+     foreach(var p in new[]{pose.Foot,pose.Shoulder,pose.Elbow,pose.Hand,pose.Torso}){observed.Add(p.x);observed.Add(p.y);observed.Add(p.z);}
+     observed.Add(pose.Rotation.x);observed.Add(pose.Rotation.y);observed.Add(pose.Rotation.z);observed.Add(pose.Rotation.w);observed.Add(pose.Turn);
+    }
+    views.Clear();cast.AppendVisuals(views);observed.Add(views.Count);
+    foreach(var view in views)
+    {
+     for(int n=0;n<16;n++)observed.Add(view.Transform[n]);
+     if(view.Skin!=null)foreach(var matrix in view.Skin)for(int n=0;n<16;n++)observed.Add(matrix[n]);
+    }
+    for(int n=0;n<plan.FormCount;n++)
+    {
+     observed.Add(cast.RemainingForce(n));observed.Add(cast.ShapeAge(n));observed.Add(cast.IsShapeHeld(n)?1:0);
+     Vector3 velocity=cast.Velocity(n);observed.Add(velocity.x);observed.Add(velocity.y);observed.Add(velocity.z);
+     materials.Add(cast.Matter(n).Id+"/"+cast.Matter(n).State);
+    }
+    contacts.Clear();cast.AppendContacts(contacts);observed.Add(contacts.Count);
+    foreach(var c in contacts){observed.Add(c.A.x);observed.Add(c.A.y);observed.Add(c.A.z);observed.Add(c.B.x);observed.Add(c.B.y);observed.Add(c.B.z);observed.Add(c.Radius);observed.Add(c.Revision);}
+   }
+  }
+  void Restore(){foreach(var cast in casts)restore(cast);}
+  void Run(bool parallel)=>advance.Invoke(null,new object[]{steps,parallel});
+  Restore();Run(false);Snapshot();float[] expected=observed.ToArray();string[] expectedMaterials=materials.ToArray();
+  float error=0;
+  void Verify()
+  {
+   Snapshot();if(observed.Count!=expected.Length||!materials.SequenceEqual(expectedMaterials))throw new InvalidOperationException("形体、材料或接触数量不同："+kind+"/"+count);
+   for(int i=0;i<expected.Length;i++){float delta=Mathf.Abs(observed[i]-expected[i]);if(float.IsNaN(delta)||delta>.000001f)throw new InvalidOperationException("并行数值不同："+kind+"/"+count+"/"+i);error=Mathf.Max(error,delta);}
+  }
+  Restore();Run(true);Verify();
+  var outputs=Enumerable.Range(0,count).Select(_=>new List<AbilityCapsule>()).ToArray();
+  var parallel=Enumerable.Range(0,count).Select(_=>new List<AbilityCapsule>()).ToArray();
+  var runnerMethod=assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("RunIndependent",flags);
+  var runShapes=(Action<int,int,Action<int>>)runnerMethod.CreateDelegate(typeof(Action<int,int,Action<int>>));
+  var prismField=typeof(AbilityCapsule).GetField("Prism",flags);
+  var prismTransform=prismField.FieldType.GetField("transform",flags);
+  var outline=prismField.FieldType.GetField("outline",flags);
+  var sweep=typeof(AbilityCapsule).GetField("SweepPose",flags);
+  void Collect(List<AbilityCapsule>[] rows,int i,bool end)
+  {
+   rows[i].Clear(); casts[i].AppendContacts(rows[i],end,includeMaterials:true);
+  }
+  void CheckShapes()
+  {
+   for(int i=0;i<count;i++)
+   {
+    if(outputs[i].Count!=parallel[i].Count)throw new InvalidOperationException("作用形状数量不同");
+    for(int j=0;j<outputs[i].Count;j++)
+    {
+     var a=outputs[i][j]; var b=parallel[i][j];
+     object firstPrism=prismField.GetValue(a), secondPrism=prismField.GetValue(b);
+     if(a.Node!=b.Node||a.Shape!=b.Shape||a.Revision!=b.Revision||a.Until!=b.Until||a.Radius!=b.Radius||
+        !a.A.Equals(b.A)||!a.B.Equals(b.B)||!a.HalfExtents.Equals(b.HalfExtents)||a.Matter!=b.Matter||
+        !ReferenceEquals(a.Material,b.Material)||!Equals(sweep.GetValue(a),sweep.GetValue(b))||
+        (firstPrism==null)!=(secondPrism==null)||
+        firstPrism!=null&&(!Equals(prismTransform.GetValue(firstPrism),prismTransform.GetValue(secondPrism))||
+                         !ReferenceEquals(outline.GetValue(firstPrism),outline.GetValue(secondPrism))))
+        throw new InvalidOperationException("实际作用形状不同："+kind+"/"+i+"/"+j);
+    }
+   }
+  }
+  foreach(bool end in new[]{false,true})
+  {
+   Restore();
+   for(int i=0;i<count;i++)Collect(outputs,i,end);
+   runShapes(count,count*plan.WorkSize,i=>Collect(parallel,i,end));
+   CheckShapes();
+  }
+  var seq=new List<double>();var par=new List<double>();
+  for(int repeat=0;repeat<7;repeat++)
+  {
+   Restore();Run(true);
+   for(int offset=0;offset<2;offset++)
+   {
+    bool workersNow=(offset+repeat)%2==1;
+    long start=Stopwatch.GetTimestamp();
+    if(workersNow)runShapes(count,count*plan.WorkSize,i=>Collect(parallel,i,true));
+    else for(int i=0;i<count;i++)Collect(outputs,i,true);
+    (workersNow?par:seq).Add((Stopwatch.GetTimestamp()-start)*1000d/Stopwatch.Frequency);
+   }
+   CheckShapes();
+   Verify();
+   await Game.NextFrame();
+  }
+  report.Add(new{kind,count,work=count*plan.WorkSize,shapes=outputs.Sum(row=>row.Count),error,
+   sequentialMedianMs=seq.OrderBy(ms=>ms).ElementAt(3),parallelMedianMs=par.OrderBy(ms=>ms).ElementAt(3),seq,par});
+ }
+}
+var result=new{passed=true,process=Process.GetCurrentProcess().Id,module=assembly.ManifestModule.ModuleVersionId,workers,cpu=SystemInfo.processorType,unity=Application.unityVersion,
+ report,validation="真实构造的连接输入、身体、旋转、生长、脱离、追踪及前态恢复；计时不含输入采集、前态复制、目标筛选、接触确认或绘制，不能当作整场战斗性能"};
+
+return result;
