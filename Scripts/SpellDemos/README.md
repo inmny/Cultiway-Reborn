@@ -3283,3 +3283,20 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 500 -- \
 ```
 
 单场复验用 `ordinary`、`solo`、`duel`、`groups`、`domains` 或 `moving`。程序为每场归档世界散列值、输入及实际人物、扣费、施放和结算，输出逐帧间隔和定期内存与部件采样。默认 1280×720、正常世界速度、帧率上限 60，使用普通游戏相机。脚本不进行录像。
+
+### 世界增长与存读开销（13.13）
+
+已启动的独立游戏每次执行一段。创法用仓库夹具，其余三段复用通过功能验收的正式存档。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 226 -- \
+  python3 Scripts/SpellDemos/benchmark_world_growth.py --case creation
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 226 -- \
+  python3 Scripts/SpellDemos/benchmark_world_growth.py --case city --world "$CITY_ARCHIVE" --facts "$CITY_RESULT"
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 226 -- \
+  python3 Scripts/SpellDemos/benchmark_world_growth.py --case conditions --world "$CONDITIONS_ARCHIVE"
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 226 -- \
+  python3 Scripts/SpellDemos/benchmark_world_growth.py --case facilities --world "$FACILITY_ARCHIVE" --facts "$FACILITY_EXPECTED"
+```
+
+`--world` 指向含 `map.wbox` 的目录。城市的 `--facts` 使用分区净化结果，设施的 `--facts` 使用保存前的 `expected.json`。结果同时记录保存时间、档案大小、同进程读回时间及实际恢复。创法另存两个阶段及每月增长，其他三场记录逐帧间隔。旧档原件只读。
