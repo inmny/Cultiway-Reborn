@@ -1,0 +1,203 @@
+// 处理同一个现成世界中的三组时序，只追踪本组的实际采集入口。
+const BindingFlags hidden = BindingFlags.NonPublic | BindingFlags.Instance;
+var service = typeof(ConstructedAbilityService);
+var options = new MethodTraceOptions { IncludeArguments = false, IncludeResult = false, MaxEvents = 512 };
+var owner = left.GetExtend();
+var endings = new List<ConstructedCastEnded>();
+void Ended(ConstructedCastEnded ended)
+{
+    if (ended.SourceId == left.id) endings.Add(ended);
+}
+bool Cast(string id, ActiveAbilityTarget target)
+{
+    ConstructedAbilityService.Learn(owner, id);
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, id);
+    bool accepted = ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    return accepted;
+}
+AbilityDefinition Standing()
+{
+    var result = ConstructionEditing.Access.Read("Cultiway.WorldUtility.FireEdict");
+    result.Id = "test.construction-time.fire";
+    result.Lifetime = 1.25f;
+    result.Cooldown = 0f;
+    result.Cost = 5f;
+    return result;
+}
+void Fund()
+{
+    owner.E.RemoveComponent<Xian>();
+    owner.AddComponent(new Xian { level = 2, wakan = 100f });
+    owner.MarkCultiwayStatsDirty();
+    left.setStatsDirty();
+    left.updateStats();
+    WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), 100f);
+}
+WorldTile Grass(int x, int y)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    tile.stopFire();
+    tile.burned_stages = 0;
+    tile.heat = 0;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    return tile;
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+using var capture = Trace.Attach(service.GetMethod("CaptureActors", hidden), options);
+using var predict = Trace.Attach(service.GetMethod("Predict", hidden), options);
+using var standing = Trace.Attach(service.GetMethod("AdvanceStandingConditions", hidden), options);
+try
+{
+    if (__CONSTRUCTION_TIME_SECTION__ == "standing")
+    {
+        Fund();
+        var rule = Standing();
+        ConstructedAbilityService.Register(rule);
+        var request = new ActiveAbilityTarget(left, left.GetSimPos());
+        double start = World.world.getCurWorldTime();
+        float before = owner.GetCultisys<Xian>().wakan;
+        Check(Cast(rule.Id, request), "正式受理纯防火条件");
+        float paid = before - owner.GetCultisys<Xian>().wakan;
+        Check(Mathf.Abs(paid - rule.Cost) < .005f, "只扣本次费用");
+        await Advance(.18f);
+        double paused = World.world.getCurWorldTime();
+        var tile = Grass(106, 76);
+        Check(!tile.startFire(pForce: true) && !tile.isOnFire(), "未到期时真实点火受阻");
+        for (int i = 0; i < 10; i++) await Game.NextFrame();
+        Check(World.world.getCurWorldTime() == paused && endings.Count == 0 &&
+              !tile.startFire(pForce: true), "暂停时条件和世界时钟不推进");
+        Check(standing.Events.Count > 0 && capture.Events.Count == 0 && predict.Events.Count == 0,
+            "纯条件不采集人物或预测接触");
+        await Advance(rule.Lifetime);
+        var ended = endings.Single();
+        Check(!ended.Cancelled && ended.Age == rule.Lifetime &&
+              Math.Abs(ended.WorldTime - start - rule.Lifetime) < .00001d &&
+              Grass(106, 76).startFire(pForce: true), "世界时钟准确到期后真实点火恢复");
+        tile.stopFire();
+
+        Check(Cast(rule.Id, request) && !Grass(106, 76).startFire(pForce: true), "结束后可正常再次施放");
+        await LoadFixture();
+        Check(Grass(106, 76).startFire(pForce: true) && FormVisualScene.Instances.Count == 0,
+            "换世界后撤下尚未到期的规则和画面");
+        return new { passed = true, paid, start, paused, ended.WorldTime, ended.Age,
+            conditionUpdates = standing.Events.Count, actorCaptures = capture.Events.Count,
+            predictions = predict.Events.Count };
+    }
+
+    if (__CONSTRUCTION_TIME_SECTION__ == "terrain")
+    {
+        for (int x = 54; x <= 78; x++)
+        for (int y = 60; y <= 84; y++)
+        {
+            var tile = Grass(x, y);
+            tile.burned_stages = 2;
+            tile.heat = 100;
+        }
+        var cleanse = ConstructionEditing.Access.Read("Cultiway.WorldUtility.CityCleanse");
+        cleanse.Id = "test.construction-time.cleanse";
+        cleanse.Resource = "none";
+        cleanse.Cost = 0f;
+        cleanse.Impact.WorldEffects[0].Contact = new ConstructionContactPolicy
+            { Mode = ConstructionContactMode.Once, MaximumTotal = 2 };
+        ConstructedAbilityService.Register(cleanse);
+        var ground = new List<ConstructedWorldContact>();
+        void Changed(ConstructedWorldContact fact)
+        {
+            if (fact.AbilityId == cleanse.Id) ground.Add(fact);
+        }
+        ConstructedAbilityService.WorldContactConfirmed += Changed;
+        try
+        {
+            var request = new ActiveAbilityTarget(null, new Vector3(66.5f, 72.5f, 0f));
+            Check(Cast(cleanse.Id, request), "从正式入口受理纯地块效果");
+            await Advance(.075f);
+            Check(ground.Count == 0, "地域实际生效前没有净化");
+            await Advance(.36f);
+            var tiles = ground.Select(contact => new { contact.X, contact.Y, contact.Age, contact.Result.Changed }).ToArray();
+            Check(tiles.Length == 2 && tiles.All(tile => tile.Changed && tile.Age >= .17999f && tile.Age <= .26001f) &&
+                  tiles.Select(tile => (tile.X, tile.Y)).Distinct().Count() == 2,
+                "只在生效窗口内净化两个真实地块");
+            Check(capture.Events.Count == 0 && predict.Events.Count > 0 && standing.Events.Count == 0,
+                "纯地块保留共同时间的地块计算，跳过人物采集");
+            await Advance(cleanse.Lifetime);
+            Check(endings.Count == 1 && !endings[0].Cancelled &&
+                  endings[0].WorldChanges == 2 && FormVisualScene.Instances.Count == 0,
+                "自然结束后撤下画面，不再新增地块作用");
+            return new { passed = true, tiles, ageAtEnd = endings[0].Age, actorCaptures = capture.Events.Count,
+                predictions = predict.Events.Count };
+        }
+        finally { ConstructedAbilityService.WorldContactConfirmed -= Changed; }
+    }
+
+    Fund();
+    CombatStatusEffects.RemoveStatus(left, hold);
+    left.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(left);
+    typeof(ControllableUnit).GetMethod("addStatus", BindingFlags.NonPublic | BindingFlags.Static)
+        .Invoke(null, new object[] { left });
+    left.attack_timer = 0;
+    var ruleWithFight = Standing();
+    ConstructedAbilityService.Register(ruleWithFight);
+    Check(Cast(ruleWithFight.Id, new ActiveAbilityTarget(left, left.GetSimPos())), "防火条件先受理");
+    await Advance(.08f);
+    Check(standing.Events.Count > 0 && capture.Events.Count == 0, "没有交战时使用纯条件路径");
+    int clockCalls = standing.Events.Count;
+    var geometry = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    float height = (float)geometry.GetMethod("Height", BindingFlags.Static | BindingFlags.NonPublic)
+        .Invoke(null, new object[] { left });
+    Place(left, 66, 72);
+    Place(right, 66 + height * .4f, 72);
+    var contacts = new List<ConstructedContact>();
+    var damage = new List<ConstructedQueuedDamage>();
+    void Hit(ConstructedContact fact)
+    {
+        if (fact.AbilityId == BodyActionCatalog.PalmId && fact.TargetId == right.id) contacts.Add(fact);
+    }
+    void Settled(ConstructedQueuedDamage fact)
+    {
+        if (fact.AbilityId == BodyActionCatalog.PalmId && fact.TargetId == right.id) damage.Add(fact);
+    }
+    ConstructedAbilityService.ContactConfirmed += Hit;
+    ConstructedAbilityService.QueuedDamageConfirmed += Settled;
+    try
+    {
+        int health = right.data.health;
+        double start = World.world.getCurWorldTime();
+        left.attack_timer = 0;
+        Check(Cast(BodyActionCatalog.PalmId, new ActiveAbilityTarget(right, right.GetSimPos())) &&
+              BodyControlState.IsBusy(left.id), "近身掌击正式受理并接管身体");
+        left.attack_timer = 999;
+        await Advance(.08f);
+        Check(contacts.Count == 0 && right.data.health == health && capture.Events.Count > 0 &&
+              predict.Events.Count > 0 && standing.Events.Count == clockCalls, "交锋开始后一起进入共同路径，尚未命中");
+        await Advance(.32f);
+        var contact = contacts.Single();
+        var settlement = damage.Single();
+        Check(contact.Age >= .14999f && contact.Age <= .25501f &&
+              Math.Abs(contact.WorldTime - start - contact.Age) < .001d && contact.DamagePending &&
+              settlement.CastId == contact.CastId && settlement.TargetContactNumber == contact.TargetContactNumber &&
+              settlement.ContactWorldTime == contact.WorldTime && settlement.Damage.HealthLost > 0 &&
+              settlement.TargetHealthAfter < contact.TargetHealthBefore && right.data.health < health,
+            "只在实际近身窗口内确认，原版队列兑现同一次接触的伤害");
+        await Advance(.24f);
+        Check(endings.Count(value => value.AbilityId == BodyActionCatalog.PalmId && !value.Cancelled) == 1 &&
+              !BodyControlState.IsBusy(left.id) && standing.Events.Count > clockCalls, "近身收势后归还身体，防火回归单独计时");
+        return new { passed = true, contact.Age, contact.WorldTime, settledAt = settlement.WorldTime,
+            settlement.Damage.HealthLost, health, healthAfter = right.data.health,
+            actorCaptures = capture.Events.Count, predictions = predict.Events.Count,
+            conditionUpdatesAfterMelee = standing.Events.Count - clockCalls };
+    }
+    finally
+    {
+        ConstructedAbilityService.ContactConfirmed -= Hit;
+        ConstructedAbilityService.QueuedDamageConfirmed -= Settled;
+    }
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

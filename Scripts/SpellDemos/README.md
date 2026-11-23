@@ -3237,3 +3237,15 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scri
 ```
 
 数值段记录每组堆增长和地波邻格，检查来源顺序和旧画面的独立性。实机段复用现成世界，从正式入口施放地波，检查跨区显示、网格复用、实际伤害、自然结束和换世界。[性能基线](../../Doc/技能系统全面重构/性能基线.md#1306-实测与交付)记录调整前后的测量范围和结果。
+
+### 按作用需要更新技能（13.08）
+
+在已启动的独立游戏中分别运行。已有命名环境请传入对应的 `--name`。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_update_paths.py --section standing
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_update_paths.py --section terrain
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_update_paths.py --section melee
+```
+
+三段分别追踪纯防火的实际世界时钟、纯地块的作用时点，以及同场近身使防火回到共同计算。地波继续用上节的实机入口。防火重读使用原有 `verify_world_condition_archive.py --section cold --archive <原正式档目录>`，不用重做保存场景。

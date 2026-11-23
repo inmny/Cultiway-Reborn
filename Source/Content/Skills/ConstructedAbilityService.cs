@@ -766,6 +766,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 : MaterialFunding.FromPayment(payment, out principal);
             var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
                 damage.Damage, simulation.terrain, principal, plan.HasPropagation ? PropagationGroundMap.Capture(simulation.terrain) : null);
+            bool fixedWorldUse = !prepaid && !preview && !practice && target.WorldScope == null &&
+                                 trackSource == null && carrier == null && legacyArea == null && groundTravel == null &&
+                                 groundContact == null && buildingContact == null && formationFamily == null &&
+                                 !formationArea.HasValue && !formationTarget.TracksTarget && !artifactArea.HasValue &&
+                                 utilityTravel.TrackTarget == null && utilityTravel.Gravity.Strength == 0f;
             var running = new RunningCast
             {
                 Id = ++nextCastId,
@@ -788,6 +793,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 CorrespondenceEnded = plan.HasCorrespondences ? new bool[plan.FormCount] : null,
                 WorldScope = target.WorldScope,
                 Practice = practice,
+                StandingWorldCondition = fixedWorldUse && plan.IsStandingWorldCondition,
+                TerrainOnlyProcess = fixedWorldUse && plan.IsTerrainOnlyProcess && targetActor == null,
                 CorrelationId = target.RuntimeData.CorrelationId,
                 WorldHits = plan.HasWorldEffects ? new() : null,
                 WorldTotals = plan.HasWorldEffects ? new() : null,
@@ -826,7 +833,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             running.LastSourceHeight = inputs.SourceHeight;
             if (plan.SoulPact != null && !CanBeginSoulPact(sourceActor, targetActor, plan.SoulPact)) return false;
             if (commitEffect != null && (!commitEffect() || generation != worldGeneration)) return false;
-            if (casts.Count == 0) simulation.RememberActors(startedAt);
+            if (!running.StandingWorldCondition && !simulation.actorsSampled &&
+                (casts.Count == 0 || simulation.history.Count == 0))
+                simulation.RememberActors(startedAt);
             if (inventory != null) inventory.CastId = running.Id;
             casts.Add(running);
             if (plan.SoulPact != null) RegisterSoulPact(running, plan.SoulPact);
@@ -1344,6 +1353,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
+
+        /// <summary>没有附加行为的固定世界条件，可在没有其他交互时单独计时。</summary>
+        internal bool StandingWorldCondition;
+
+        /// <summary>整组都是纯地块过程时无需为本次作用建立人物接触索引。</summary>
+        internal bool TerrainOnlyProcess;
 
         /// <summary>范围运动已经处理的共同整点；只有实际声明范围运动的施放才分配。</summary>
         internal int[] RadialTicks;

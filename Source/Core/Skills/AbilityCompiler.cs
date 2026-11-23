@@ -56,6 +56,12 @@ public sealed class CompiledAbility
     /// <summary>是否需要查询真实地块接触；普通战斗不新增地块遍历。</summary>
     public bool HasWorldEffects { get; }
 
+    /// <summary>仅维持世界条件和固定装饰，不自行产生接触或推进其他过程。</summary>
+    internal bool IsStandingWorldCondition { get; }
+
+    /// <summary>固定地点的无伤地块过程，人物不参与确定形体及效果。</summary>
+    internal bool IsTerrainOnlyProcess { get; }
+
     /// <summary>只有重新进入型地块作用需要逐步检查是否离开；一次作用不遍历历史地块。</summary>
     public bool HasWorldReentry { get; }
 
@@ -386,6 +392,20 @@ public sealed class CompiledAbility
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
+        if (SoulPact == null && Body == null && Power == 0f && Steps.Length == 0 && Operations.Count == 0 &&
+            Inventory.Length == 0 && Binding?.Follow != true && nodes.Length == 1)
+        {
+            CompiledForm root = nodes[0];
+            bool fixedForm = root.Activation == null && root.Outlet == null && root.LandscapeSlice == null &&
+                             root.Correspondence == null && root.RadialMotion == null && root.MediumChannel == null &&
+                             root.MaterialVortex == null && root.WeaponChamber == null && root.Matter.Id != "fire" &&
+                             !AbilityBurning.CanBurn(root.Matter);
+            IsStandingWorldCondition = fixedForm && WorldCondition != null && !HasWorldEffects &&
+                                       root.ContactRole == ConstructionContactRole.Decoration &&
+                                       root.Presence.x == 0f && root.Presence.y == Lifetime;
+            IsTerrainOnlyProcess = fixedForm && WorldCondition == null && HasWorldEffects && !HasBarrier &&
+                                   Use.Target == ActiveAbilityTargetMode.Point && Binding?.Anchor == AbilityAnchor.Target;
+        }
         Budget = new ConstructionBudget(this);
         Reach = new ConstructionReach(this);
         Measure = new ConstructionMeasure(this, definition.Power);
