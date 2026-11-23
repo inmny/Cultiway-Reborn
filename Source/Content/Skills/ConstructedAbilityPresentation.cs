@@ -9,8 +9,11 @@ namespace Cultiway.Content.Skills;
 /// <summary>完整计算结束后一起交给各个显示方式的身体、持物与形体。</summary>
 public sealed partial class ConstructedAbilityService
 {
-    /// <summary>最后完成的一轮画面，推进过程不会修改其中的集合。</summary>
-    private static PresentedFrame presentation = new(0d, Array.Empty<FormVisualInstance>(), new());
+    /// <summary>没有接管身体时共用空资料，发布后所有姿态资料均只读。</summary>
+    private static readonly IReadOnlyDictionary<long, PresentedBody> noBodies = new Dictionary<long, PresentedBody>();
+
+    /// <summary>最后完成的一轮身体与持物画面，推进过程不会修改其中的集合。</summary>
+    private static PresentedFrame presentation;
 
     /// <summary>换世界时变化，旧轮次不得继续发布或覆盖新世界画面。</summary>
     private static long worldGeneration;
@@ -19,23 +22,22 @@ public sealed partial class ConstructedAbilityService
     /// <param name="time">本轮已经完整推进的世界时间。</param>
     private void PublishPresentation(double time)
     {
-        var bodies = new Dictionary<long, PresentedBody>();
+        Dictionary<long, PresentedBody> bodies = null;
         HashSet<long> releasedWeapons = null;
         foreach (RunningCast running in casts)
         {
             if (running.Cast.Plan.UsesHeldWeapon) (releasedWeapons ??= new()).Add(running.SourceId);
             if (running.BodyControlled)
             {
-                bodies.TryGetValue(running.SourceId, out PresentedBody previous);
+                (bodies ??= new()).TryGetValue(running.SourceId, out PresentedBody previous);
                 bodies[running.SourceId] = new PresentedBody(previous, running.Cast.BodyPose.Value,
                     running.Cast.Plan.Body, running.Body.Weapon != null, running.Body.Organ);
             }
         }
 
-        var completed = new PresentedFrame(time, visuals.ToArray(), bodies, terrain, releasedWeapons);
         // 两处发布都在主线程连续完成，中间不让出、不调用游戏或其他订阅者。
-        FormVisualScene.Publish(ProviderId, completed.Forms);
-        presentation = completed;
+        FormVisualScene.Publish(ProviderId, visuals.ToArray());
+        presentation = new PresentedFrame(bodies, terrain, releasedWeapons);
         PublishBodySurfaces(time);
         PublishContactDebug();
     }
@@ -161,17 +163,12 @@ public sealed partial class ConstructedAbilityService
         return false;
     }
 
-    /// <summary>仅保存一轮完成的数值和显示资料，不保存人物或借用器物对象。</summary>
-    private sealed class PresentedFrame
+    /// <summary>同一轮完成的身体与持物资料，不保存人物或借用器物对象。</summary>
+    private readonly struct PresentedFrame
     {
-        /// <summary>这轮已经完成的世界时间。</summary>
-        internal readonly double Time;
-
-        /// <summary>与身体同一轮的全部生成及借用形体。</summary>
-        internal readonly FormVisualInstance[] Forms;
-
-        /// <summary>该轮身体姿态及接管部位，只在构造时填充。</summary>
-        internal readonly Dictionary<long, PresentedBody> Bodies;
+        private readonly IReadOnlyDictionary<long, PresentedBody> bodies;
+        /// <summary>该轮身体姿态及接管部位。</summary>
+        internal IReadOnlyDictionary<long, PresentedBody> Bodies => bodies ?? noBodies;
 
         /// <summary>与本轮身体同刻的不可变地表，用于原版投影。</summary>
         internal readonly AbilityHeightField Terrain;
@@ -179,17 +176,12 @@ public sealed partial class ConstructedAbilityService
         internal readonly HashSet<long> ReleasedWeapons;
 
         /// <summary>接收已完成资料，后续不再修改集合。</summary>
-        /// <param name="time">完成时间。</param>
-        /// <param name="forms">共同形体。</param>
         /// <param name="bodies">共同身体。</param>
         /// <param name="terrain">同轮绝对高度地表，空值为原版平地。</param>
         /// <param name="releasedWeapons">本轮仍借用装备的人物。</param>
-        internal PresentedFrame(double time, FormVisualInstance[] forms, Dictionary<long, PresentedBody> bodies,
-            AbilityHeightField terrain = null, HashSet<long> releasedWeapons = null)
+        internal PresentedFrame(Dictionary<long, PresentedBody> bodies, AbilityHeightField terrain, HashSet<long> releasedWeapons)
         {
-            Time = time;
-            Forms = forms;
-            Bodies = bodies;
+            this.bodies = bodies;
             Terrain = terrain;
             ReleasedWeapons = releasedWeapons;
         }

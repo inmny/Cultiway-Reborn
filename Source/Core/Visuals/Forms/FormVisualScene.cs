@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Cultiway.Core.Skills;
 using UnityEngine;
@@ -154,9 +155,20 @@ public static class FormVisualScene
             if (!sources.Remove(source)) return;
         }
         else sources[source] = instances;
-        var combined = new List<FormVisualInstance>();
-        foreach (FormVisualInstance[] state in sources.Values) combined.AddRange(state);
-        Instances = combined.ToArray();
+        switch (sources.Count)
+        {
+            case 0:
+                Instances = Array.Empty<FormVisualInstance>();
+                break;
+            case 1:
+                var only = sources.Values.GetEnumerator();
+                only.MoveNext();
+                Instances = only.Current;
+                break;
+            default:
+                Instances = new PublishedSources(sources.Values);
+                break;
+        }
     }
 
     /// <summary>切换世界时清理显示引用，共用资源继续复用。</summary>
@@ -164,4 +176,44 @@ public static class FormVisualScene
     {
         sources.Clear(); Instances = Array.Empty<FormVisualInstance>();
     }
+
+    /// <summary>固定本轮来源及顺序，直接读取各来源已经完成的形体，不复制形体资料。</summary>
+    private sealed class PublishedSources : IReadOnlyList<FormVisualInstance>
+    {
+        private readonly FormVisualInstance[][] states;
+
+        internal PublishedSources(Dictionary<string, FormVisualInstance[]>.ValueCollection values)
+        {
+            states = new FormVisualInstance[values.Count][];
+            values.CopyTo(states, 0);
+            foreach (FormVisualInstance[] state in states) Count += state.Length;
+        }
+
+        public int Count { get; }
+
+        public FormVisualInstance this[int index]
+        {
+            get
+            {
+                if ((uint)index >= Count) throw new ArgumentOutOfRangeException(nameof(index));
+                foreach (FormVisualInstance[] state in states)
+                {
+                    if (index < state.Length) return state[index];
+                    index -= state.Length;
+                }
+
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+        }
+
+        public IEnumerator<FormVisualInstance> GetEnumerator()
+        {
+            foreach (FormVisualInstance[] state in states)
+            foreach (FormVisualInstance instance in state)
+                yield return instance;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
 }

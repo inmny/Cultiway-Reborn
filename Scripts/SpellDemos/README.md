@@ -3226,3 +3226,14 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- python3 Scri
 ```
 
 数值段比较候选及其时间边界。地块段在真实世界核对满块进入工作池、净化次数和重载清理。命中段核对首击耗尽前排人物生命后，后续接触重新选择并伤及后排。原剑形交锋沿用 13.03 的同一入口。
+
+### 复用技能显示资料（13.06）
+
+在已启动的独立游戏中运行。数值段需要空闲世界，已有命名环境请传入对应的 `--name`。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py run Scripts/SpellDemos/benchmark_construction_allocation.script --timeout 40
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scripts/SpellDemos/verify_construction_allocation.py
+```
+
+数值段记录每组堆增长和地波邻格，检查来源顺序和旧画面的独立性。实机段复用现成世界，从正式入口施放地波，检查跨区显示、网格复用、实际伤害、自然结束和换世界。[性能基线](../../Doc/技能系统全面重构/性能基线.md#1306-实测与交付)记录调整前后的测量范围和结果。

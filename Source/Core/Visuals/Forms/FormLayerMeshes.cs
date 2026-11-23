@@ -34,11 +34,11 @@ internal static partial class FormLayerMeshes
             entry = new Entry { Owner = new WeakReference<object>(frame.Owner), Mesh = new Mesh { name = "Cultiway.FlowSurface", indexFormat = IndexFormat.UInt32 } };
             entry.Mesh.MarkDynamic(); entries.Add(entry);
         }
-        if (entry.Frame != null && entry.Frame.TryGetTarget(out FormLayerFrame current) && ReferenceEquals(current, frame)) return entry.Mesh;
+        if (entry.Frame.TryGetTarget(out FormLayerFrame current) && ReferenceEquals(current, frame)) return entry.Mesh;
         Build(frame); Mesh mesh = entry.Mesh; mesh.Clear(keepVertexLayout: false); mesh.SetVertices(positions); mesh.SetNormals(normals); mesh.SetUVs(0, uv); mesh.SetUVs(3, surface);
         if (currents.Count != 0) mesh.SetUVs(5, currents);
         mesh.SetTriangles(indices, 0); mesh.bounds = frame.Bounds;
-        entry.Frame = new WeakReference<FormLayerFrame>(frame); return mesh;
+        entry.Frame.SetTarget(frame); return mesh;
     }
 
     /// <summary>在格中心之间生成平滑表面，三角形沿真实干湿阈值裁切。</summary>
@@ -192,7 +192,7 @@ internal static partial class FormLayerMeshes
         /// <summary>实际过程标识。</summary>
         internal WeakReference<object> Owner;
         /// <summary>当前网格对应的只读帧。</summary>
-        internal WeakReference<FormLayerFrame> Frame;
+        internal readonly WeakReference<FormLayerFrame> Frame = new(null);
         /// <summary>主线程拥有的可复用网格。</summary>
         internal Mesh Mesh;
     }

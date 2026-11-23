@@ -1,0 +1,143 @@
+// 在游戏内测两处完成帧的分配量，皮肤、材质及数值初始数据均在计时范围之外。
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Diagnostics;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using UnityEngine;
+using UnityEngine.Profiling;
+using UnityEngine.Scripting;
+
+Config.paused = true;
+const BindingFlags members = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
+var runner = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+runner.GetMethod("DrainToBoundary", members).Invoke(runner.GetProperty("Instance", members).GetValue(null), null);
+Func<long> counter = Profiler.GetMonoUsedSizeLong;
+const int iterations = 128;
+object Measure(string name, Action update)
+{
+    for (int i = 0; i < 8; i++) update();
+    GC.Collect();
+    var mode = GarbageCollector.GCMode;
+    long start, elapsed, bytes;
+    try
+    {
+        GarbageCollector.GCMode = GarbageCollector.Mode.Disabled;
+        start = Stopwatch.GetTimestamp();
+        bytes = counter();
+        for (int i = 0; i < iterations; i++) update();
+        bytes = counter() - bytes;
+        elapsed = Stopwatch.GetTimestamp() - start;
+    }
+    finally { GarbageCollector.GCMode = mode; }
+    return new { name, iterations, bytes, perUpdate = bytes / (double)iterations,
+        milliseconds = elapsed * 1000d / Stopwatch.Frequency };
+}
+void Check(bool valid, string reason)
+{
+    if (!valid) throw new InvalidOperationException(reason);
+}
+
+long calibration = 0;
+var previousMode = GarbageCollector.GCMode;
+try
+{
+    GarbageCollector.GCMode = GarbageCollector.Mode.Disabled;
+    long start = counter();
+    for (int i = 0; i < iterations; i++) GC.KeepAlive(new byte[8192]);
+    calibration = counter() - start;
+}
+finally { GarbageCollector.GCMode = previousMode; }
+Check(calibration >= iterations * 8192L && calibration <= iterations * 16384L, "游戏分配量计数与已知数组大小不符：" + calibration);
+
+var sword = FormResources.Load("sword");
+var report = new List<object>();
+var previous = FormVisualScene.Instances;
+Check(previous.Count == 0, "请在空闲世界运行分配探针");
+try
+{
+    foreach (int count in new[] { 1, 64, 1024 })
+    {
+        var first = new FormVisualInstance[count];
+        var second = new FormVisualInstance[count];
+        for (int i = 0; i < count; i++)
+        {
+            first[i] = new FormVisualInstance(sword, Matrix4x4.Translate(new Vector3(i, 1, 0)));
+            second[i] = new FormVisualInstance(sword, Matrix4x4.Translate(new Vector3(i, 2, 0)));
+        }
+        int pulse = 0;
+        Action publish = () => FormVisualScene.Publish("test.allocation.a", (pulse++ & 1) == 0 ? first : second);
+        report.Add(Measure("publish.single." + count, publish));
+        var held = FormVisualScene.Instances;
+        FormVisualScene.Publish("test.allocation.b", first);
+        report.Add(Measure("publish.two." + count, publish));
+        var both = FormVisualScene.Instances;
+        Check(held.Count == count && both.Count == count * 2, "合并前后的形体数量不一致");
+        int index = 0;
+        foreach (var instance in both)
+        {
+            Check(instance.Transform.m03 == index % count && instance.Transform.m13 == (index < count ? 2 : 1) &&
+                ReferenceEquals(instance.Resource, sword) && instance.Transform == both[index].Transform,
+                "形体枚举、模型共用或按位置读取不一致");
+            index++;
+        }
+        Check(index == both.Count, "枚举没有读完全部形体");
+        FormVisualScene.Publish("test.allocation.a", Array.Empty<FormVisualInstance>());
+        Check(FormVisualScene.Instances.Count == count && FormVisualScene.Instances[0].Transform.m13 == 1 &&
+            held[0].Transform.m13 == 2 && both[0].Transform.m13 == 2, "移除来源使已完成画面发生变化");
+        FormVisualScene.Clear();
+        Check(FormVisualScene.Instances.Count == 0 && both[count].Transform.m13 == 1, "清空场景覆盖了旧画面");
+    }
+}
+finally { FormVisualScene.Clear(); }
+
+const int width = 64;
+var heights = Enumerable.Repeat(1f, width * width).ToArray();
+var height = new AbilityHeightField(width, width, new Vector2(width, width), heights);
+var ground = (PropagationGround)Activator.CreateInstance(typeof(PropagationGround), members, null, new object[] { height, null }, null);
+var definition = new AbilityDefinition
+{
+    Id = "test.allocation.wave", Lifetime = 10f, Root = new ConstructionNode
+    {
+        Id = "wave", Form = "fracture_slab", Matter = "ice",
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Propagate,
+            Propagation = new ConstructionPropagation { Range = 18f, Speed = 12f, Seconds = 1.5f, Height = 1f,
+                Angle = 180f, MaximumCells = 4096 } } }
+    }
+};
+var plan = AbilityCompiler.Compile(definition);
+var point = new Vector3(31.5f, 31.5f, 0f);
+var rotation = Quaternion.LookRotation(Vector3.right, Vector3.forward);
+var origin = Matrix4x4.TRS(point, rotation, Vector3.one);
+var cast = new AbilityCast(plan, origin, force: 10000f, ground: ground);
+cast.Advance(1f, point);
+var forms = new List<FormVisualInstance>();
+Action visual = () => { forms.Clear(); cast.AppendVisuals(forms); };
+report.Add(Measure("propagation.publish", visual));
+Check(forms.Count > 1 && forms.All(view => view.Layer != null), "传播输入没有形成跨区的波面");
+var heldWave = forms.ToArray();
+var waterAt = typeof(FormLayerFrame).GetMethod("WaterAt", members);
+float[] Heights(FormLayerFrame layer)
+{
+    var heightsAndBorder = new List<float>();
+    for (int y = -1; y <= layer.Cells; y++)
+        for (int x = -1; x <= layer.Cells; x++)
+            heightsAndBorder.Add(((Vector3)waterAt.Invoke(layer, new object[] { x, y })).x);
+    return heightsAndBorder.ToArray();
+}
+var wave = heldWave.Select(view => new { origin = new[] { view.Layer.Origin.x, view.Layer.Origin.y },
+    view.Layer.Volume, heights = Heights(view.Layer) }).ToArray();
+Check(wave.Sum(region => region.Volume) > 0d && wave.Any(region => region.heights.Take(18).Any(depth => depth > 0f)),
+    "没有测到区间相接的波面");
+cast.Advance(.3f, point);
+visual();
+Check(heldWave.Select(view => Heights(view.Layer)).Zip(wave, (observed, old) => observed.SequenceEqual(old.heights)).All(same => same),
+    "后续波面覆盖了前一发布帧");
+for (int i = 0; i < heldWave.Length; i++)
+{
+    Check(ReferenceEquals(heldWave[i].Resource, FormResources.Load("fracture_slab")) &&
+        ReferenceEquals(heldWave[i].Matter, heldWave[0].Matter), "同一构造的波区未共用模型及材料资料");
+}
+return new { passed = true, report, wave, calibration, process = Process.GetCurrentProcess().Id };

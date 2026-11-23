@@ -62,21 +62,27 @@ public sealed class FormLayerFrame
 
     /// <summary>发布已完成传播的局部波面，不创建水量或运行中的工作数组。</summary>
     /// <param name="owner">稳定区域身份。</param><param name="origin">真实地块边缘。</param>
-    /// <param name="cells">区域边长。</param><param name="height">独占波厚数组。</param><param name="bed">独占地表数组。</param>
+    /// <param name="cells">区域边长。</param><param name="height">已经完成的厚度。</param><param name="bed">独占地表数组。</param>
+    internal FormLayerFrame(object owner, Vector2 origin, int cells, float[] height, float[] bed)
+        : this(owner, origin, cells, Array.ConvertAll(height, depth => new Vector3(depth, 0f, 0f)), bed, null, null) { }
+
+    /// <summary>直接接收所有已经完成的格网数组，绘制及随后推进只读本帧。</summary>
+    /// <param name="owner">稳定区域身份。</param><param name="origin">真实地块边缘。</param>
+    /// <param name="cells">区域边长。</param><param name="water">独占波厚数组。</param><param name="bed">独占地表数组。</param>
     /// <param name="border">同次发布相邻一格的波厚。</param><param name="borderBed">同次发布的相邻地表。</param>
-    internal FormLayerFrame(object owner, Vector2 origin, int cells, float[] height, float[] bed,
-        Vector3[] border = null, float[] borderBed = null)
+    internal FormLayerFrame(object owner, Vector2 origin, int cells, Vector3[] water, float[] bed,
+        Vector3[] border, float[] borderBed)
     {
         Owner = owner; Origin = origin; Cells = cells; Cell = 1f; Columns = true;
-        Ground = bed; Water = new Vector3[height.Length]; AppearanceIndex = -1;
+        Ground = bed; Water = water; AppearanceIndex = -1;
         borderWater = border;
         borderGround = borderBed;
         float min = float.PositiveInfinity, max = float.NegativeInfinity;
-        for (int i = 0; i < height.Length; i++)
+        for (int i = 0; i < water.Length; i++)
         {
-            Water[i] = new Vector3(height[i], 0f, 0f);
-            min = Mathf.Min(min, bed[i]); max = Mathf.Max(max, bed[i] + height[i]);
-            Volume += height[i];
+            float depth = water[i].x;
+            min = Mathf.Min(min, bed[i]); max = Mathf.Max(max, bed[i] + depth);
+            Volume += depth;
         }
 
         if (border != null)
