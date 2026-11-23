@@ -162,34 +162,32 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>活动热源只查询附近世界接收者；世界热源另从自身查询活动索引。</summary>
-    /// <param name="shape">本次真实活动主体。</param><param name="step">共同预测时长。</param>
-    /// <param name="include">加入同一最早接触排序。</param>
-    private void FindWorldThermal(in ShapeMotion shape, float step, Action<ContactChoice> include)
+    /// <param name="shape">本次真实活动主体。</param>
+    /// <param name="queue">提交已取得的世界形状和材料编号。</param>
+    private void FindWorldThermal(in ShapeMotion shape, Action<ContactSweep, ContactSweepTarget> queue)
     {
         if (AvailableHeat(shape) > 0)
         {
             bool continuous = shape.Continuous && shape.Running.Cast.StartHeat(shape.To.Node) > 0;
             WorldMaterialService.QueryWood(shape.Bounds, false, thermalWood);
             foreach (var target in thermalWood)
-                if (target.Burning.Needed(target.Volume) > 0 && AbilityPairSweep.Find(
-                        continuous ? shape.From : shape.To,
-                        shape.To, target.Shape, target.Shape, out float at, out var point, out var normal))
-                    include(new ContactChoice(shape, default, null, continuous ? at : 1, point, normal, step,
-                        worldRecord: target.Id, worldShape: target.Shape, reaction: ThermalReaction.Ignite));
+                if (target.Burning.Needed(target.Volume) > 0)
+                    queue(new ContactSweep(continuous ? shape.From : shape.To, shape.To, target.Shape, target.Shape,
+                            continuous ? 0f : 1f), new ContactSweepTarget(shape, worldRecord: target.Id,
+                            worldShape: target.Shape, reaction: ThermalReaction.Ignite));
         }
 
         if (shape.Running.Cast.Burning(shape.To.Node).Heat <= 0) return;
         WorldMaterialService.QueryQuenchingWater(shape.Bounds, quenchingWater);
         foreach (var target in quenchingWater)
-            if (AbilityPairSweep.Find(shape.Continuous ? shape.From : shape.To, shape.To, target.Shape, target.Shape,
-                    out float at, out var point, out var normal))
-                include(new ContactChoice(shape, default, null, shape.Continuous ? at : 1, point, normal, step,
-                    worldRecord: target.Record, worldShape: target.Shape, reaction: ThermalReaction.CoolWood));
+            queue(new ContactSweep(shape.Continuous ? shape.From : shape.To, shape.To, target.Shape, target.Shape,
+                    shape.Continuous ? 0f : 1f), new ContactSweepTarget(shape, worldRecord: target.Record,
+                    worldShape: target.Shape, reaction: ThermalReaction.CoolWood));
     }
 
     /// <summary>世界热源主动查询附近的活动水与未燃木体，冷材料之间不枚举。</summary>
-    /// <param name="step">共同预测时长。</param><param name="include">加入共同接触排序。</param>
-    private void FindWorldHeatSources(float step, Action<ContactChoice> include)
+    /// <param name="queue">提交已取得的世界形状和材料编号。</param>
+    private void FindWorldHeatSources(Action<ContactSweep, ContactSweepTarget> queue)
     {
         WorldMaterialService.HotWood(thermalWood);
         foreach (var source in thermalWood)
@@ -209,11 +207,9 @@ public sealed partial class ConstructedAbilityService
                         ? ThermalReaction.Ignite
                         : ThermalReaction.None;
                 if (reaction == ThermalReaction.None) continue;
-                if (AbilityPairSweep.Find(target.Continuous ? target.From : target.To, target.To, source.Shape,
-                        source.Shape,
-                        out float at, out var point, out var normal))
-                    include(new ContactChoice(target, default, null, target.Continuous ? at : 1, point, normal, step,
-                        worldRecord: source.Id, worldShape: source.Shape, reaction: reaction, worldSource: true));
+                queue(new ContactSweep(target.Continuous ? target.From : target.To, target.To, source.Shape,
+                        source.Shape, target.Continuous ? 0f : 1f), new ContactSweepTarget(target, worldRecord: source.Id,
+                        worldShape: source.Shape, reaction: reaction, worldSource: true));
             }
         }
     }

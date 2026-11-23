@@ -547,6 +547,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         correspondenceStartIndex.Clear();
         correspondenceCandidates.Clear();
         bodyCorrespondenceCandidates.Clear();
+        contactSweeps.Clear();
+        contactSweepTargets.Clear();
     }
 
     /// <summary>保存前态，再用同一段时间预测所有施放；不在预测阶段造成伤害。</summary>
@@ -892,6 +894,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private ContactChoice? FindFirst(double clock, float step)
     {
         ContactChoice? first = null;
+        // 小规模选择直接检查。地块与人物很多时，单一形状也可能形成满块。
+        bool batchSweeps = shapes.Count >= 16 || actors.Count >= 32 ||
+                           shapes.Exists(shape => shape.Running.Cast.Plan.HasWorldEffects || shape.Running.Cast.Plan.HasWorldContactEvents);
+        Action<ContactChoice> consider = Consider;
+        Action<ContactSweep, ContactSweepTarget> queue = Queue;
         contactEvaluation++;
         CaptureBellWards(clock, step);
         FindWeaponObstacles(step, Include);
@@ -906,10 +913,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 if (shape.To.Node < 0 && running.Cast.ContactScopeChanged(shape.To.Node))
                 {
-                    FindWorldContacts(shape, step, Include, running.Cast.PreviousBodyStage, oldScope: true);
-                    FindWorldContacts(shape, step, Include, running.Cast.BodyStage, endpointOnly: true);
+                    FindWorldContacts(shape, step, Include, running.Cast.PreviousBodyStage, oldScope: true, queue: queue);
+                    FindWorldContacts(shape, step, Include, running.Cast.BodyStage, endpointOnly: true, queue: queue);
                 }
-                else FindWorldContacts(shape, step, Include);
+                else FindWorldContacts(shape, step, Include, queue: queue);
             }
             bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
@@ -964,6 +971,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         float sweepFrom = continuous ? (requiresCorrespondence ? Mathf.Min(leftFromTime, rightFromTime) : 0f) : 1f;
                         AbilityCapsule leftFrom = !continuous ? shape.To : sweepFrom == 0f ? shape.From : Slice(shape.From, shape.To, sweepFrom),
                             rightFrom = !continuous ? right.To : sweepFrom == 0f ? right.From : Slice(right.From, right.To, sweepFrom);
+                        if (!requiresCorrespondence)
+                        {
+                            Queue(new ContactSweep(leftFrom, shape.To, rightFrom, right.To, sweepFrom),
+                                new ContactSweepTarget(shape, right, quenching: quench, reaction: reaction));
+                            continue;
+                        }
                         if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point,
                                 out Vector3 normal))
                         {
@@ -975,17 +988,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     }
 
                 }
-                if (thermalSource) FindWorldThermal(shape, step, Include);
+                if (thermalSource) FindWorldThermal(shape, queue);
                 if (fire)
                 {
                     WorldMaterialService.QueryQuenchingWater(shape.Bounds, quenchingWater);
                     foreach (var water in quenchingWater)
-                        if (AbilityPairSweep.Find(shape.Continuous ? shape.From : shape.To, shape.To, water.Shape,
-                                water.Shape,
-                                out float at, out Vector3 point, out Vector3 normal))
-                            Include(new ContactChoice(shape, default, null, shape.Continuous ? at : 1f, point, normal,
-                                step,
-                                quenching: true, worldRecord: water.Record, worldShape: water.Shape));
+                        Queue(new ContactSweep(shape.Continuous ? shape.From : shape.To, shape.To, water.Shape,
+                                water.Shape, shape.Continuous ? 0f : 1f),
+                            new ContactSweepTarget(shape, quenching: true, worldRecord: water.Record, worldShape: water.Shape));
                 }
             }
 
@@ -1108,7 +1118,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         if (!BodySurfacePose.Find(start, end, target0, pulse ? target0 : b1, "surface", out at, out var anchor, out normal)) return;
                         point = anchor.Point(BodySurfacePose.Lerp(start, end, at)); normal = -normal;
                     }
-                    else if (!AbilityPairSweep.Find(a0, pulse ? a0 : shape.To, target0, pulse ? target0 : b1, out at, out point, out normal)) return;
+                    else
+                    {
+                        Queue(new ContactSweep(a0, pulse ? a0 : shape.To, target0, pulse ? target0 : b1, earliest,
+                                until, oldScope ? Mathf.Min(1f, originalUntil) : originalUntil),
+                            new ContactSweepTarget(shape, actor: actor, actorStart: b0, actorEnd: b1));
+                        return;
+                    }
                     float fraction = Mathf.Lerp(earliest, 1f, at);
                     if (fraction > until || fraction >= originalUntil || oldScope && fraction >= 1f) return;
                     Include(new ContactChoice(shape, actor, null, fraction, point, normal, step,
@@ -1120,10 +1136,30 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         FindCarryingContacts(clock, step, Include);
         FindBodyFlightContacts(clock, step, Include);
-        if (WorldMaterialService.HasHeat) FindWorldHeatSources(step, Include);
+        if (WorldMaterialService.HasHeat) FindWorldHeatSources(queue);
+        CollectContactSweeps(step, consider);
         return SelectRayContact(first);
 
+        void Queue(ContactSweep sweep, ContactSweepTarget target)
+        {
+            if (!batchSweeps)
+            {
+                if (sweep.Find() is { } hit) Consider(target.Resolve(hit, step));
+                return;
+            }
+            contactSweeps.Add(sweep);
+            contactSweepTargets.Add(target);
+            if (contactSweeps.Count == ContactSweepBlock) CollectContactSweeps(step, consider);
+        }
+
         void Include(ContactChoice value)
+        {
+            // 特殊形状已在主线程完成检查。先收齐它之前发现的普通候选。
+            if (contactSweeps.Count > 0) CollectContactSweeps(step, consider);
+            Consider(value);
+        }
+
+        void Consider(ContactChoice value)
         {
             if (value.Environment.HasValue)
             {

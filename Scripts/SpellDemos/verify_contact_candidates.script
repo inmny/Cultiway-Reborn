@@ -1,0 +1,242 @@
+// 在现成世界中复验几何候选之后的实际地块和伤害结算。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Content.Combat;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using DebugToolbox.Runtime.Tracing;
+
+string fixture = __CONTACT_BATCH_FIXTURE__;
+if (!File.Exists(Path.Combine(fixture, "map.wbox"))) throw new FileNotFoundException(fixture);
+var generationField = typeof(ConstructedAbilityService).GetField("worldGeneration", BindingFlags.NonPublic | BindingFlags.Static);
+long Generation() => (long)generationField.GetValue(null);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+}
+async Task LoadFixture()
+{
+    Config.paused = true;
+    long generation = Generation();
+    World.world.save_manager.loadWorld(fixture);
+    await Game.NextFrame();
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(Generation() != generation, "须完成一次真实世界加载");
+}
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+void Place(Actor actor, float x, float y)
+{
+    actor.stopMovement();
+    actor.current_position = new Vector2(x, y);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    actor.updatePos();
+}
+void Fire(AbilityDefinition definition, Actor source, Actor target)
+{
+    var owner = source.GetExtend();
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(entry => entry.ProviderId == "content.constructed" && entry.EntryId == definition.Id);
+    var request = new ActiveAbilityTarget(target, target.GetSimPos());
+    if (!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script))
+        throw new InvalidOperationException($"{definition.Id} 未受理。能否施放 {ActiveAbilityService.CanUse(owner, handle, request)}，射程 {ActiveAbilityService.ResolveRange(owner, handle, target)}，来源 {source.id}，目标 {target.id}");
+}
+void Learn(AbilityDefinition definition, Actor actor)
+{
+    ConstructedAbilityService.Register(definition);
+    ConstructedAbilityService.Learn(actor.GetExtend(), definition.Id);
+}
+AbilityDefinition Sword(string id, Actor source, float force, float speed) => new()
+{
+    Id = "test.contact-batch." + id, Name = "交锋剑", Resource = "none", Cost = 0, Cooldown = 0,
+    Lifetime = .12f, TargetRange = 16, Power = force / source.stats["damage"],
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "blade", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { speed, 0f, 0f } } }
+    }
+};
+Game.Resume();
+Config.setWorldSpeed("x1", false);
+await LoadFixture();
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ContactBatchHold")
+    .SetStats(stats).SetDuration(10000).Build();
+void Hold(Actor actor, float x, float y)
+{
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    Place(actor, x, y);
+}
+foreach (var actor in World.world.units.getSimpleList().ToArray()) Hold(actor, 12, 12);
+Actor left = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true);
+Actor right = World.world.units.createNewUnit("human", World.world.GetTileSimple(72, 72), pAdultAge: true);
+var wolf = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(12, 12), pAdultAge: true);
+Hold(wolf, 12, 12);
+right.setKingdom(wolf.kingdom);
+Check(left.kingdom.isEnemy(right.kingdom) && right.kingdom.isEnemy(left.kingdom), "夹具双方须公开敌对");
+foreach (var actor in new[] { left, right })
+{
+    actor.addTrait("super_health");
+    Hold(actor, actor == left ? 64 : 72, 72);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.data.health = Mathf.CeilToInt(actor.stats["health"]);
+    actor.attack_timer = 999;
+}
+left.addAggro(right);
+right.addAggro(left);
+await Advance(.15f);
+Place(left, 64, 72);
+Place(right, 72, 72);
+
+
+if (__CONTACT_SWEEP_SECTION__ == "world")
+{
+    const int contactLimit = 2;
+    for (int y = 60; y <= 84; y++)
+    for (int x = 54; x <= 78; x++)
+    {
+        var tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.burned_stages = 2;
+        tile.heat = 100;
+    }
+    var cleanse = new AbilityDefinition
+    {
+        Id = "test.contact-batch.land", Name = "地块候选净化", Resource = "none", Cost = 0, Cooldown = 0,
+        Lifetime = .24f, Power = 0, TargetRange = 48,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Target },
+        Impact = new ConstructionImpact
+        {
+            DamageScale = 0,
+            WorldEffects = new[]
+            {
+                new ConstructionWorldEffect
+                {
+                    Action = "land.cleanse", TileCentreOnly = true,
+                    Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumTotal = contactLimit }
+                }
+            }
+        },
+        Root = new ConstructionNode { Id = "ground", Form = "world_domain", Matter = "water", Scale = 32f }
+    };
+    Learn(cleanse, left);
+    var owner = left.GetExtend();
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, cleanse.Id);
+    var events = new List<ConstructedWorldContact>();
+    void Changed(ConstructedWorldContact value)
+    {
+        if (value.AbilityId == cleanse.Id) events.Add(value);
+    }
+    var batch = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch")
+        .GetMethod("RunIndependent", BindingFlags.NonPublic | BindingFlags.Static);
+    ConstructedAbilityService.WorldContactConfirmed += Changed;
+    try
+    {
+        int batchCalls;
+        using (var trace = Trace.Attach(batch,
+                   new MethodTraceOptions { IncludeArguments = false, IncludeResult = false, IncludeStackTrace = true, MaxEvents = 512 }))
+        {
+            Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, new Vector3(66.5f, 72.5f, 0)),
+                ActiveAbilityUseOrigin.Script), "正式入口接受大范围净化");
+            await Advance(.32f);
+            batchCalls = trace.Events.Count(entry => entry.StackTrace?.Contains("CollectContactSweeps") == true);
+        }
+        var tiles = events.Select(value => new { value.X, value.Y, value.Age, value.Result.Changed,
+            burnedStages = World.world.GetTileSimple(value.X, value.Y).burned_stages }).ToArray();
+        Check(tiles.Length == contactLimit && tiles.All(value => value.Changed) &&
+              tiles.Select(value => (value.X, value.Y)).Distinct().Count() == contactLimit,
+            "净化应恰好改变两个真实地块。实际 " + Newtonsoft.Json.JsonConvert.SerializeObject(tiles));
+        Check(batchCalls > 0, "地块过程应把满块提交给工作池");
+        var result = new { passed = true, batchCalls, tiles };
+        await LoadFixture();
+        Check(FormVisualScene.Instances.Count == 0, "换世界后地块施放退出");
+        return new { result, visualsAfterReload = FormVisualScene.Instances.Count };
+    }
+    finally
+    {
+        ConstructedAbilityService.WorldContactConfirmed -= Changed;
+        Config.paused = true;
+    }
+}
+
+Actor front = World.world.units.createNewUnit("human", World.world.GetTileSimple(68, 72), pAdultAge: true);
+front.setKingdom(right.kingdom);
+Hold(front, 68, 72);
+front.addAggro(left);
+left.addAggro(front);
+await Advance(.2f);
+Place(front, 68, 72);
+front.setStatsDirty();
+front.updateStats();
+front.data.health = 1;
+long frontId = front.id;
+int rearHealth = right.data.health;
+var first = Sword("ordered.a", left, 100, 600);
+var second = Sword("ordered.b", left, 100, 600);
+Learn(first, left);
+Learn(second, left);
+var hits = new List<object>();
+var targets = new List<long>();
+var ids = new List<string>();
+var healthAtHit = new List<int?>();
+void Impact(ConstructedContact value)
+{
+    if (!value.AbilityId.StartsWith("test.contact-batch.ordered")) return;
+    targets.Add(value.TargetId);
+    ids.Add(value.AbilityId);
+    var health = World.world.units.get(value.TargetId)?.data?.health;
+    healthAtHit.Add(health);
+    hits.Add(new { value.AbilityId, value.TargetId, value.Age, health });
+}
+ConstructedAbilityService.ContactConfirmed += Impact;
+try
+{
+    Fire(first, left, right);
+    Fire(second, left, right);
+    await Advance(.2f);
+    string observed = Newtonsoft.Json.JsonConvert.SerializeObject(hits);
+    Check(targets.SequenceEqual(new[] { frontId, right.id }) && ids.SequenceEqual(new[] { first.Id, second.Id }),
+        "同刻首击应先消耗前排，后击重查并命中后方。实际 " + observed);
+    Check(healthAtHit[0] <= 0 && healthAtHit[1] < rearHealth,
+        $"前排应在首击时耗尽生命，后排应实际受伤。原生命 {rearHealth}，实际 {observed}");
+    bool FrontStillAlive()
+    {
+        var actor = World.world.units.get(frontId);
+        return actor?.data?.id == frontId && actor.isAlive();
+    }
+    if (FrontStillAlive()) await Advance(.5f);
+    Check(!FrontStillAlive(), "原版应回收已经死亡的人物；按原人物编号检查");
+    return new { passed = true, hits, frontId, target = right.id, rearBefore = rearHealth, rearAfter = right.data.health };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Impact;
+    Config.paused = true;
+}

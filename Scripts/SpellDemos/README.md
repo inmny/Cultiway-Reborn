@@ -3213,3 +3213,16 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- python3 Scri
 ```
 
 第一条用同一组数值输入比较顺序与并行，结果分别记录生成形状、时间及一致性。第二条读现成测试世界，通过正式入口作一次剑形交锋，记录参与采样的线程、抵消与伤害，并验证换世界清理。原始脚本及结果由独立游戏工具归档。计时范围和实测结果见[性能基线](../../Doc/技能系统全面重构/性能基线.md#1303-实测与交付)。
+
+
+### 分块检查接触候选（13.04）
+
+在已启动的独立游戏中分段执行，实例名称按所用环境填写。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py run Scripts/SpellDemos/verify_contact_candidate_order.script --timeout 60
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- python3 Scripts/SpellDemos/verify_contact_candidates.py --section world
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- python3 Scripts/SpellDemos/verify_contact_candidates.py --section ordered
+```
+
+数值段比较候选及其时间边界。地块段在真实世界核对满块进入工作池、净化次数和重载清理。命中段核对首击耗尽前排人物生命后，后续接触重新选择并伤及后排。原剑形交锋沿用 13.03 的同一入口。

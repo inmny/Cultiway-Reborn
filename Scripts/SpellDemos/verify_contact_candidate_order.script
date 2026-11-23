@@ -1,0 +1,51 @@
+// 独立对照，使用正式几何候选的时间窗口及同一工作池。
+using System;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Concurrent;
+using System.Threading;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+
+Config.paused = true;
+const BindingFlags privateMembers = BindingFlags.NonPublic | BindingFlags.Instance;
+var capsule = typeof(AbilityCapsule).GetConstructors(privateMembers).Single();
+var sweep = typeof(ConstructedAbilityService).GetNestedType("ContactSweep", BindingFlags.NonPublic);
+var input = sweep.GetConstructors(BindingFlags.Public | privateMembers).Single();
+var find = sweep.GetMethod("Find", privateMembers);
+var batch = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch");
+var dispatch = (Action<int, int, Action<int>>)batch.GetMethod("RunIndependent", BindingFlags.Static | BindingFlags.NonPublic)
+    .CreateDelegate(typeof(Action<int, int, Action<int>>));
+AbilityCapsule Sphere(float x, float y)
+{
+    var point = new Vector3(x, y, 0);
+    return (AbilityCapsule)capsule.Invoke(new object[] {0, point, point, .25f, "physical", 0, 0, null, Vector3.zero, 1f, null, null});
+}
+const int count = 384;
+var requests = new object[count];
+for (int i = 0; i < count; i++)
+{
+    bool away = i % 4 == 1, exclusive = i % 4 == 2, shortWindow = i % 4 == 3;
+    var target = Sphere(i, away ? 2f : 0f);
+    requests[i] = input.Invoke(new object[] {Sphere(i - 1.5f, 0), Sphere(i + .5f, 0), target, target,
+        .25f, shortWindow ? .4f : 1f, exclusive ? .6f : float.PositiveInfinity});
+}
+var expected = requests.Select(request => find.Invoke(request, null)).ToArray();
+var observed = new object[count];
+var threads = new ConcurrentDictionary<int, byte>();
+for (int start = 0; start < count; start += 128)
+{
+    int offset = start;
+    dispatch(128, 128 * 4, index =>
+    {
+        threads.TryAdd(Thread.CurrentThread.ManagedThreadId, 0);
+        observed[offset + index] = find.Invoke(requests[offset + index], null);
+    });
+}
+for (int i = 0; i < count; i++)
+    if (!Equals(expected[i], observed[i]) || (expected[i] != null) != (i % 4 == 0))
+        throw new InvalidOperationException("顺序、几何结果或边界与预期不同：" + i);
+int main = Thread.CurrentThread.ManagedThreadId;
+if (!threads.Keys.Any(id => id != main)) throw new InvalidOperationException("应观察到后台线程");
+return new { passed = true, count, hits = expected.Count(hit => hit != null), main, threads = threads.Keys.OrderBy(id => id).ToArray() };
