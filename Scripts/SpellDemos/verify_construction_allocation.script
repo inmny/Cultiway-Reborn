@@ -152,7 +152,9 @@ try
     Check(ReferenceEquals(newCentre.Matter, centre.Matter), "同一未转换的冰质保持现有材料资料");
     await Advance(.35f);
     Check(points.Any(contact => contact.DamageAttempted && contact.TargetHealthAfter < contact.TargetHealthBefore) &&
-          right.data.health < health, "越过地波到达时点后须有实际伤害");
+          right.data.health < health, $"越过地波到达时点后须有实际伤害：目标从 {health} 到 {right.data.health}，"
+          + $"来源 {left.current_position}、目标 {right.current_position}，接触 "
+          + string.Join("、", points.Select(point => $"{point.Age}:{point.TargetHealthBefore}->{point.TargetHealthAfter}")));
     int healthAfter = right.data.health;
     await Advance(2f);
     Check(endings.Count == 1 && !endings[0].Cancelled && ReadWave().Length == 0, "自然结束后撤下波面");

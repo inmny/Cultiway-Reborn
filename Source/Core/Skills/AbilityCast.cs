@@ -452,6 +452,19 @@ public sealed partial class AbilityCast
         !float.IsNaN(value.x) && !float.IsNaN(value.y) && !float.IsNaN(value.z) &&
         !float.IsInfinity(value.x) && !float.IsInfinity(value.y) && !float.IsInfinity(value.z);
 
+    /// <summary>没有接触职责的固定条件只采样实际世界时间，仍用普通方式结束部位。</summary>
+    /// <param name="elapsed">从受理起经过的世界时间，由调用方按到期时点截断。</param>
+    internal void AdvanceConditionClock(double elapsed)
+    {
+        if (Finished) return;
+        float age = (float)elapsed;
+        // 未到真实结束时点时，浮点取整不得让条件提前结束。
+        if (age <= Age || age >= Plan.Lifetime && elapsed < Plan.Lifetime) return;
+        float step = age - Age;
+        Age = age;
+        Sample(step, inputs.Target);
+    }
+
     /// <summary>按世界时间推进；显示、挂点与接触形状之后均读取此状态。</summary>
     /// <param name="seconds">逻辑步长，零不推进。</param>
     /// <param name="target">本次目标的当前地图空间位置。</param>

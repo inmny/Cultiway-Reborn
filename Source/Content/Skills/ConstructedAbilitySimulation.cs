@@ -120,13 +120,33 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ConstructedActorImpulse.ValidateBodies();
         Rect? moving = ConstructedActorImpulse.ActiveBounds();
         if (casts.Count > 0 || moving.HasValue) CaptureTerrain(moving, moving.HasValue);
-        if (casts.Count > 0 || HasBodyFlights)
+        if (casts.Count > 0 && !HasBodyFlights && !moving.HasValue && WorldMaterialService.Count == 0 &&
+            casts.TrueForAll(running => running.StandingWorldCondition))
         {
-            CaptureActors(now);
+            AdvanceStandingConditions(now);
+            if (generation != worldGeneration) yield break;
+        }
+        else if (casts.Count > 0 || HasBodyFlights)
+        {
+            bool terrainOnly = !HasBodyFlights && !moving.HasValue && WorldMaterialService.Count == 0 &&
+                               casts.TrueForAll(running => running.TerrainOnlyProcess);
+            if (terrainOnly)
+            {
+                ClearActorSamples();
+                RetireFrostProbes(now);
+            }
+            else CaptureActors(now);
             double clock = BodyFlightClock(now);
             foreach (RunningCast running in casts) clock = Math.Min(clock, running.LastWorldTime);
             while (clock < now)
             {
+                // 世界效果的实际回调可能开始其他施放。先恢复身体采集，再推进它的接触。
+                if (terrainOnly && (HasBodyFlights || ConstructedActorImpulse.ActiveBounds().HasValue ||
+                                    WorldMaterialService.Count != 0 || casts.Exists(running => !running.TerrainOnlyProcess)))
+                {
+                    CaptureActors(now);
+                    terrainOnly = false;
+                }
                 RefreshChangedActors(clock);
                 UpdateBodyConnections(clock);
                 ConstructedActorImpulse.ValidateBodies();
@@ -350,6 +370,37 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         PublishBarriers();
         PublishPresentation(now);
         if (casts.Count == 0 && !HasBodyFlights) ResetSimulation();
+    }
+
+    /// <summary>纯条件由世界时钟直接维持；出现接触对象时仍走共同的条目顺序。</summary>
+    /// <param name="now">本轮真实世界时间。</param>
+    private void AdvanceStandingConditions(double now)
+    {
+        // 停止采集时丢弃历史；以后回到共同计算不能把这段时间当成本帧的人物扫掠。
+        ClearActorSamples();
+        history.Clear();
+        sampledAt = now;
+        RetireFrostProbes(now);
+        foreach (RunningCast running in casts)
+        {
+            ValidateSource(running);
+            double end = running.StartedAt + running.Cast.Plan.Lifetime;
+            double until = Math.Min(now, end);
+            if (running.Cast.Finished || until <= running.LastWorldTime) continue;
+            running.Cast.AdvanceConditionClock(until >= end ? running.Cast.Plan.Lifetime : until - running.StartedAt);
+            running.LastWorldTime = until;
+        }
+    }
+
+    /// <summary>停止读取旧身体样本；需要重新进入共同计算时再采集。</summary>
+    private void ClearActorSamples()
+    {
+        actorsSampled = false;
+        changedActors.Clear();
+        actors.Clear();
+        actorIndices.Clear();
+        actorIndex.Clear();
+        bodyCasts.Clear();
     }
 
     /// <summary>人物失效或身体被真正中断时解除对应控制，不让池中重用对象继续施法。</summary>
