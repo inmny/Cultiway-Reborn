@@ -1,0 +1,344 @@
+// 此段接在真实飞剑场景的准备及共用计时器之后。
+var watch = System.Diagnostics.Stopwatch.StartNew();
+var soakClock = new System.Diagnostics.Stopwatch();
+var checks = new List<string>();
+var checkpoints = new List<JObject>();
+var transitions = new List<JObject>();
+var generationField = typeof(ConstructedAbilityService).GetField("worldGeneration", Flags);
+var instanceField = casts.GetType().GetGenericArguments()[0].GetField("Id", Flags);
+var nativeBatchField = typeof(FormNativeScenePass).GetField("batch", Flags);
+var worldfallBatch = renderBridge.GetField("batch", Flags).GetValue(null);
+var drawCalls = worldfallBatch.GetType().GetProperty("DrawCount", Flags);
+var bufferBytes = worldfallBatch.GetType().GetProperty("BufferBytes", Flags);
+var canBeginWorld = runnerType.Assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler")
+    .GetMethod("IsWorldInitializationPending", Flags);
+var originalActors = request["archiveIdentity"]?["actors"]?.Values<long>().ToArray() ??
+    participants.Select(actor => actor.id).ToArray();
+int originalWidth = MapBox.width, originalHeight = MapBox.height;
+string volley = definitions[0].Id;
+var archive = Path.Combine(output, "archive");
+int waves = 0, peakVisuals = 0;
+double nextWave = 0, nextCheckpoint = 30;
+bool keepExitCheck = false;
+int transitionCycle = 0;
+var contactReadback = new List<object>();
+var poseReadback = new List<object>();
+
+long Generation() => Convert.ToInt64(generationField.GetValue(null));
+object NativeBatch() => World.world.camera.GetComponent<FormNativeScenePass>() is { } pass
+    ? nativeBatchField.GetValue(pass) : null;
+long Bytes(object batch) => batch == null ? 0 : (long)bufferBytes.GetValue(batch);
+int Draws(object batch) => batch == null ? 0 : (int)drawCalls.GetValue(batch);
+void Check(bool success, string description)
+{
+    if (!success) throw new InvalidOperationException(description);
+    checks.Add(description);
+}
+JObject Snapshot(string point, bool measureRetained = false)
+{
+    using var process = System.Diagnostics.Process.GetCurrentProcess();
+    var native = NativeBatch();
+    return JObject.FromObject(new
+    {
+        point, seconds = watch.Elapsed.TotalSeconds, world = Now(), generation = Generation(),
+        map = new[] { MapBox.width, MapBox.height }, casts = casts.Count, views = FormVisualScene.Instances.Count,
+        nativeDraws = Draws(native), worldfallDraws = worldfallDraws(),
+        nativeBytes = Bytes(native), worldfallBytes = Bytes(worldfallBatch),
+        managedBytes = GC.GetTotalMemory(false), retainedManagedBytes = measureRetained ? GC.GetTotalMemory(true) : (long?)null,
+        engineBytes = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong(),
+        managedCollections = GC.CollectionCount(0), residentBytes = process.WorkingSet64
+    });
+}
+void Progress(string step)
+{
+    Save("progress", new { step, seconds = watch.Elapsed.TotalSeconds, soakSeconds = soakClock.Elapsed.TotalSeconds,
+        waves, damage, casts = casts.Count, views = FormVisualScene.Instances.Count, checks = checks.Count });
+}
+void Checkpoint(string point, bool retain = false)
+{
+    checkpoints.Add(Snapshot(point, retain));
+    Save("checkpoints", checkpoints);
+}
+async Task Pause()
+{
+    Config.paused = true;
+    await Game.WaitUntil(AtBoundary, 1800);
+}
+async Task RunUntil(Func<bool> done)
+{
+    Game.Resume();
+    Config.paused = false;
+    await Game.WaitUntil(done, 2600);
+    await Pause();
+}
+async Task ExitWorldfall()
+{
+    endView();
+    await Game.WaitUntil(() => !(bool)ViewValue(viewMode, "GodShown") &&
+        !(bool)ViewValue(viewMode, "IsFirstPerson") && (bool)ViewValue(viewMode, "DiveDone") &&
+        worldfallDraws() == 0 && Bytes(worldfallBatch) == 0, 1200);
+}
+async Task ReadyWorld(string path)
+{
+    await Pause();
+    long former = Generation();
+    World.world.save_manager.loadWorld(path);
+    await Game.NextFrame();
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+    await Pause();
+    await Game.WaitUntil(() => !(bool)canBeginWorld.Invoke(null, null), 3600);
+    World.world.console.Hide();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    Check(Generation() != former, "正式加载进入新一代世界");
+    Check(casts.Count == 0 && FormVisualScene.Instances.Count == 0 &&
+        Bytes(NativeBatch()) == 0 && Bytes(worldfallBatch) == 0, "换世界清空旧施放、已发布形体和两端实例缓冲");
+    active.Clear();
+}
+void RestoreFighters()
+{
+    Check(MapBox.width == originalWidth && MapBox.height == originalHeight &&
+        ConstructionEditing.Access.Read(volley).Id == volley, "恢复原地图规格及正式技能资料");
+    participants.Clear();
+    foreach (long id in originalActors)
+    {
+        var actor = World.world.units.get(id);
+        if (actor == null || !actor.isAlive()) throw new InvalidOperationException("原参战人物未恢复 " + id);
+        participants.Add(actor);
+    }
+    var currentEnemy = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+    for (int i = 0; i < participants.Count; i += 2)
+    {
+        var source = participants[i];
+        var target = participants[i + 1];
+        target.setKingdom(currentEnemy);
+        foreach (var actor in new[] { source, target })
+        {
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            actor.updateStats();
+            actor.attack_timer = 999;
+        }
+        Place(source, 63, 62 + 3 * i);
+        Place(target, 72, 62 + 3 * i);
+        Oppose(source, target);
+    }
+    World.world.camera.transform.position = new Vector3(73, 72, World.world.camera.transform.position.z);
+    MoveCamera.instance.forceZoom(20);
+}
+JObject RunningState()
+{
+    var state = new JObject { ["world"] = Now(), ["generation"] = Generation() };
+    foreach (object running in casts)
+    {
+        var cast = (AbilityCast)castField.GetValue(running);
+        if (cast.Plan.Id == volley) state[((long)instanceField.GetValue(running)).ToString()] = cast.Age;
+    }
+    return state;
+}
+async Task PauseEvidence()
+{
+    await Pause();
+    var before = RunningState();
+    Check(before.Count > 2, "暂停时实际飞剑仍在运行");
+    var delay = System.Diagnostics.Stopwatch.StartNew();
+    while (delay.Elapsed.TotalSeconds < .5) await Game.NextFrame();
+    Check(JToken.DeepEquals(before, RunningState()), "暂停半秒保持同一施放、进度和世界时钟");
+}
+
+void Wave()
+{
+    int before = starts.Count;
+    Begin();
+    Check(starts.Count - before == 4, "四名来源均正常支付并开始一轮飞剑");
+    waves++;
+    nextWave = Now() + 5;
+}
+void RepeatWave()
+{
+    peakVisuals = Math.Max(peakVisuals, FormVisualScene.Instances.Count);
+    if (active.Count == 0 && Now() >= nextWave) Wave();
+    if (soakClock.Elapsed.TotalSeconds < nextCheckpoint) return;
+    Progress("soak");
+    nextCheckpoint += 30;
+}
+int[] SampleObjects() => new[] { casts.Count, FormVisualScene.Instances.Count, worldfallDraws(),
+    (int)Bytes(NativeBatch()), (int)Bytes(worldfallBatch) };
+void ObserveContact(ConstructedContact fact)
+{
+    if (transitionCycle > 0 && active.Contains(fact.CastId))
+        contactReadback.Add(new { cycle = transitionCycle, world = Now(), fact.CastId, fact.SourceId, fact.TargetId,
+            damage = fact.Damage.HealthLost, position = new[] { fact.Position.x, fact.Position.y, fact.Position.z } });
+    Hit(fact);
+}
+void ObservePose()
+{
+    var fighters = participants.Select(actor => new
+    {
+        actor.id, health = actor.data.health, height = actor.position_height,
+        x = actor.current_position.x, y = actor.current_position.y
+    }).ToArray();
+    var flights = new List<object>();
+    foreach (object running in casts)
+    {
+        var cast = (AbilityCast)castField.GetValue(running);
+        if (cast.Plan.Id != volley) continue;
+        var point = cast.ContactOrigin(1);
+        flights.Add(new { id = (long)instanceField.GetValue(running), age = cast.Age, x = point.x, y = point.y, z = point.z });
+    }
+    poseReadback.Add(new { cycle = transitionCycle, world = Now(), fighters, flights });
+}
+
+async Task<JObject> MeasureSoak()
+{
+    World.world.units.checkContainer();
+    Directory.CreateDirectory(archive);
+    SaveManager.saveWorldToDirectory(archive);
+    Save("archive-identity", new { actors = originalActors, definition = volley, width = originalWidth, height = originalHeight });
+    Check(File.Exists(Path.Combine(archive, "map.wbox")), "保存正式战场供同场及冷重载");
+    Wave();
+    await RunUntil(() => active.Count == 0);
+    Check(finishes.Count == 4 && finishes.All(item => !item.Cancelled) && damage > 0,
+        "热身中真实命中后四份飞剑自然结束");
+    await RunUntil(() => Now() >= nextWave);
+    Checkpoint("soak-before", true);
+    int firstDamage = damage, firstCount = starts.Count, firstEnds = finishes.Count, firstWaves = waves;
+    nextWave = Now();
+    Progress("soak-begin");
+    soakClock.Restart();
+    var measured = await Measure(SampleObjects, advance: RepeatWave, start: Wave);
+    soakClock.Stop();
+    await Pause();
+    await RunUntil(() => active.Count == 0);
+    Check(active.Count == 0 && finishes.Count - firstEnds == starts.Count - firstCount &&
+        finishes.Skip(firstEnds).All(item => !item.Cancelled) && damage > firstDamage,
+        "连续轮次产生实际伤害并全部自然结束");
+    int soakWaves = waves - firstWaves;
+    Check(soakWaves >= ((double)request["sampleSeconds"] >= 300 ? 8 : 1) &&
+        (double)measured["realSeconds"] >= (double)request["sampleSeconds"] && peakVisuals >= 128,
+        "连续窗口达到约定时长并反复产生完整飞剑负载");
+    measured["soakWaves"] = soakWaves;
+    measured["soakDamage"] = damage - firstDamage;
+    measured["peakViews"] = peakVisuals;
+    measured["countColumns"] = new JArray("runningCasts", "visibleInstances", "worldfallDraws", "nativeBufferBytes", "worldfallBufferBytes");
+    Save("soak", measured);
+    Checkpoint("soak-after", true);
+    Progress("soak-finished");
+    return measured;
+}
+
+var testProcess = System.Diagnostics.Process.GetCurrentProcess().Id;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastEnded += Finished;
+ConstructedAbilityService.ContactConfirmed += ObserveContact;
+try
+{
+    Progress("preparing");
+    await ExitWorldfall();
+    await Game.WaitUntil(() => !(bool)canBeginWorld.Invoke(null, null), 3600);
+    string reusedSoak = (string)request["reusedSoak"];
+    var measured = reusedSoak == null ? await MeasureSoak() : JObject.Parse(File.ReadAllText(Path.Combine(reusedSoak, "soak.json")));
+    int soakWaves = (int)measured["soakWaves"];
+    // 复用热身前的正式存档作为每次切换的相同起点。
+    await ReadyWorld(archive);
+    RestoreFighters();
+    Checkpoint("cycles-before", true);
+    for (int cycle = 1; cycle <= (int)request["cycles"]; cycle++)
+    {
+        transitionCycle = cycle;
+        Progress("cycle-" + cycle);
+        Wave();
+        await RunUntil(() => Draws(NativeBatch()) > 0 && Bytes(NativeBatch()) > 0);
+        await Game.WaitUntil(() => Draws(NativeBatch()) > 0 && Bytes(NativeBatch()) > 0, 360);
+        transitions.Add(Snapshot("native-active-" + cycle));
+        await PauseEvidence();
+        var frozen = RunningState();
+        var switchAt = watch.Elapsed.TotalSeconds;
+        await beginView();
+        await Game.WaitUntil(() => worldfallDraws() > 0 && Bytes(worldfallBatch) > 0, 360);
+        Check(JToken.DeepEquals(frozen, RunningState()), "三维俯瞰读取同一仍暂停的完整施放");
+        var entering = Snapshot("worldfall-active-" + cycle);
+        entering["transitionSeconds"] = watch.Elapsed.TotalSeconds - switchAt;
+        transitions.Add(entering);
+        int beforeDamage = damage;
+        double nextPose = Now();
+        await RunUntil(() =>
+        {
+            if (Now() >= nextPose || active.Count == 0)
+            {
+                ObservePose();
+                nextPose = Now() + .25;
+            }
+            return damage > beforeDamage || active.Count == 0;
+        });
+        Check(damage > beforeDamage && active.Count > 0, "切到三维后恢复推进并发生真实伤害");
+        frozen = RunningState();
+        switchAt = watch.Elapsed.TotalSeconds;
+        await ExitWorldfall();
+        await Game.WaitUntil(() => Draws(NativeBatch()) > 0, 420);
+        Check(JToken.DeepEquals(frozen, RunningState()), "返回原版继续显示同一施放，三维实例缓冲已回收");
+        var leaving = Snapshot("native-return-" + cycle);
+        leaving["transitionSeconds"] = watch.Elapsed.TotalSeconds - switchAt;
+        transitions.Add(leaving);
+
+        if (cycle % 2 == 0)
+        {
+            await beginView();
+            await Game.WaitUntil(() => worldfallDraws() > 0, 360);
+        }
+        transitions.Add(Snapshot("before-world-switch-" + cycle));
+        switchAt = watch.Elapsed.TotalSeconds;
+        await ReadyWorld((string)request["otherWorld"]);
+        Check(MapBox.width != originalWidth || MapBox.height != originalHeight, "确实载入尺寸不同的原有世界");
+        await ExitWorldfall();
+        var other = Snapshot("other-world-" + cycle);
+        other["transitionSeconds"] = watch.Elapsed.TotalSeconds - switchAt;
+        transitions.Add(other);
+        switchAt = watch.Elapsed.TotalSeconds;
+        await ReadyWorld(archive);
+        RestoreFighters();
+        var returned = Snapshot("return-world-" + cycle);
+        returned["transitionSeconds"] = watch.Elapsed.TotalSeconds - switchAt;
+        transitions.Add(returned);
+        Checkpoint("cycle-clean-" + cycle, true);
+        Save("transitions", transitions);
+    }
+    await ReadyWorld(archive);
+    RestoreFighters();
+    Checkpoint("same-world-reload", true);
+
+    // 正常退出前仍有实际渲染对象，退出回调记录归还，随后由外部核对进程消失。
+    Wave();
+    await RunUntil(() => Draws(NativeBatch()) > 0 && Bytes(NativeBatch()) > 0);
+    await beginView();
+    await Game.WaitUntil(() => worldfallDraws() > 0 && Bytes(worldfallBatch) > 0, 360);
+    Check(active.Count == 4, "退出前有四个正常施放和实际三维缓冲");
+    var beforeExit = Snapshot("before-quit");
+    var outgoingNative = NativeBatch();
+    Application.quitting += () => Save("exit", new
+    {
+        process = testProcess,
+        nativeBufferBytes = Bytes(outgoingNative), worldfallBufferBytes = Bytes(worldfallBatch),
+        worldfallDraws = worldfallDraws()
+    });
+    Save("result", new { passed = true, process = testProcess, waves, damage, checks, beforeExit,
+        soak = new { seconds = measured["realSeconds"], waves = soakWaves, peakVisuals = measured["peakViews"],
+            process = measured["process"], reused = reusedSoak },
+        cycles = (int)request["cycles"], checkpoints, transitions, contacts = contactReadback, poses = poseReadback });
+    keepExitCheck = true;
+    Progress("ready-to-quit");
+    return new { passed = true, process = testProcess, waves, damage };
+}
+catch (Exception error)
+{
+    Save("failure", new { error = error.ToString(), checks, waves, damage, steps = transitions, running = RunningState(),
+        poseReady = !(bool)canBeginWorld.Invoke(null, null), finished = finishes, state = Snapshot("failure"),
+        contacts = contactReadback, poses = poseReadback });
+    return new { passed = false, error = error.Message };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.ContactConfirmed -= ObserveContact;
+    if (!keepExitCheck) endView();
+}
