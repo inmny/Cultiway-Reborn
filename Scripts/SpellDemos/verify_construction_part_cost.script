@@ -1,0 +1,200 @@
+// 用真实的编译与数值推进核对空间登记、分布复用和静止骨架。
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using DebugToolbox.Runtime.Tracing;
+using UnityEngine;
+
+Config.paused = true;
+const BindingFlags F = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+void Check(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+
+var indexType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityContactIndex");
+var index = Activator.CreateInstance(indexType, F, null, new object[] { 8f }, null);
+var add = (Func<Bounds, int>)indexType.GetMethod("Add", F).CreateDelegate(typeof(Func<Bounds, int>), index);
+var update = (Action<int, Bounds>)indexType.GetMethod("Update", F).CreateDelegate(typeof(Action<int, Bounds>), index);
+var query = (Action<Bounds, List<int>>)indexType.GetMethod("Query", F).CreateDelegate(typeof(Action<Bounds, List<int>>), index);
+var plane = (Action<Vector2, float, List<int>>)indexType.GetMethod("QueryPlane", F)
+    .CreateDelegate(typeof(Action<Vector2, float, List<int>>), index);
+var exact = new List<Bounds>();
+var candidates = new List<int>();
+int Add(Bounds bounds)
+{
+    int id = add(bounds);
+    Check(id == exact.Count, "稳定空间编号");
+    exact.Add(bounds);
+    return id;
+}
+void Move(int id, Bounds bounds)
+{
+    update(id, bounds);
+    exact[id] = bounds;
+}
+void Find(Bounds bounds, params int[] expected)
+{
+    query(bounds, candidates);
+    Check(candidates.SequenceEqual(expected), "候选不漏、不重，保留原发现顺序：" + string.Join(",", candidates));
+    Check(candidates.OrderBy(id => id).SequenceEqual(Enumerable.Range(0, exact.Count).Where(id => exact[id].Intersects(bounds))),
+        "和全部真实范围对照一致");
+}
+int Registered() => ((IDictionary)indexType.GetField("cells", F).GetValue(index)).Values.Cast<IList>().Sum(list => list.Count);
+Bounds Box(float x, float width = 1) => new Bounds(new Vector3(x, 2f, 2f), new Vector3(width, 1f, 1f));
+Add(Box(2)); Add(Box(3)); Add(Box(10));
+int refsBefore = Registered();
+const int updates = 2048;
+for (int i = 0; i < updates; i++) Move(0, Box(2 + (i % 8) * .03f));
+int refsAfter = Registered();
+Check(refsBefore == refsAfter, "同格更新保留已有登记");
+Find(Box(3, 3), 0, 1);
+Find(Box(.5f), Array.Empty<int>());
+Move(0, Box(10));
+Find(Box(10), 2, 0);
+Move(0, Box(2));
+Find(Box(3, 3), 0, 1);
+Find(Box(10), 2);
+Move(0, Box(7.9f, 2));
+int overlapBefore = Registered();
+Move(0, Box(15.9f, 2));
+Check(Registered() == overlapBefore + 1, "重叠的格子保留原登记，只补新增格子");
+Find(Box(15.9f, 2), 0);
+var large = (IList)indexType.GetField("large", F).GetValue(index);
+Move(0, new Bounds(Vector3.one, Vector3.one * 1024f));
+Move(0, new Bounds(Vector3.one * 16f, Vector3.one * 1024f));
+Check(large.Count == 1, "大范围保持一份登记");
+Find(Box(10), 2, 0);
+Move(0, Box(2));
+Find(Box(10), 2);
+plane(new Vector2(2f, 2f), 2f, candidates);
+Check(candidates.SequenceEqual(new[] { 0, 1 }), "平面查询过滤离开的旧范围");
+indexType.GetMethod("Clear", F).Invoke(index, null);
+exact.Clear();
+Add(Box(6));
+Find(Box(6), 0);
+Check(large.Count == 0, "清空后不保留上一轮的大条目");
+
+var whale = FormResources.Load("water_whale");
+var sharedFins = new ConstructionDistribution
+{
+    Source = ConstructionDistributionSource.Anchors,
+    Selectors = new[] { "fin_*", "fin_left" }
+};
+var lattice = new AbilityDefinition
+{
+    Id = "test.part-cost.distribution", Lifetime = 1f,
+    Root = new ConstructionNode
+    {
+        Id = "root", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+        Children = new[]
+        {
+            new ConstructionNode
+            {
+                Id = "body", Form = "water_whale", Matter = "water",
+                Distribution = new ConstructionDistribution
+                {
+                    Source = ConstructionDistributionSource.Points,
+                    Points = Enumerable.Range(0, 6).Select(i => new ConstructionDistributionPoint
+                    {
+                        Id = "p" + i, Position = new[] { 6f * i, 0f, 0f }
+                    }).ToArray()
+                },
+                Children = new[] { new ConstructionNode { Id = "fin", Form = "water_whale", Matter = "water",
+                    Scale = .3f, Distribution = sharedFins } }
+            }
+        }
+    }
+};
+var options = new MethodTraceOptions { IncludeArguments = false, IncludeResult = false, MaxEvents = 512 };
+var nodeProperty = typeof(CompiledAbility).GetProperty("Nodes", F);
+string[] Paths(CompiledAbility plan) => ((Array)nodeProperty.GetValue(plan)).Cast<object>()
+    .Select(node => (string)node.GetType().GetField("Path", F).GetValue(node)).ToArray();
+int distributionCalls;
+CompiledAbility firstPlan;
+using (var trace = Trace.Attach(typeof(ConstructionDistribution).GetMethod("Resolve", F), options))
+{
+    firstPlan = AbilityCompiler.Compile(lattice, false);
+    distributionCalls = trace.Events.Count;
+}
+string[] paths = Paths(firstPlan);
+var expectedPaths = new List<string> { "root" };
+for (int i = 0; i < 6; i++)
+{
+    string parent = "root/body@point.p" + i;
+    expectedPaths.Add(parent);
+    expectedPaths.Add(parent + "/fin@fin_left");
+    expectedPaths.Add(parent + "/fin@fin_right");
+}
+Check(paths.SequenceEqual(expectedPaths) && distributionCalls == 2,
+    "层间只重复使用父体位置，重叠挂点仍只占一份，实例身份各自完整：" + string.Join("、", paths)
+    + "，访问解析 " + distributionCalls);
+var cast = new AbilityCast(firstPlan, Matrix4x4.identity);
+var viewsBefore = new List<FormVisualInstance>();
+var contactsBefore = new List<AbilityCapsule>();
+cast.AppendVisuals(viewsBefore);
+cast.AppendContacts(contactsBefore);
+int staticSamples;
+using (var trace = Trace.Attach(typeof(FormRig).GetMethod("Sample", F), options))
+{
+    cast.Advance(.22f, Vector3.zero);
+    staticSamples = trace.Events.Count;
+}
+var viewsAfter = new List<FormVisualInstance>();
+var contactsAfter = new List<AbilityCapsule>();
+cast.AppendVisuals(viewsAfter);
+cast.AppendContacts(contactsAfter);
+var formerWhales = viewsBefore.Where(view => ReferenceEquals(view.Resource, whale)).ToArray();
+var laterWhales = viewsAfter.Where(view => ReferenceEquals(view.Resource, whale)).ToArray();
+Check(formerWhales.Length == 18 && laterWhales.Length == 18 && formerWhales.All(view => view.Skin != null) &&
+      formerWhales.Zip(laterWhales, (a, b) => a.Transform.Equals(b.Transform) && a.Skin.SequenceEqual(b.Skin)).All(x => x) &&
+      staticSamples == 0, "静止骨架保持原矩阵与不同挂点，不重复取样");
+Check(contactsBefore.Count > 0 && contactsBefore.Count == contactsAfter.Count &&
+      contactsBefore.Zip(contactsAfter, (a, b) => a.Node == b.Node && a.A.Equals(b.A) && a.B.Equals(b.B) &&
+          a.Radius == b.Radius).All(x => x), "作用面沿用相同挂点及骨架");
+sharedFins.First = 1;
+Check(Paths(AbilityCompiler.Compile(lattice, false)).Length == 13 && Paths(firstPlan).SequenceEqual(paths),
+    "改动后重新取点，原计划保持原位");
+sharedFins.Selectors = new[] { "missing" };
+try
+{
+    AbilityCompiler.Compile(lattice, false);
+    throw new InvalidOperationException("无效挂点未拒绝");
+}
+catch (InvalidDataException) { }
+
+var animated = new AbilityDefinition
+{
+    Id = "test.part-cost.animation", Lifetime = 1.1f,
+    Root = new ConstructionNode
+    {
+        Id = "whale", Form = "water_whale", Matter = "water", State = "solid",
+        Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .12f,
+                Matter = "water", State = "liquid" },
+            new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "tail_sweep", BlendSeconds = .12f,
+                When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.MatterChanged, Matter = "water", State = "liquid" } }
+        }
+    }
+};
+var moving = new AbilityCast(AbilityCompiler.Compile(animated, false), Matrix4x4.identity);
+var before = new List<FormVisualInstance>();
+moving.AppendVisuals(before);
+int animatedSamples;
+using (var trace = Trace.Attach(typeof(FormRig).GetMethod("Sample", F), options))
+{
+    moving.Advance(.42f, Vector3.zero);
+    animatedSamples = trace.Events.Count;
+}
+var after = new List<FormVisualInstance>();
+moving.AppendVisuals(after);
+Check(animatedSamples > 0 && moving.Matter(0).State == "liquid" &&
+      !before.Single().Skin.SequenceEqual(after.Single().Skin), "材料事件切换后仍推进真实骨架");
+return new { passed = true, updates, refsBefore, refsAfter, distributionCalls, instances = paths.Length,
+    staticSamples, animatedSamples, staticVisuals = formerWhales.Length, contacts = contactsBefore.Count };

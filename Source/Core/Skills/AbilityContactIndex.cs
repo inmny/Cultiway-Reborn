@@ -50,17 +50,34 @@ internal sealed class AbilityContactIndex
     /// <param name="id">本轮稳定的条目。</param>
     /// <param name="value">改变后的实际范围。</param>
     internal void Update(int id, Bounds value)
-    { bounds[id] = value; Insert(id, value); }
+    {
+        Bounds previous = bounds[id];
+        if (previous.Equals(value)) return;
+        bounds[id] = value;
+        Insert(id, value, previous);
+    }
 
     /// <summary>将当前范围写入覆盖格，查询去重不会因同一轮多次更新而重复返回。</summary>
     /// <param name="id">稳定条目。</param>
     /// <param name="value">当前范围。</param>
-    private void Insert(int id, Bounds value)
+    /// <param name="previous">更新前已登记的范围；第一次登记时为空。</param>
+    private void Insert(int id, Bounds value, Bounds? previous = null)
     {
         minimumZ = Mathf.Min(minimumZ, value.min.z); maximumZ = Mathf.Max(maximumZ, value.max.z);
-        if (!Cells(value, out Vector3Int min, out Vector3Int max)) { large.Add(id); return; }
+        bool regular = Cells(value, out Vector3Int min, out Vector3Int max);
+        Vector3Int oldMin = default, oldMax = default;
+        bool hadRegular = previous.HasValue && Cells(previous.Value, out oldMin, out oldMax);
+        if (!regular)
+        {
+            if (!previous.HasValue || hadRegular) large.Add(id);
+            return;
+        }
+        if (hadRegular && min == oldMin && max == oldMax) return;
         for (int x = min.x; x <= max.x; x++) for (int y = min.y; y <= max.y; y++) for (int z = min.z; z <= max.z; z++)
                 {
+                    // 原格中的第一次登记继续决定发现顺序，只补到本次新增的格子。
+                    if (hadRegular && x >= oldMin.x && x <= oldMax.x &&
+                        y >= oldMin.y && y <= oldMax.y && z >= oldMin.z && z <= oldMax.z) continue;
                     var key = (x, y, z);
                     if (!cells.TryGetValue(key, out List<int> list)) cells.Add(key, list = pool.Count > 0 ? pool.Pop() : new List<int>());
                     list.Add(id);

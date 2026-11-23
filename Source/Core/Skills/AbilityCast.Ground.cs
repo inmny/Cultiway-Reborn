@@ -173,7 +173,7 @@ public sealed partial class AbilityCast
             }
         if (Plan.Nodes[node].FragmentSource >= 0 && Plan.Nodes[node].Resource.Contacts.Length == 0)
         {
-            Bounds bounds = fragmentMotion[node].Bounds;
+            Bounds bounds = fragmentBounds[node];
             for (int corner = 0; corner < 8; corner++)
             {
                 Vector3 point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(

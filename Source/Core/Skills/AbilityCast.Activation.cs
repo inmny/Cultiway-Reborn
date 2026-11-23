@@ -271,7 +271,7 @@ public sealed partial class AbilityCast
         RecordActionContact(node, point, AbilityActionContactKind.Ability);
         if (node >= 0)
         {
-            if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].AwaitingSpend = spent > 0f;
+            if (Plan.Nodes[node].FractureIndex >= 0) FractureFor(node).AwaitingSpend = spent > 0f;
             nodes[node].HasClashPoint = true;
             nodes[node].ClashPoint = point;
             ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);

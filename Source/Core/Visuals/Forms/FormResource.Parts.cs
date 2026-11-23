@@ -28,8 +28,8 @@ public sealed partial class FormResource
     }
 
     /// <summary>当前分件的模型空间中心；不读取Unity对象。</summary>
-    /// <param name="pose">源体当时的共同骨架姿态。</param>
-    internal Vector3 PosedCentre(FormPose pose) => centreControl < 0 ? Centre : pose.Skin[centreControl].MultiplyPoint3x4(Centre);
+    /// <param name="skin">源体当时的共同蒙皮矩阵。</param>
+    internal Vector3 PosedCentre(Matrix4x4[] skin) => centreControl < 0 ? Centre : skin[centreControl].MultiplyPoint3x4(Centre);
 
     /// <summary>装饰碎片的近似运动边界，不增加人物或法术作用形状。</summary>
     /// <param name="pose">源体当前姿态。</param>
@@ -48,8 +48,8 @@ public sealed partial class FormResource
     }
 
     /// <summary>主要控制的当前方向，完整几何仍使用原有全部蒙皮权重。</summary>
-    /// <param name="pose">源体当时的共同姿态。</param>
-    internal Quaternion PosedRotation(FormPose pose) => centreControl < 0 ? Quaternion.identity : pose.Skin[centreControl].rotation;
+    /// <param name="skin">源体当时的共同蒙皮矩阵。</param>
+    internal Quaternion PosedRotation(Matrix4x4[] skin) => centreControl < 0 ? Quaternion.identity : skin[centreControl].rotation;
 
     /// <summary>保留原部件几何、表面与绑定，不制作缩小整物作为碎片。</summary>
     /// <param name="source">本版本原资源。</param>

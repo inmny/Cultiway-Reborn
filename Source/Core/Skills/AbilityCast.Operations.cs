@@ -186,7 +186,7 @@ public sealed partial class AbilityCast
         state.MotionStopped = true; state.GrowthStopped = true; state.MovementStopped = true; state.Free = true; state.ReleasedAt = Age;
         state.Velocity = Vector3.zero; state.Acceleration = Vector3.zero; state.Spin = Vector3.zero;
         if (flows?[node]?.Started == true) flows[node].StopMotion();
-        if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].Captured = false;
+        if (Plan.Nodes[node].FractureIndex >= 0) FractureFor(node).Captured = false;
         Matrix4x4 correction = state.Transform * old.inverse;
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
             { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }

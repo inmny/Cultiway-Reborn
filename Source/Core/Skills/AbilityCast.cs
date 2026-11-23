@@ -356,12 +356,22 @@ public sealed partial class AbilityCast
                 }
         }
 
-        if (Array.Exists(plan.Nodes, form => form.Fracture != null))
+        if (plan.FractureSources.Length > 0)
         {
-            fractures = new FractureState[nodes.Length];
-            savedFractures = new FractureState[nodes.Length];
-            fragmentMotion = new FragmentMotion[nodes.Length];
-            savedFragmentMotion = new FragmentMotion[nodes.Length];
+            int sources = plan.FractureSources.Length;
+            fractures = new FractureState[sources];
+            savedFractures = new FractureState[sources];
+            fragmentBounds = new Bounds[nodes.Length];
+            savedFragmentBounds = new Bounds[nodes.Length];
+            fractureSkins = new Matrix4x4[sources][];
+            savedFractureSkins = new Matrix4x4[sources][];
+            for (int i = 0; i < sources; i++)
+            {
+                int controls = plan.Nodes[plan.FractureSources[i]].Resource.Rig.Count;
+                if (controls == 0) continue;
+                fractureSkins[i] = new Matrix4x4[controls];
+                savedFractureSkins[i] = new Matrix4x4[controls];
+            }
         }
 
         if (Array.Exists(plan.Nodes,
@@ -789,7 +799,7 @@ public sealed partial class AbilityCast
         state.PreviousMotionAge = state.MotionAge;
         state.PreviousBlendAge = state.BlendAge;
         // 碎片继承上一时点已经贴地的真实姿态，不能把本轮重新贴地算成速度。
-        if (fractures != null) CaptureFragmentMotion(i);
+        if (form.FractureIndex >= 0) CaptureFragmentMotion(i, form.FractureIndex);
         if (form.HasGround && groundPoses[i] != null) poses[i].CopyTo(groundPoses[i]);
         RestoreGroundBase(i);
         if (age > form.Presence.y)
@@ -935,7 +945,8 @@ public sealed partial class AbilityCast
                 state.BlendAge += next - local;
             }
 
-            SampleMotion(i, state.MotionAge, state.BlendAge);
+            if (!form.KeepRestPose || state.Motion != null || bindInitial || began)
+                SampleMotion(i, state.MotionAge, state.BlendAge);
         }
 
         state.Visible &= (poses[i]?.BuildProgress ?? 1f) > 0f && AnchorBuilt(i);
@@ -1010,7 +1021,7 @@ public sealed partial class AbilityCast
             return;
         }
 
-        if (form.FractureAt >= 0f && age >= form.FractureAt && !fractures[i].Broken)
+        if (form.FractureAt >= 0f && age >= form.FractureAt && !FractureFor(i).Broken)
         {
             NativeStarted(i, ConstructionOperationKind.Fracture);
             RequestFracture(i);
@@ -1302,7 +1313,8 @@ public sealed partial class AbilityCast
         if (fractures != null)
         {
             Array.Copy(fractures, savedFractures, fractures.Length);
-            Array.Copy(fragmentMotion, savedFragmentMotion, fragmentMotion.Length);
+            Array.Copy(fragmentBounds, savedFragmentBounds, fragmentBounds.Length);
+            CopyFractureSkins(fractureSkins, savedFractureSkins);
         }
 
         if (gathers != null) Array.Copy(gathers, savedGathers, gathers.Length);
@@ -1356,7 +1368,8 @@ public sealed partial class AbilityCast
         if (fractures != null)
         {
             Array.Copy(savedFractures, fractures, fractures.Length);
-            Array.Copy(savedFragmentMotion, fragmentMotion, fragmentMotion.Length);
+            Array.Copy(savedFragmentBounds, fragmentBounds, fragmentBounds.Length);
+            CopyFractureSkins(savedFractureSkins, fractureSkins);
         }
 
         if (gathers != null) Array.Copy(savedGathers, gathers, gathers.Length);
@@ -1446,7 +1459,7 @@ public sealed partial class AbilityCast
         if (wave != null && state.Exists) SignalGroundRoute(node, wave, firstArrival);
         if (fractures != null && Plan.Nodes[node].Fracture != null)
         {
-            fractures[node].AwaitingSpend = false;
+            FractureFor(node).AwaitingSpend = false;
             FractureNode(node);
         }
 

@@ -23,12 +23,17 @@ async Task<object> Fracture()
     {
         if (separated || contact.AbilityId != definition.Id || contact.Node != 0 || cast.NodeAge(edge) < 0) return;
         separated = true; separationTime = cast.Age;
-        object fracture = ((Array)Field(cast, "fractures")).GetValue(right);
-        object history = ((Array)Field(cast, "fragmentMotion")).GetValue(edge);
+        var parts = CompiledParts(cast);
+        int fractureIndex = (int)Field(parts.GetValue(right), "FractureIndex");
+        object fracture = ((Array)Field(cast, "fractures")).GetValue(fractureIndex);
+        var history = (Matrix4x4)Field(fracture, "PreviousTransform");
+        var skin = ((Matrix4x4[][])Field(cast, "fractureSkins"))[fractureIndex];
+        var resource = (FormResource)Field(parts.GetValue(edge), "Resource");
+        var priorCentre = (Vector3)typeof(FormResource).GetMethod("PosedCentre", F).Invoke(resource, new object[] { skin });
         float step = (float)Field(fracture, "MotionStep");
         oldClasp = PartCentre(cast, clasp);
         start = PartCentre(cast, edge); actual = PartSpeed(cast, edge);
-        inherited = (start - (Vector3)Field(history, "Centre")) / step;
+        inherited = (start - history.MultiplyPoint3x4(priorCentre)) / step;
         spin = (Vector3)Field(CastState(cast, edge), "Spin");
         var parent = (Matrix4x4)Field(CastState(cast, right), "Transform");
         var child = (Matrix4x4)Field(CastState(cast, edge), "Transform");

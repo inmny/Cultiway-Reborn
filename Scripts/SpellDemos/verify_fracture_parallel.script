@@ -30,7 +30,7 @@ foreach(string kind in new[]{"timed","clash","animated"})foreach(int count in ne
   casts[i]=new AbilityCast(plan,Matrix4x4.identity,inputs:input,force:20);casts[i].Advance(.3f,input.Target);save(casts[i]);
   steps.SetValue(constructor.Invoke(new object[]{casts[i],input,null,input.Target,1.4f,false}),i);
  }
- void Trigger(){if(kind=="timed")return;foreach(var cast in casts){confirm.Invoke(cast,new object[]{0,cast.ContactOrigin(0),5f});spend.Invoke(cast,new object[]{0,5f});}}
+ void Trigger(){if(kind=="timed")return;foreach(var cast in casts){confirm.Invoke(cast,new object[]{0,cast.ContactOrigin(0),5f});spend.Invoke(cast,new object[]{0,5f,null,0});}}
  var values=new List<float>();var materials=new List<string>();
  void Snapshot()
  {
