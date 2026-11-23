@@ -90,7 +90,9 @@ internal static class FramePriorityGovernor
 
     public static void EndHostMeasurement(long startedAt)
     {
-        hostCpuMilliseconds += ElapsedMilliseconds(startedAt);
+        double elapsed = ElapsedMilliseconds(startedAt);
+        hostCpuMilliseconds += elapsed;
+        FrameWorkTrace.Record("world", "host", elapsed);
     }
 
     public static bool CanRun(SimulationDomain domain, string phase)
@@ -165,6 +167,7 @@ internal static class FramePriorityGovernor
         }
 
         SimulationTickBenchmark.RecordPhase(benchmarkTick, domain, phase, elapsed);
+        FrameWorkTrace.Record(domain == SimulationDomain.Vanilla ? "vanilla" : "cultiway", phase, elapsed);
         SimulationTickBenchmark.FlushCompleted();
     }
 

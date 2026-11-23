@@ -3300,3 +3300,15 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 226 -- \
 ```
 
 `--world` 指向含 `map.wbox` 的目录。城市的 `--facts` 使用分区净化结果，设施的 `--facts` 使用保存前的 `expected.json`。结果同时记录保存时间、档案大小、同进程读回时间及实际恢复。创法另存两个阶段及每月增长，其他三场记录逐帧间隔。旧档原件只读。
+
+### 帧时间分解（13.14）
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 500 -- \
+  python3 Scripts/SpellDemos/benchmark_combat_load.py --world "$WORLD_FIXTURE" --profile \
+  --case groups --case solo --case moving
+```
+
+三维飞剑段在另一个已加载 Worldfall 的独立环境运行，使用 `--profile --case moving --view worldfall`。结果里的 `profile` 按实际显示帧保存调度阶段、工作池耗时和绘制命令。嵌套阶段和多线程时间可分别查看。
+
+Linux 上追加 `--measure-allocations` 可另测 Mono 报告的托管对象尺寸。入口使用本机 C 编译器在本次输出目录编译计数器，校准通过后开始取样，结束时解除订阅。将这一轮留给分配分析，整帧时间使用未开启对象计数的对应轮次。

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Core.Performance;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -96,6 +97,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <summary>在相机剔除前隐藏原版自动副本，并建立本帧完整绘制命令。</summary>
     private void OnPreCull()
     {
+        using var observation = FrameWorkTrace.Measure("draw", "native.submit");
         Restore();
         commands.Clear();
         batch.Begin();
@@ -256,6 +258,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         overlays.Sort(CompareOverlay);
         if (overlays.Count > 0) commands.ClearRenderTarget(true, false, Color.clear);
         foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, entry.Submesh, 0);
+        FrameWorkTrace.RecordSubmission("native", batch.InstanceCount, batch.DrawCount, batch.UploadBytes);
     }
 
     /// <summary>原版空间批次的普通、表面和发光网格各自使用对应材质。</summary>

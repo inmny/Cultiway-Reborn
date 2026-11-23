@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import time
 
 import baseline_scenarios as baseline
@@ -23,17 +25,37 @@ def main():
     parser.add_argument("--case", choices=(*CASES, "all"), action="append",
                         help="指定一个场景，可重复提供，默认运行全部")
     parser.add_argument("--frame-limit", type=int, default=60)
+    parser.add_argument("--profile", action="store_true", help="同时采集阶段时间、线程、分配和提交")
+    parser.add_argument("--measure-allocations", action="store_true", help="另测 Linux 游戏的托管对象分配")
+    parser.add_argument("--view", choices=("native", "worldfall"), default="native")
     args = parser.parse_args()
     if not os.environ.get("CULTIWAY_DEV_ACTIVE"):
         parser.error("请从 develop 的独立游戏入口执行")
     if args.frame_limit < 1:
         parser.error("帧率上限应为正数")
+    if args.measure_allocations and (not args.profile or not sys.platform.startswith("linux")):
+        parser.error("托管对象计数需要 Linux 和 --profile")
+    if args.view == "worldfall" and not args.profile:
+        parser.error("三维负载使用 --profile 核对实际视角和绘制")
     world = args.world.resolve()
     world_hash = hashlib.sha256((world / "map.wbox").read_bytes()).hexdigest()
     output = Path(os.environ["CULTIWAY_DEV_OUTPUT"]) / datetime.now(timezone.utc).strftime("combat-%Y%m%dT%H%M%S.%fZ")
     connection = baseline.connect(False)
     version, _ = version_stamp()
     source = (SCRIPTS / "benchmark_combat_load.script").read_text()
+    if args.profile:
+        source = "using Unity.Profiling;\n" + source.replace(
+            "// COMBAT_FRAME_PROFILE", (SCRIPTS / "combat_frame_profile.script").read_text())
+    if args.measure_allocations:
+        output.mkdir()
+        library = output / "libcultiway-allocations.so"
+        subprocess.run(["cc", "-O2", "-shared", "-fPIC", str(SCRIPTS / "mono_allocation_counter.c"),
+                        "-ldl", "-o", str(library)], check=True)
+        bindings = (SCRIPTS / "combat_mono_allocations.script").read_text()
+        source = source.replace("// MONO_ALLOCATION_COUNTER", bindings.replace(
+            "__ALLOCATION_LIBRARY__", json.dumps(str(library))))
+    if args.view == "worldfall":
+        source = source.replace("// COMBAT_VIEW_SETUP", (SCRIPTS / "combat_worldfall_profile.script").read_text())
     source = source.replace("// COMBAT_MEASUREMENT_HELPER", (SCRIPTS / "frame_measurement.script").read_text())
     cases = CASES if not args.case or "all" in args.case else dict.fromkeys(args.case)
     failed = []
@@ -47,7 +69,8 @@ def main():
         request = dict(scenario=case, repeat=0, worldPath=str(world), worldSha256=world_hash,
                        profile=connection["profile"], version=version, connection=connection,
                        frameLimit=args.frame_limit, warmupSeconds=0, sampleSeconds=50,
-                       seed=1312, definitionPath=str(POOL), output=str(folder))
+                       seed=1312, definitionPath=str(POOL), output=str(folder), captureProfile=args.profile,
+                       view=args.view, measureAllocations=args.measure_allocations)
         write_json(folder / "request.json", request)
         if case == "domains":
             (folder / POOL.name).write_bytes(POOL.read_bytes())
