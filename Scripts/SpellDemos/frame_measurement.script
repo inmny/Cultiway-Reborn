@@ -17,6 +17,7 @@ async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Acti
     var initialCounts = counts();
     long managedStart = GC.GetTotalMemory(false);
     int[] gcStart = { GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2) };
+    long wallStart = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     watch.Restart();
     start?.Invoke();
     double last = 0, nextSample = 0;
@@ -44,6 +45,7 @@ async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Acti
         }
     }
     double realSeconds = watch.Elapsed.TotalSeconds;
+    long wallEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     double worldSeconds = World.world.getCurWorldTime() - worldStart;
     double cpuSeconds = process.TotalProcessorTime.TotalSeconds - cpuStart;
     Config.paused = true;
@@ -53,6 +55,7 @@ async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Acti
     return new JObject {
         ["passed"] = true, ["scenario"] = request["scenario"], ["repeat"] = request["repeat"],
         ["process"] = process.Id, ["worldSeconds"] = worldSeconds, ["realSeconds"] = realSeconds,
+        ["wallStartUnixMs"] = wallStart, ["wallEndUnixMs"] = wallEnd,
         ["actualWorldSpeed"] = worldSeconds / realSeconds,
         ["requestedSpeed"] = (string)config["worldSpeed"], ["frameLimit"] = Application.targetFrameRate,
         ["vsync"] = QualitySettings.vSyncCount,

@@ -36,8 +36,9 @@ if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Nu
     throw new InvalidOperationException("此负载测量需要硬件渲染，当前为 " + renderer);
 var config = new JObject { ["worldSpeed"] = "x1" };
 bool autonomous = scene == "ordinary" || scene == "groups";
+bool fpsCheck = (bool?)request["fpsCheck"] == true;
 int groupCount = scene == "groups" ? 4 : 1;
-double duration = scene == "groups" ? 8 : 6;
+double duration = fpsCheck ? 12 : scene == "groups" ? 8 : 6;
 var lanes = new Dictionary<long, int>();
 var participants = new List<Actor>();
 var definitions = new List<AbilityDefinition>();
@@ -55,11 +56,17 @@ int peakActive = 0, peakMoving = 0, landings = 0, damage = 0, pairs = 0;
 Vector3? firstBlade = null;
 AbilityCast trackedVolley = null;
 float travel = 0;
+Vector2 minHit = new(float.PositiveInfinity, float.PositiveInfinity);
+Vector2 maxHit = new(float.NegativeInfinity, float.NegativeInfinity);
 double deadline = 0, nextDuel = 0;
 var casts = (IList)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null);
 var castField = casts.GetType().GetGenericArguments()[0].GetField("Cast", Flags);
 var present = (Func<AbilityCast, int, bool>)Delegate.CreateDelegate(typeof(Func<AbilityCast, int, bool>),
     typeof(AbilityCast).GetMethod("IsNodePresent", Flags));
+var nodesProperty = typeof(CompiledAbility).GetProperty("Nodes", Flags);
+var decorationFlags = new Dictionary<CompiledAbility, bool[]>();
+var selectionRanges = new Dictionary<string, float?>();
+Func<int> worldfallDraws = null;
 var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
 var runner = runnerType.GetProperty("Instance").GetValue(null);
 var boundary = runnerType.GetProperty("IsAtCycleBoundary");
@@ -264,6 +271,10 @@ foreach (var definition in definitions) ConstructedAbilityService.Register(defin
 var scheduled = new HashSet<string>(definitions.Select(definition => definition.Id));
 await Game.NextFrame();
 await Game.WaitUntil(AtBoundary, 1800);
+float[] startBounds = {
+    participants.Min(actor => actor.current_position.x), participants.Min(actor => actor.current_position.y),
+    participants.Max(actor => actor.current_position.x), participants.Max(actor => actor.current_position.y)
+};
 Save("prepared", new
 {
     participants = participants.Select(actor => new { actor.id, actor.data.name, x = actor.current_position.x,
@@ -297,6 +308,11 @@ void Hit(ConstructedContact fact)
     hitsByCast.TryGetValue(fact.CastId, out int prior);
     hitsByCast[fact.CastId] = prior + 1;
     if (fact.Damage.HealthLost <= 0) return;
+    if (fpsCheck)
+    {
+        minHit = Vector2.Min(minHit, (Vector2)fact.Position);
+        maxHit = Vector2.Max(maxHit, (Vector2)fact.Position);
+    }
     damage += fact.Damage.HealthLost;
     damagedActors.Add(fact.TargetId);
     confirmedLanes.Add(lanes[fact.SourceId]);
@@ -318,13 +334,36 @@ void ActionFact(ConstructedActionEvent fact)
     if (scene == "solo" && fact.AbilityId == definitions[0].Id && fact.Fact.Node < 0 &&
         fact.Fact.ContactKind == AbilityActionContactKind.World) landings++;
 }
+bool[] Decorations(CompiledAbility plan)
+{
+    if (decorationFlags.TryGetValue(plan, out var flags)) return flags;
+    var nodes = (Array)nodesProperty.GetValue(plan);
+    var role = nodes.GetType().GetElementType().GetField("ContactRole", Flags);
+    flags = new bool[nodes.Length];
+    for (int i = 0; i < nodes.Length; i++)
+        flags[i] = (ConstructionContactRole)role.GetValue(nodes.GetValue(i)) == ConstructionContactRole.Decoration;
+    decorationFlags.Add(plan, flags);
+    selectionRanges[plan.Id] = plan.TargetRange;
+    return flags;
+}
 int[] Counts()
 {
-    int generated = 0, moving = 0;
+    int generated = 0, moving = 0, actors = World.world.units.getSimpleList().Count;
+    int subjects = 0, decorations = 0;
     foreach (object running in casts)
     {
         var cast = (AbilityCast)castField.GetValue(running);
         generated += cast.Plan.FormCount;
+        if (fpsCheck)
+        {
+            var flags = Decorations(cast.Plan);
+            for (int part = 0; part < flags.Length; part++)
+            {
+                if (!present(cast, part)) continue;
+                if (flags[part]) decorations++;
+                else subjects++;
+            }
+        }
         if (scene != "moving" || cast.Plan.Id != definitions[0].Id) continue;
         for (int part = 1; part < cast.Plan.FormCount; part++)
             if (cast.Velocity(part).sqrMagnitude > .001f && present(cast, part)) moving++;
@@ -335,7 +374,10 @@ int[] Counts()
         if (firstBlade.HasValue) travel = Math.Max(travel, Math.Abs(position.x - firstBlade.Value.x));
     }
     peakMoving = Math.Max(peakMoving, moving);
-    return new[] { World.world.units.getSimpleList().Count, casts.Count, generated, FormVisualScene.Instances.Count, moving };
+    int visible = FormVisualScene.Instances.Count;
+    return fpsCheck
+        ? new[] { actors, casts.Count, generated, visible, moving, subjects, decorations, worldfallDraws?.Invoke() ?? 0 }
+        : new[] { actors, casts.Count, generated, visible, moving };
 }
 void FireDuel()
 {
@@ -402,6 +444,29 @@ try
     result["workload"] = JObject.FromObject(new { settled, starts, finishes, damage, hitsByCast, damageByCast,
         damagedActors, confirmedLanes, peakActive, peakMoving, travel, landings, duels = ClashFacts(), funded, incidentalStarts });
     result["countColumns"] = new JArray("actors", "runningCasts", "compiledPartsOfRunningCasts", "visibleInstances", "movingBlades");
+    if (fpsCheck)
+    {
+        var columns = (JArray)result["countColumns"];
+        columns.Add("presentAbilityParts");
+        columns.Add("presentDecorationParts");
+        columns.Add("worldfallSubmittedParts");
+        var view = observedView ?? new JObject { ["name"] = "native" };
+        if ((string)request["view"] == "worldfall")
+            passed &= result["samples"].Any(sample => (int)sample["counts"][7] > 0);
+        passed &= (int)result["vsync"] == 0 && (int)result["frameLimit"] == -1;
+        bool meetsFrameTarget = (double)result["meanMs"] <= 1000d / 60 && (double)result["p95Ms"] <= 1000d / 60;
+        result["passed"] = passed;
+        result["view"] = view;
+        result["fpsCheck"] = JObject.FromObject(new
+        {
+            target = 60, measured = 1000d / (double)result["meanMs"], meetsFrameTarget,
+            governorTarget = Cultiway.Const.PerformanceSettings.TargetRenderFps, videoRecording = false,
+            map = new[] { MapBox.width, MapBox.height }, combatants = participants.Count,
+            startBounds,
+            damageBounds = damage > 0 ? new[] { minHit.x, minHit.y, maxHit.x, maxHit.y } : null,
+            sampledSelectionRanges = selectionRanges
+        });
+    }
     if (readProfile != null)
     {
         var recorded = readProfile();
@@ -415,6 +480,7 @@ try
     }
     Save("result", result);
     return new { passed, frames = (int)result["frames"], p95Ms = (double)result["p95Ms"],
+        wallStartUnixMs = (long)result["wallStartUnixMs"], wallEndUnixMs = (long)result["wallEndUnixMs"],
         worldSeconds = (double)result["worldSeconds"], started = starts.Count, damage, peakActive, peakMoving, landings, clashes = duels.Count };
 }
 catch (Exception error)

@@ -3312,3 +3312,12 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 500 -- \
 三维飞剑段在另一个已加载 Worldfall 的独立环境运行，使用 `--profile --case moving --view worldfall`。结果里的 `profile` 按实际显示帧保存调度阶段、工作池耗时和绘制命令。嵌套阶段和多线程时间可分别查看。
 
 Linux 上追加 `--measure-allocations` 可另测 Mono 报告的托管对象尺寸。入口使用本机 C 编译器在本次输出目录编译计数器，校准通过后开始取样，结束时解除订阅。将这一轮留给分配分析，整帧时间使用未开启对象计数的对应轮次。
+
+### 常用场景帧率（13.15）
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 500 -- \
+  python3 Scripts/SpellDemos/benchmark_combat_load.py --world "$WORLD_FIXTURE" --fps-check
+```
+
+原版默认跑八人混战和十六人四线交战。用同一存档在 Worldfall 独立环境追加 `--view worldfall --case ordinary`，即可复测普通混战。各场默认独立运行两次，单补一轮用 `--repeat 1 --seed <原种子>`。结果含逐帧间隔和达标标记，以及实际施放、命中、范围及主体与装饰数量。
