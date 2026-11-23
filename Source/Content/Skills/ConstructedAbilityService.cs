@@ -994,7 +994,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PropagationGroundMap.Clear();
         BodyOrganNativeDisplay.ClearWorldState();
         BodyOrganBinding.ClearWorldState();
-        presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
+        presentation = default;
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
         {

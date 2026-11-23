@@ -15,7 +15,9 @@ public sealed partial class AbilityCast
     /// <summary>本次预测开始的地面输入。</summary>
     private PropagationGround savedPropagationGround;
     /// <summary>每个已发布区域的稳定显示身份，不按显示帧建立新的缓存。</summary>
-    private readonly Dictionary<(int Node, int X, int Y), object> propagationVisuals = new();
+    private Dictionary<(int Node, int X, int Y), object> propagationVisuals;
+    /// <summary>只在收集显示时临时查找各区的完成数组，下一次收集复用清空后的表。</summary>
+    private Dictionary<(int X, int Y), Vector3[]> propagationRegions;
 
     /// <summary>更新本轮连通与高度，工作线程只读取这一份完整输入。</summary>
     /// <param name="value">真实地面快照。</param>
@@ -117,48 +119,53 @@ public sealed partial class AbilityCast
             return;
         }
         const int size = 16;
-        var regions = new Dictionary<(int X, int Y), float[]>();
-        for (int i = wave.First; i < wave.End; i++)
+        var regions = propagationRegions ??= new();
+        var owners = propagationVisuals ??= new();
+        try
         {
-            float height = wave.Height(i);
-            if (height <= .000001f) continue;
-            var cell = wave.Route[i];
-            var key = (cell.X / size, cell.Y / size);
-            if (!regions.TryGetValue(key, out var values)) regions.Add(key, values = new float[size * size]);
-            values[cell.X % size + cell.Y % size * size] = height;
-        }
-        var appearance = MatterAppearance(node);
-        foreach (var pair in regions)
-        {
-            var key = (node, pair.Key.X, pair.Key.Y);
-            if (!propagationVisuals.TryGetValue(key, out object owner)) propagationVisuals.Add(key, owner = new object());
-            var origin = new Vector2(pair.Key.X * size, pair.Key.Y * size);
-            var bed = new float[size * size];
-            int stride = size + 2;
-            var border = new Vector3[stride * stride];
-            var borderBed = new float[border.Length];
-            for (int y = -1; y <= size; y++)
-            for (int x = -1; x <= size; x++)
+            for (int i = wave.First; i < wave.End; i++)
             {
-                int worldX = (int)origin.x + x, worldY = (int)origin.y + y;
-                int at = x + 1 + (y + 1) * stride;
-                borderBed[at] = propagationGround.Height(worldX, worldY);
-                if (x >= 0 && y >= 0 && x < size && y < size)
-                {
-                    int cell = x + y * size;
-                    bed[cell] = borderBed[at];
-                    border[at].x = pair.Value[cell];
-                }
-                else if (worldX >= 0 && worldY >= 0 &&
-                         regions.TryGetValue((worldX / size, worldY / size), out var neighbour))
-                    border[at].x = neighbour[worldX % size + worldY % size * size];
+                float height = wave.Height(i);
+                if (height <= .000001f) continue;
+                var cell = wave.Route[i];
+                var key = (cell.X / size, cell.Y / size);
+                if (!regions.TryGetValue(key, out var values)) regions.Add(key, values = new Vector3[size * size]);
+                values[cell.X % size + cell.Y % size * size].x = height;
             }
+            var appearance = MatterAppearance(node);
+            foreach (var pair in regions)
+            {
+                var key = (node, pair.Key.X, pair.Key.Y);
+                if (!owners.TryGetValue(key, out object owner)) owners.Add(key, owner = new object());
+                var origin = new Vector2(pair.Key.X * size, pair.Key.Y * size);
+                var bed = new float[size * size];
+                int stride = size + 2;
+                var border = new Vector3[stride * stride];
+                var borderBed = new float[border.Length];
+                for (int y = -1; y <= size; y++)
+                for (int x = -1; x <= size; x++)
+                {
+                    int worldX = (int)origin.x + x, worldY = (int)origin.y + y;
+                    int at = x + 1 + (y + 1) * stride;
+                    borderBed[at] = propagationGround.Height(worldX, worldY);
+                    if (x >= 0 && y >= 0 && x < size && y < size)
+                    {
+                        int cell = x + y * size;
+                        bed[cell] = borderBed[at];
+                        border[at] = pair.Value[cell];
+                    }
+                    else if (worldX >= 0 && worldY >= 0 &&
+                             regions.TryGetValue((worldX / size, worldY / size), out var neighbour))
+                        border[at] = neighbour[worldX % size + worldY % size * size];
+                }
 
-            var frame = new FormLayerFrame(owner, origin, size, pair.Value, bed, border, borderBed);
-            output.Add(new FormVisualInstance(Plan.Nodes[node].Resource, Matrix4x4.identity,
-                surface: appearance.Surface, matterSurface: appearance.MatterSurface, matter: nodes[node].Matter,
-                dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame, followMatter: Plan.Nodes[node].FollowMatter));
+                var frame = new FormLayerFrame(owner, origin, size, pair.Value, bed, border, borderBed);
+                output.Add(new FormVisualInstance(Plan.Nodes[node].Resource, Matrix4x4.identity,
+                    surface: appearance.Surface, matterSurface: appearance.MatterSurface, matter: nodes[node].Matter,
+                    dye: Plan.Nodes[node].Dye, terrain: terrain, layer: frame, followMatter: Plan.Nodes[node].FollowMatter));
+            }
         }
+        finally { regions.Clear(); }
     }
 
     /// <summary>绘制仍在地面的活动岩片；无作用面的散落部件从这些岩片脱落。</summary>
