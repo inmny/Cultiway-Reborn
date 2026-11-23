@@ -1,0 +1,26 @@
+[System.Runtime.InteropServices.DllImport(__ALLOCATION_LIBRARY__)]
+static extern int cultiway_allocations_begin(string path);
+[System.Runtime.InteropServices.DllImport(__ALLOCATION_LIBRARY__)]
+static extern long cultiway_allocations_total();
+[System.Runtime.InteropServices.DllImport(__ALLOCATION_LIBRARY__)]
+static extern void cultiway_allocations_end();
+
+void CalibrateAllocations()
+{
+    string runtime = Path.Combine(Application.dataPath, "MonoBleedingEdge/x86_64/libmonobdwgc-2.0.so");
+    if (cultiway_allocations_begin(runtime) == 0)
+        throw new InvalidOperationException("本游戏运行时无法开启托管对象计数");
+    const int blocks = 16, blockBytes = 65536;
+    long before = cultiway_allocations_total();
+    var arrays = new byte[blocks][];
+    for (int i = 0; i < blocks; i++) arrays[i] = new byte[blockBytes];
+    long observed = cultiway_allocations_total() - before;
+    GC.KeepAlive(arrays);
+    allocationCalibrationBytes = observed;
+    if (observed < blocks * blockBytes)
+        throw new InvalidOperationException("托管对象计数未通过已知分配量校准");
+}
+
+beginAllocation = CalibrateAllocations;
+stopAllocation = cultiway_allocations_end;
+monoAllocated = cultiway_allocations_total;

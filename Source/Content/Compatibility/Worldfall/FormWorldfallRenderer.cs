@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Cultiway.Core.Performance;
 using Cultiway.Core.Visuals.Forms;
 using HarmonyLib;
 using UnityEngine;
@@ -103,6 +104,7 @@ internal static class FormWorldfallRenderer
     /// <param name="bodyShift">实际身体在桥面、游泳及跳跃时的共同偏移。</param>
     internal static void Prepare(Func<float, float, float> ground, Func<long, Vector3> bodyShift)
     {
+        using var observation = FrameWorkTrace.Measure("draw", "worldfall.prepare");
         solids.Clear();
         transparent.Clear();
         surfaces.Begin((float)World.world.getCurWorldTime());
@@ -172,12 +174,14 @@ internal static class FormWorldfallRenderer
     /// <param name="__0">当前帧命令缓冲。</param>
     private static void DrawSolid(CommandBuffer __0)
     {
+        using var observation = FrameWorkTrace.Measure("draw", "worldfall.solid");
         batch.Begin();
         transparentResource = null;
         LastDrawCount = PrepareVisible(solids, 2);
         visibleTransparent = PrepareVisible(transparent, 4);
         batch.Upload();
         batch.Draw(__0, 2);
+        FrameWorkTrace.RecordSubmission("worldfall", LastDrawCount, batch.DrawCount, batch.UploadBytes);
     }
 
     /// <summary>相机投影已经确定后选择共享网格，主体位置及实际作用保持原资料。</summary>
@@ -206,6 +210,8 @@ internal static class FormWorldfallRenderer
     private static void DrawTransparent(object __instance, CommandBuffer __0)
     {
         if (visibleTransparent == 0) return;
+        using var observation = FrameWorkTrace.Measure("draw", "worldfall.transparent");
+        int previousDraws = batch.DrawCount;
         var scene = (RenderTexture)sceneColor.GetValue(__instance);
         var front = (RenderTexture)foreground.GetValue(__instance);
         FormTransparency.Begin(__0, front.width, front.height, scene.depthBuffer);
@@ -213,6 +219,7 @@ internal static class FormWorldfallRenderer
         FormTransparency.Resolve(__0, transparentResource.Generation.Transparency(), front, scene.depthBuffer,
             new Rect(0, 0, front.width, front.height));
         LastDrawCount += visibleTransparent;
+        FrameWorkTrace.RecordSubmission("worldfall", visibleTransparent, batch.DrawCount - previousDraws, 0);
     }
 
     /// <summary>同一实际部件加入共用批量提交，不改变姿态、表面或透明层。</summary>

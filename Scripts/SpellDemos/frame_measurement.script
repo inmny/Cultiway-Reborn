@@ -1,5 +1,6 @@
 // 各计时入口插入此局部函数，共用帧间隔与内存采样过程。
-async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Action advance = null, Action start = null)
+async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Action advance = null, Action start = null,
+    Action<int> completedFrame = null)
 {
     Game.Resume();
     QualitySettings.vSyncCount = 0;
@@ -26,6 +27,7 @@ async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Acti
         double now = watch.Elapsed.TotalSeconds;
         frames.Add((now - last) * 1000);
         last = now;
+        completedFrame?.Invoke(Time.frameCount - 1);
         advance?.Invoke();
         // 每四分之一秒读主体数与内存，避免每帧遍历和序列化改变被测负载。
         if (now >= nextSample)

@@ -217,16 +217,22 @@ internal sealed class SimulationWorkerPool
         return result;
     }
 
+    /// <summary>工作完成时归账的累计数据，供显示帧间取差值。</summary>
+    internal (long Operations, long AsynchronousOperations, long Items, long WallTicks, long BusyTicks,
+        long WaitTicks, long Slots, long CapacityTicks) ReadActivity() => (
+        Interlocked.Read(ref completedOperations),
+        Interlocked.Read(ref completedAsynchronousOperations),
+        Interlocked.Read(ref completedItems),
+        Interlocked.Read(ref completedWallTicks),
+        Interlocked.Read(ref completedParticipantBusyTicks),
+        Interlocked.Read(ref completedMainWaitTicks),
+        Interlocked.Read(ref completedParticipantSlots),
+        Interlocked.Read(ref completedParticipantCapacityTicks));
+
     internal string GetDiagnostics()
     {
-        long operations = Interlocked.Read(ref completedOperations);
-        long asynchronousOperations = Interlocked.Read(ref completedAsynchronousOperations);
-        long items = Interlocked.Read(ref completedItems);
-        long wallTicks = Interlocked.Read(ref completedWallTicks);
-        long busyTicks = Interlocked.Read(ref completedParticipantBusyTicks);
-        long waitTicks = Interlocked.Read(ref completedMainWaitTicks);
-        long participantSlots = Interlocked.Read(ref completedParticipantSlots);
-        long participantCapacityTicks = Interlocked.Read(ref completedParticipantCapacityTicks);
+        var (operations, asynchronousOperations, items, wallTicks, busyTicks, waitTicks, participantSlots,
+            participantCapacityTicks) = ReadActivity();
         double wallSeconds = wallTicks / (double)Stopwatch.Frequency;
         double busySeconds = busyTicks / (double)Stopwatch.Frequency;
         double waitSeconds = waitTicks / (double)Stopwatch.Frequency;

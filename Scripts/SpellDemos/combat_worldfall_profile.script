@@ -1,0 +1,40 @@
+// 进入已安装模组的真实三维俯瞰。等待切换结束后才开始性能采样。
+var worldfall = AppDomain.CurrentDomain.GetAssemblies().Select(item => item.GetType("FirstPerson.WorldBoxMod", false))
+    .FirstOrDefault(type => type != null) ?? throw new InvalidOperationException("独立游戏未加载 Worldfall");
+var viewMode = worldfall.GetProperty("Instance", Flags).GetValue(null);
+object ViewValue(object target, string name) => target.GetType().GetField(name, Flags)?.GetValue(target) ??
+    target.GetType().GetProperty(name, Flags).GetValue(target);
+object ViewCall(object target, string name, params object[] arguments) =>
+    target.GetType().GetMethod(name, Flags).Invoke(target, arguments);
+
+async Task EnterWorldfall()
+{
+    var sampler = ViewValue(viewMode, "_sampler");
+    ViewCall(sampler, "Invalidate");
+    ViewCall(sampler, "EnsureWorld");
+    MoveCamera.clearFocusUnitOnly();
+    World.world.camera.transform.position = new Vector3(73, 72, World.world.camera.transform.position.z);
+    MoveCamera.instance.forceZoom(8);
+    ViewCall(viewMode, "SetGodView", true);
+    ViewCall(viewMode, "ViewForTest", false);
+    var tip = worldfall.GetField("_godTip", Flags);
+    var tipRate = worldfall.GetField("_godTipRate", Flags);
+    for (int index = 0; index < 420; index++)
+    {
+        await Game.NextFrame();
+        tip.SetValue(viewMode, .55f);
+        tipRate.SetValue(viewMode, 0f);
+        if (!(bool)ViewValue(viewMode, "GodShown") || (float)ViewValue(viewMode, "GodAlpha") < .999f) continue;
+        var engine = ViewValue(viewMode, "GpuRendererForTest");
+        var target = ViewValue(engine, "Output") as RenderTexture;
+        if (target == null || !target.IsCreated()) continue;
+        observedView = new JObject { ["name"] = "worldfall",
+            ["output"] = new JArray(target.width, target.height), ["tip"] = .55f,
+            ["assemblyVersion"] = worldfall.Assembly.GetName().Version.ToString() };
+        return;
+    }
+    throw new InvalidOperationException("Worldfall 俯瞰未完成切换");
+}
+
+beginView = EnterWorldfall;
+endView = () => ViewCall(viewMode, "SetGodView", false);

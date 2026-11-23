@@ -367,6 +367,14 @@ void Begin()
 }
 
 // COMBAT_MEASUREMENT_HELPER
+Action beginProfile = null, endProfile = null;
+Action<int> sampleProfile = null;
+Func<JObject> readProfile = null;
+// COMBAT_FRAME_PROFILE
+Func<Task> beginView = null;
+Action endView = null;
+JObject observedView = null;
+// COMBAT_VIEW_SETUP
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.CastEnded += Finished;
 ConstructedAbilityService.ContactConfirmed += Hit;
@@ -374,7 +382,9 @@ ConstructedAbilityService.ClashConfirmed += Clash;
 ConstructedAbilityService.ActionConfirmed += ActionFact;
 try
 {
-    var result = await Measure(Counts, Ended, Maintain, Begin);
+    if (beginView != null) await beginView();
+    beginProfile?.Invoke();
+    var result = await Measure(Counts, Ended, Maintain, Begin, sampleProfile);
     bool settled = Ended() && (autonomous || finishes.Count == starts.Count && finishes.All(f => !f.Cancelled));
     bool workload = scene switch
     {
@@ -392,6 +402,17 @@ try
     result["workload"] = JObject.FromObject(new { settled, starts, finishes, damage, hitsByCast, damageByCast,
         damagedActors, confirmedLanes, peakActive, peakMoving, travel, landings, duels = ClashFacts(), funded, incidentalStarts });
     result["countColumns"] = new JArray("actors", "runningCasts", "compiledPartsOfRunningCasts", "visibleInstances", "movingBlades");
+    if (readProfile != null)
+    {
+        var recorded = readProfile();
+        result["profile"] = recorded;
+        result["view"] = observedView ?? new JObject { ["name"] = "native" };
+        string view = (string)request["view"];
+        bool hasRendering = recorded[view + "Submissions"].Any(row => (long)row[1] > 0);
+        passed &= hasRendering && recorded["frames"].Count() == (int)result["frames"] && recorded["stages"].Any();
+        if ((bool)request["measureAllocations"]) passed &= (string)recorded["allocationScope"] == "mono-reported-objects";
+        result["passed"] = passed;
+    }
     Save("result", result);
     return new { passed, frames = (int)result["frames"], p95Ms = (double)result["p95Ms"],
         worldSeconds = (double)result["worldSeconds"], started = starts.Count, damage, peakActive, peakMoving, landings, clashes = duels.Count };
@@ -404,6 +425,8 @@ catch (Exception error)
 finally
 {
     Config.paused = true;
+    endProfile?.Invoke();
+    endView?.Invoke();
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Finished;
     ConstructedAbilityService.ContactConfirmed -= Hit;

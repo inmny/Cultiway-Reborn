@@ -1,0 +1,159 @@
+// 采集只存在于测量窗口。阶段数组按显示帧写入，最后一次生成报告。
+var assembly = typeof(AbilityCast).Assembly;
+var traceType = assembly.GetType("Cultiway.Core.Performance.FrameWorkTrace");
+var stageObserver = traceType.GetProperty("StageCompleted", Flags);
+var submissionObserver = traceType.GetProperty("Submitted", Flags);
+var workers = assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
+var worker = workers.GetProperty("Instance", Flags).GetValue(null);
+var activity = (Func<(long operations, long asynchronous, long items, long wall, long busy, long wait, long slots, long capacity)>)
+    workers.GetMethod("ReadActivity", Flags).CreateDelegate(
+        typeof(Func<(long, long, long, long, long, long, long, long)>), worker);
+int capacity = (int)Math.Ceiling((int)request["frameLimit"] * (double)request["sampleSeconds"] * 1.25) + 256;
+int firstFrame = 0;
+var frameIds = new List<int>(capacity);
+var phases = new Dictionary<(string Group, string Stage), double[]>();
+var nativeSubmit = new long[capacity, 3];
+var worldfallSubmit = new long[capacity, 3];
+var workerFrames = new long[capacity, 8];
+var allocatedFrames = new long[capacity];
+var rendererDraws = new long[capacity];
+var rendererBatches = new long[capacity];
+var gpuTimings = new double[capacity];
+var frameTiming = new FrameTiming[1];
+var allocationMethod = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread", BindingFlags.Public | BindingFlags.Static);
+var mainAllocated = allocationMethod == null ? null : (Func<long>)allocationMethod.CreateDelegate(typeof(Func<long>));
+ProfilerRecorder allocated = default, draws = default, batches = default;
+(long operations, long asynchronous, long items, long wall, long busy, long wait, long slots, long capacity) previous = default;
+long lastAllocation = 0;
+bool attached = false;
+Func<long> monoAllocated = null;
+Action beginAllocation = null, stopAllocation = null;
+long allocationCalibrationBytes = 0;
+// MONO_ALLOCATION_COUNTER
+
+void RecordStage(int frame, string group, string stage, double elapsed)
+{
+    int index = frame - firstFrame;
+    if (index < 0 || index >= capacity) return;
+    if (!phases.TryGetValue((group, stage), out var values)) phases.Add((group, stage), values = new double[capacity]);
+    values[index] += elapsed;
+}
+void RecordDraw(int frame, string view, int instances, int count, int bytes)
+{
+    int index = frame - firstFrame;
+    if (index < 0 || index >= capacity) return;
+    var target = view == "native" ? nativeSubmit : worldfallSubmit;
+    target[index, 0] += instances;
+    target[index, 1] += count;
+    target[index, 2] += bytes;
+}
+void StartProfile()
+{
+    if (stageObserver.GetValue(null) != null || submissionObserver.GetValue(null) != null)
+        throw new InvalidOperationException("已经有正在测量的帧记录");
+    beginAllocation?.Invoke();
+    allocated = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame", 1);
+    draws = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count", 1);
+    batches = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Batches Count", 1);
+    firstFrame = Time.frameCount;
+    previous = activity();
+    lastAllocation = monoAllocated?.Invoke() ?? mainAllocated?.Invoke() ?? 0;
+    stageObserver.SetValue(null, (Action<int, string, string, double>)RecordStage);
+    submissionObserver.SetValue(null, (Action<int, string, int, int, int>)RecordDraw);
+    attached = true;
+}
+void SampleProfile(int frame)
+{
+    int index = frame - firstFrame;
+    if (index < 0 || index >= capacity) return;
+    frameIds.Add(index);
+    var current = activity();
+    workerFrames[index, 0] = current.operations - previous.operations;
+    workerFrames[index, 1] = current.asynchronous - previous.asynchronous;
+    workerFrames[index, 2] = current.items - previous.items;
+    workerFrames[index, 3] = current.wall - previous.wall;
+    workerFrames[index, 4] = current.busy - previous.busy;
+    workerFrames[index, 5] = current.wait - previous.wait;
+    workerFrames[index, 6] = current.slots - previous.slots;
+    workerFrames[index, 7] = current.capacity - previous.capacity;
+    previous = current;
+
+    if (monoAllocated != null)
+    {
+        long currentAllocation = monoAllocated();
+        allocatedFrames[index] = currentAllocation - lastAllocation;
+        lastAllocation = currentAllocation;
+    }
+    else if (allocated.Valid) allocatedFrames[index] = allocated.LastValue;
+    else if (mainAllocated != null)
+    {
+        long currentAllocation = mainAllocated();
+        allocatedFrames[index] = currentAllocation - lastAllocation;
+        lastAllocation = currentAllocation;
+    }
+    if (draws.Valid) rendererDraws[index] = draws.LastValue;
+    if (batches.Valid) rendererBatches[index] = batches.LastValue;
+    if (FrameTimingManager.IsFeatureEnabled())
+    {
+        FrameTimingManager.CaptureFrameTimings();
+        if (FrameTimingManager.GetLatestTimings(1, frameTiming) != 0)
+            gpuTimings[index] = frameTiming[0].gpuFrameTime;
+    }
+}
+object Statistics(double[] frames)
+{
+    var sorted = frames.OrderBy(value => value).ToArray();
+    double Fraction(double fraction) => sorted[(int)Math.Ceiling((sorted.Length - 1) * fraction)];
+    return sorted.Length == 0 ? null : new { mean = sorted.Average(), p95 = Fraction(.95), p99 = Fraction(.99), max = sorted[sorted.Length - 1] };
+}
+JObject ReportProfile()
+{
+    var stageRows = phases.OrderBy(row => row.Key.Group).ThenBy(row => row.Key.Stage).Select(row =>
+    {
+        var values = frameIds.Select(index => row.Value[index]).ToArray();
+        return new { group = row.Key.Group, stage = row.Key.Stage, milliseconds = values, summary = Statistics(values) };
+    }).ToArray();
+    long[] WorkerColumn(int column) => frameIds.Select(index => workerFrames[index, column]).ToArray();
+    long[][] Submission(long[,] view) => frameIds.Select(index => new[] { view[index, 0], view[index, 1], view[index, 2] }).ToArray();
+    double frequency = System.Diagnostics.Stopwatch.Frequency;
+    double[] WaitMilliseconds(int column) => WorkerColumn(column).Select(value => value / frequency * 1000).ToArray();
+    long summedBusy = WorkerColumn(4).Sum(), summedCapacity = WorkerColumn(7).Sum();
+    var sampledGpu = frameIds.Select(index => gpuTimings[index]).Where(value => value > 0).ToArray();
+    var allocatedBytes = frameIds.Select(index => allocatedFrames[index]).ToArray();
+    string allocationScope = !allocatedBytes.Any(value => value > 0) ? null :
+        monoAllocated != null ? "mono-reported-objects" : allocated.Valid ? "unity-frame" : "managed-main-thread";
+    return JObject.FromObject(new
+    {
+        frames = frameIds.Select(index => index + firstFrame).ToArray(),
+        stages = stageRows,
+        worker = new { operations = WorkerColumn(0), asynchronous = WorkerColumn(1), items = WorkerColumn(2), slots = WorkerColumn(6),
+            operationMilliseconds = WaitMilliseconds(3), participantMilliseconds = WaitMilliseconds(4), waitMilliseconds = WaitMilliseconds(5),
+            waiting = Statistics(WaitMilliseconds(5)), utilization = summedCapacity == 0 ? (double?)null : (double)summedBusy / summedCapacity },
+        allocationScope,
+        allocationCalibrationBytes,
+        managedAllocatedBytes = allocationScope == null ? null : allocatedBytes,
+        submissionColumns = new[] { "instances", "drawCommands", "uploadedBytes" },
+        nativeSubmissions = Submission(nativeSubmit),
+        worldfallSubmissions = Submission(worldfallSubmit),
+        allUnityDraws = draws.Valid ? frameIds.Select(index => rendererDraws[index]).ToArray() : null,
+        allUnityBatches = batches.Valid ? frameIds.Select(index => rendererBatches[index]).ToArray() : null,
+        gpuObservations = sampledGpu,
+        gpuObservationSummary = Statistics(sampledGpu)
+    });
+}
+void StopProfile()
+{
+    if (attached)
+    {
+        stageObserver.SetValue(null, null);
+        submissionObserver.SetValue(null, null);
+    }
+    allocated.Dispose();
+    draws.Dispose();
+    batches.Dispose();
+    stopAllocation?.Invoke();
+}
+beginProfile = StartProfile;
+sampleProfile = SampleProfile;
+readProfile = ReportProfile;
+endProfile = StopProfile;

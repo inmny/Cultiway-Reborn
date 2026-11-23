@@ -514,6 +514,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="now">本轮世界时间。</param>
     private void CaptureActors(double now)
     {
+        using var observation = FrameWorkTrace.Measure("combat", "actors.capture");
         actorsSampled = true;
         changedActors.Clear();
         sampleUntil = now;
@@ -607,6 +608,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="step">共同步长。</param>
     private void Predict(double clock, float step)
     {
+        using var observation = FrameWorkTrace.Measure("combat", "predict");
         shapes.Clear();
         shapeIndex.Clear();
         weaponsBefore.Clear();
@@ -690,6 +692,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="refresh">外部事实改变后只重新采样，不推进或扫过瞬移路径。</param>
     private void AdvanceAll(double time, float step, bool refresh = false)
     {
+        using var observation = FrameWorkTrace.Measure("combat", "advance");
         steps.Clear();
         weaponFollowers.Clear();
         int work = 0;
@@ -944,6 +947,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="step">共同步长。</param>
     private ContactChoice? FindFirst(double clock, float step)
     {
+        using var observation = FrameWorkTrace.Measure("combat", "find.contact");
         ContactChoice? first = null;
         // 小规模选择直接检查。地块与人物很多时，单一形状也可能形成满块。
         bool batchSweeps = shapes.Count >= 16 || actors.Count >= 32 ||
@@ -1257,6 +1261,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="hit">共同时间最早的真实接触。</param>
     private static void Resolve(in ContactChoice hit)
     {
+        using var timing = FrameWorkTrace.Measure("combat", "resolve.contact");
         if (hit.Flight != null)
         {
             ConstructedActorImpulse.ContactBody(hit.Flight, hit.Environment.Value, simulation.contactTime);
