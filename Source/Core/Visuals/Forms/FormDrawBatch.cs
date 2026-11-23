@@ -93,7 +93,10 @@ internal sealed class FormDrawBatch
         if (!UseInstancing || InstanceCount == 0) return;
         for (int group = 0; group < groupCount; group++)
         {
-            Group current = groups[group]; current.Start = data.Count / 12;
+            Group current = groups[group];
+            // 单独一个部件直接提交，不为它建立和上传实例资料。
+            if (current.Items.Count == 1) continue;
+            current.Start = data.Count / 12;
             foreach (FormDrawItem item in current.Items)
             {
                 int pose = -1;
@@ -116,6 +119,7 @@ internal sealed class FormDrawBatch
                 data.Add(new Vector4(item.Anchor.x, item.Anchor.y, (item.ClosedVolume ? 1f : 0f) + (item.Resource?.Description.HideBelowGround == true ? 2f : 0f), pose));
             }
         }
+        if (data.Count == 0) return;
         if (poses.Count == 0) poses.Add(Vector4.zero);
         Resize(ref instanceBuffer, data.Count); Resize(ref poseBuffer, poses.Count);
         instanceBuffer.SetData(data); poseBuffer.SetData(poses);
@@ -137,7 +141,7 @@ internal sealed class FormDrawBatch
             properties.SetFloat(DepthScale, scale); properties.SetFloat(DepthBias, bias);
             properties.SetFloat("_TerrainEnabled", first.Terrain == null ? 0f : 1f);
             if (first.Terrain != null) { properties.SetTexture("_TerrainHeights", first.Terrain); properties.SetVector("_TerrainSize", first.TerrainSize); }
-            if (UseInstancing)
+            if (UseInstancing && group.Items.Count > 1)
             {
                 properties.SetBuffer(Instances, instanceBuffer); properties.SetBuffer(Poses, poseBuffer); properties.SetInt(Start, group.Start);
                 commands.DrawMeshInstancedProcedural(group.Key.Mesh, 0, group.Key.Material, pass, group.Items.Count, properties); DrawCount++;

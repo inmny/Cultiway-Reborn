@@ -158,10 +158,10 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
             for (int repeat = 0; repeat < 2; repeat++) foreach (string mode in new[] { "native", "worldfall", "firstperson" })
                 {
                     Publish(stableInstance); await Enter(mode); await Frames(5);
-                    var properties = new MaterialPropertyBlock(); var first = (MeshRenderer)Get(views[0], "Renderer"); first.GetPropertyBlock(properties);
-                    Check(Delta(properties.GetMatrix("_FormMatrix"), stableInstance.PartTransform(0)) < .0001f, mode + "同一发布姿态不被视角改写", new { repeat, matrix = M(properties.GetMatrix("_FormMatrix")) });
+                    var matrix = (Matrix4x4)Get(Get(views[0], "Draw"), "Transform");
+                    Check(Delta(matrix, stableInstance.PartTransform(0)) < .0001f, mode + "同一发布姿态不被视角改写", new { repeat, matrix = M(matrix) });
                     var commands = World.world.camera.GetCommandBuffers(CameraEvent.AfterForwardAlpha).Single(c => c.name == "Cultiway.NativeScene");
-                    bool nativeVisible = (World.world.camera.cullingMask & (1 << first.gameObject.layer)) != 0;
+                    bool nativeVisible = (World.world.camera.cullingMask & (int)Get(native, "LayerMask")) != 0;
                     Check(nativeVisible ? commands.sizeInBytes > 0 : commands.sizeInBytes == 0, mode + "遵守真实相机图层，不遗留二维模型副本", new { repeat, mask = World.world.camera.cullingMask, commands = commands.sizeInBytes, nativeVisible });
                     if (mode == "native")
                     {

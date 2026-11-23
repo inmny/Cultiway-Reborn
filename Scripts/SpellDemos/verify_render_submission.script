@@ -1,0 +1,70 @@
+            // 实际相机只提交画面内的部件；在原来场景追加材质和视线边缘对照。
+            foreach (string mode in new[] { "native", "worldfall" })
+            {
+                await Enter(mode);
+                var camera = World.world.camera;
+                var nativePass = camera.GetComponent<FormNativeScenePass>();
+                var batch = mode == "native" ? Get(nativePass, "batch") : rendererType.GetField("batch", Flags).GetValue(null);
+                int Number(string name) => (int)Get(batch, name);
+                var origin = new Vector3(71, 66, 2);
+                Vector3 Position(float x, float y)
+                {
+                    if (mode == "native")
+                    {
+                        Vector3 p = camera.ViewportToWorldPoint(new Vector3(x * .5f + .5f, y * .5f + .5f, 2));
+                        return new Vector3(p.x, p.y - origin.z, origin.z);
+                    }
+                    Matrix4x4 vp = Shader.GetGlobalMatrix("_FP_VP"), inverse = vp.inverse;
+                    Vector4 clip = vp * new Vector4(origin.x, origin.y, origin.z, 1);
+                    Vector4 world = inverse * new Vector4(x * clip.w, y * clip.w, clip.z, clip.w);
+                    return new Vector3(world.x, world.y, world.z) / world.w;
+                }
+                var terrain = new AbilityHeightField(1, 1, new Vector2(256, 256), new[] { 0f });
+                FormVisualInstance Blade(float x, float y, float size, string surface, bool tinted = false) =>
+                    new FormVisualInstance(sword, Matrix4x4.TRS(Position(x, y), Quaternion.identity, Vector3.one * size),
+                        surface: surface, tint: tinted ? new Color(.7f, .92f, 1f, .48f) : (Color?)null,
+                        terrain: terrain);
+                if (!detailOnly)
+                {
+                // 所有副本共用网格和表面，但各自留有变换。
+                var normal = Enumerable.Range(0, 8).Select(i => Blade(i * .13f - .47f, 0, .76f, "metal")).ToArray();
+                Publish(normal);
+                await Frames(6);
+                int visible = Number("InstanceCount"), draws = Number("DrawCount"), uploaded = Number("UploadBytes");
+                Check(visible == normal.Sum(form => form.PartCount) && draws < visible && uploaded > 0,
+                    mode + " 重复金属部件实际合批", new { visible, draws, uploaded });
+                var elsewhere = Enumerable.Range(0, 32).Select(i => Blade(4f + i * .05f, 0, .76f, "water", true));
+                Publish(normal.Concat(elsewhere).ToArray()); await Frames(6);
+                Check(Number("InstanceCount") == visible && Number("DrawCount") == draws &&
+                      Number("UploadBytes") == uploaded && (mode != "worldfall" ||
+                          (int)rendererType.GetField("visibleTransparent", Flags).GetValue(null) == 0),
+                    mode + " 完全离开画面的透明部件不提交也不上传", new { visible, after = Number("InstanceCount"), draws });
+                Publish(normal.Concat(new[] { Blade(.99f, 0, .76f, "water", true) }).ToArray()); await Frames(6);
+                Check(Number("InstanceCount") > visible, mode + " 仍有部分入镜的边缘形体保留");
+                Shot(mode + "画面边缘和透明水面"); await Frames();
+                }
+                var whale = FormResources.Load("water_whale");
+                var rest = whale.Rig.CreatePose();
+                whale.Rig.Sample(whale.Rig.Motion("swim"), .31f, rest);
+                FormVisualInstance Whale(float x, float size, string surface) =>
+                    new FormVisualInstance(whale,
+                        Matrix4x4.TRS(Position(x, 0), Quaternion.identity, Vector3.one * size),
+                        surface: surface, terrain: terrain, skin: rest.Skin, poseBounds: rest.Bounds);
+                Publish(Whale(0, 4.2f, "water"), Whale(-.45f, .02f, "ice"));
+                await Frames(6);
+                var groups = (IList)Get(batch, "groups");
+                var fullMeshes = new HashSet<Mesh>(whale.Meshes);
+                var reducedMeshes = new HashSet<Mesh>(Enumerable.Range(0, whale.Meshes.Length)
+                    .Select(part => whale.DetailMesh(part, 2)).Where(mesh => !fullMeshes.Contains(mesh)));
+                var submitted = Enumerable.Range(0, Number("groupCount")).SelectMany(i =>
+                    ((IEnumerable)Get(groups[i], "Items")).Cast<object>())
+                    .Where(item => ReferenceEquals(Get(item, "Resource"), whale)).ToArray();
+                var close = submitted.Where(item => ((Matrix4x4)Get(item, "Transform")).lossyScale.x > 1f).ToArray();
+                var distant = submitted.Where(item => ((Matrix4x4)Get(item, "Transform")).lossyScale.x < .1f).ToArray();
+                bool Selected(object item, HashSet<Mesh> meshes) => meshes.Contains((Mesh)Get(item, "Mesh"));
+                Check(close.Any(item => Selected(item, fullMeshes)) && distant.Any(item => Selected(item, reducedMeshes)),
+                    mode + " 同一实际画面按像素跨度保留近景并选择远景网格",
+                    new { near = close.Count(item => Selected(item, fullMeshes)),
+                        far = distant.Count(item => Selected(item, reducedMeshes)), instances = Number("InstanceCount") });
+                Shot(mode + "近远及材质切换"); await Frames();
+            }
