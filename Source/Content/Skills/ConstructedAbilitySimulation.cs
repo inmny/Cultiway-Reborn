@@ -67,6 +67,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>身体及形体合计达到此工作量后复用工作池，小批保持主线程计算。</summary>
     private const int MinimumParallelWork = 1024;
 
+    /// <summary>生成形状的每项工作比完整推进轻，使用更高门槛抵消派发的成本。</summary>
+    private const int MinimumParallelContactWork = 4096;
+
     /// <summary>单次施放前后同一部位及形状的对应关系。</summary>
     private readonly Dictionary<(int, int), AbilityCapsule> previousShapes = new();
 
@@ -576,8 +579,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (running.BodyControlled && running.BodyGuardRemaining > 0f)
                 running.BeforeGuardNormal = running.Body.GuardNormal(running.Cast.BodyPose.Value);
             running.Cast.SaveStep();
-            Collect(running, running.Before, false);
         }
+        CollectGeneratedContacts(false);
+        foreach (RunningCast running in active)
+            if (!running.Practice && running.BodyControlled)
+                CollectBodyContacts(running.Body, running.Cast, running.Before, false);
 
         IndexCorrespondenceStarts();
         foreach (RunningCast running in active) RefreshReentry(running, clock);
@@ -585,9 +591,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         CaptureActingSurfaces(clock, true);
         AdvanceAll(clock + step, step);
         CaptureActingSurfaces(clock + step, false);
+        CollectGeneratedContacts(true);
         foreach (RunningCast running in active)
         {
-            Collect(running, running.After, true);
+            if (!running.Practice && running.BodyControlled)
+                CollectBodyContacts(running.Body, running.Cast, running.After, true);
             previousShapes.Clear();
             foreach (AbilityCapsule shape in running.Before) previousShapes.Add((shape.Node, shape.Shape), shape);
             foreach (AbilityCapsule shape in running.After)
@@ -795,14 +803,48 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         actor.updatePos();
     }
 
-    /// <summary>读取相同姿态下的生成作用形状及实际掌面或借用器物。</summary>
-    /// <param name="running">本次施放。</param>
-    /// <param name="output">复用形状集合。</param>
+    /// <summary>批量读取已采样的生成形状，每次施放只填自己的列表。实际身体和索引随后在主线程读取。</summary>
+    /// <param name="includeEnd">是否保留最后有效路径。</param>
+    private void CollectGeneratedContacts(bool includeEnd)
+    {
+        int work = 0;
+        foreach (RunningCast running in active)
+            if (running.Cast.Plan.FormCount > 0) work += running.Cast.Plan.WorkSize;
+
+        bool includeMaterials = includeReactiveMaterials;
+        if (work < MinimumParallelContactWork || active.Count < 2)
+        {
+            for (int i = 0; i < active.Count; i++) Collect(i);
+        }
+        else AbilityBatch.RunIndependent(active.Count, work, Collect);
+
+        void Collect(int index)
+        {
+            RunningCast running = active[index];
+            List<AbilityCapsule> output = includeEnd ? running.After : running.Before;
+            ReadGeneratedContacts(running.Cast, output, includeEnd, includeMaterials);
+        }
+    }
+
+    /// <summary>生成形状采样由预测与单次调试共用。</summary>
+    /// <param name="cast">当前已确定姿态的施放。</param>
+    /// <param name="output">当前施放独占的结果列表。</param>
+    /// <param name="includeEnd">是否保留最后有效路径。</param>
+    /// <param name="includeMaterials">是否采样可反应而无攻击的材料。</param>
+    private static void ReadGeneratedContacts(AbilityCast cast, List<AbilityCapsule> output, bool includeEnd,
+        bool includeMaterials)
+    {
+        output.Clear();
+        cast.AppendContacts(output, includeEnd, includeMaterials);
+    }
+
+    /// <summary>调试显示需要相同姿态下的生成形状和实际身体。</summary>
+    /// <param name="running">当前调试施放。</param>
+    /// <param name="output">当前调试结果列表。</param>
     /// <param name="includeEnd">是否保留最后有效路径。</param>
     private static void Collect(RunningCast running, List<AbilityCapsule> output, bool includeEnd)
     {
-        output.Clear();
-        running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
+        ReadGeneratedContacts(running.Cast, output, includeEnd, includeReactiveMaterials);
         if (!running.Practice && running.BodyControlled)
             CollectBodyContacts(running.Body, running.Cast, output, includeEnd);
     }

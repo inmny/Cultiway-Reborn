@@ -3201,3 +3201,15 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ### 战斗、功能和世界过程的存读录像（12.15）
 
 铁锤的 `verify_instant_cast_archive.py` 两段、阵门的 `verify_facility_archive.py --archive`、防火的 `verify_world_condition_archive.py --section cold --archive` 都可加 `--film`。用独立原版游戏运行，并保留原先的正式资料与存读检查。录像按真实世界时间编码。输入和交付见[存档与载入实机验收](../../Doc/技能系统全面重构/存档与载入实机验收.md)。
+
+
+### 跨施放批量采样（13.03）
+
+在任务所属独立游戏中运行以下命令。已有命名环境请给 `dev.py` 加上对应的 `--name`。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py run Scripts/SpellDemos/benchmark_construction_contact_batch.script --timeout 120
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- python3 Scripts/SpellDemos/verify_parallel_contact_batch.py
+```
+
+第一条用同一组数值输入比较顺序与并行，结果分别记录生成形状、时间及一致性。第二条读现成测试世界，通过正式入口作一次剑形交锋，记录参与采样的线程、抵消与伤害，并验证换世界清理。原始脚本及结果由独立游戏工具归档。计时范围和实测结果见[性能基线](../../Doc/技能系统全面重构/性能基线.md#1303-实测与交付)。
