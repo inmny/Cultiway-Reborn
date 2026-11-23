@@ -1,5 +1,5 @@
-// 此局部函数由计时入口插入两种游戏脚本，共用完全相同的采样过程。
-async Task<JObject> Measure(Func<int[]> counts)
+// 各计时入口插入此局部函数，共用帧间隔与内存采样过程。
+async Task<JObject> Measure(Func<int[]> counts, Func<bool> finished = null, Action advance = null, Action start = null)
 {
     Game.Resume();
     QualitySettings.vSyncCount = 0;
@@ -17,14 +17,16 @@ async Task<JObject> Measure(Func<int[]> counts)
     long managedStart = GC.GetTotalMemory(false);
     int[] gcStart = { GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2) };
     watch.Restart();
+    start?.Invoke();
     double last = 0, nextSample = 0;
     double seconds = (double)request["sampleSeconds"];
-    while (watch.Elapsed.TotalSeconds < seconds)
+    while (watch.Elapsed.TotalSeconds < seconds && finished?.Invoke() != true)
     {
         await Game.NextFrame();
         double now = watch.Elapsed.TotalSeconds;
         frames.Add((now - last) * 1000);
         last = now;
+        advance?.Invoke();
         // 每四分之一秒读主体数与内存，避免每帧遍历和序列化改变被测负载。
         if (now >= nextSample)
         {

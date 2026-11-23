@@ -3272,3 +3272,14 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 140 -- python3 Scri
 像素段从真实绘制目标读取单件、实例、材质和透明结果，不依赖外部模组。视角段需要启动实际安装了 Worldfall 的环境，复用原版及三维的遮挡场景，附加屏幕边缘和离屏实例的提交记录。传播波面实机继续用 `verify_construction_allocation.py`。
 
 `--section detail` 和 `--section fade` 可单补远近网格及过渡。用 `--fixture` 指定前后相同的旧测试世界；旧过渡绝对断言的结果仍原样保留。两版画面都取到后，用 `--section compare --before <旧输出目录> --after <新输出目录>` 比较，复验程序不启动游戏。
+
+### 六类战斗负载（13.12）
+
+在已启动的独立硬件渲染游戏中，传入同一个平坦世界的存档目录。实测使用已有空载基线世界，地图尺寸 256×256，场地中心在 (73, 72)。
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 500 -- \
+  python3 Scripts/SpellDemos/benchmark_combat_load.py --world "$WORLD_FIXTURE" --case all
+```
+
+单场复验用 `ordinary`、`solo`、`duel`、`groups`、`domains` 或 `moving`。程序为每场归档世界散列值、输入及实际人物、扣费、施放和结算，输出逐帧间隔和定期内存与部件采样。默认 1280×720、正常世界速度、帧率上限 60，使用普通游戏相机。脚本不进行录像。
