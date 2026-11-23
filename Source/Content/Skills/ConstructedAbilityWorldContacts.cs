@@ -126,8 +126,10 @@ public sealed partial class ConstructedAbilityService
     /// <param name="bodyStage">指定身体作用，负一沿用当前实例。</param>
     /// <param name="oldScope">原作用只接受边界前的真实路径。</param>
     /// <param name="endpointOnly">新作用只接受边界处接触。</param>
+    /// <param name="queue">正式模拟批量检查时的入口，单块预览直接确认。</param>
     private void FindWorldContacts(in ShapeMotion shape, float step, Action<ContactChoice> include,
-        int bodyStage = -1, bool oldScope = false, bool endpointOnly = false)
+        int bodyStage = -1, bool oldScope = false, bool endpointOnly = false,
+        Action<ContactSweep, ContactSweepTarget> queue = null)
     {
         RunningCast running = shape.Running;
         if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration) return;
@@ -135,6 +137,7 @@ public sealed partial class ConstructedAbilityService
         if (!running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until) ||
             !TouchPath(shape, step, out float touchFrom)) return;
         from = Mathf.Max(from, touchFrom);
+        float exclusive = oldScope ? 1f : float.PositiveInfinity;
         IReadOnlyList<CompiledConstructionWorldEffect> effects = running.Cast.ImpactAtStage(shape.To.Node, stage).WorldEffects;
         float ready = running.Cast.WorldContactReadyAt(shape.To.Node, shape.To.Shape);
         bool signal = ready <= running.Cast.Age;
@@ -153,23 +156,20 @@ public sealed partial class ConstructedAbilityService
                     Mathf.Max(from, ready > running.Cast.Age - step ?
                         Mathf.Clamp01((ready - (running.Cast.Age - step)) / step) : 0f);
                 AbilityCapsule surface = WorldTileShape(tile);
-                float at; Vector3 point, normal;
-                bool found;
                 if (shape.To.Node < 0 && running.Cast.Plan.Body.Part.IsJoint)
                 {
                     BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;
                     BodySurfacePose start = BodySurfacePose.Lerp(running.BeforeJoint.Contact, end, earliest);
-                    found = BodySurfacePose.Find(start, end, surface, surface, "surface", out at, out var anchor, out normal);
-                    point = found ? anchor.Point(BodySurfacePose.Lerp(start, end, at)) : default;
-                    normal = -normal;
+                    if (BodySurfacePose.Find(start, end, surface, surface, "surface", out float at, out var anchor, out var normal))
+                    {
+                        float fraction = Mathf.Lerp(earliest, 1f, at);
+                        if (fraction <= until && fraction < exclusive)
+                            include(new ContactChoice(shape, default, null, fraction,
+                                anchor.Point(BodySurfacePose.Lerp(start, end, at)), -normal, step, tile: tile, worldEffect: -1));
+                    }
                 }
-                else
-                    found = AbilityPairSweep.Find(Slice(shape.From, shape.To, earliest), shape.To,
-                        surface, surface, out at, out point, out normal);
-                float fraction = Mathf.Lerp(earliest, 1f, at);
-                if (found && fraction <= until && !(oldScope && fraction >= 1f))
-                    include(new ContactChoice(shape, default, null, fraction, point, normal, step,
-                        tile: tile, worldEffect: -1));
+                else Submit(new ContactSweep(Slice(shape.From, shape.To, earliest), shape.To, surface, surface,
+                        earliest, until, exclusive), new ContactSweepTarget(shape, tile: tile, worldEffect: -1));
             }
             for (int effect = 0; effect < effects.Count; effect++)
             {
@@ -189,13 +189,15 @@ public sealed partial class ConstructedAbilityService
                 if (pulse && endpoint && earliest < 1f - .000001f) continue;
                 if (endpoint) earliest = 1;
                 AbilityCapsule start = Slice(shape.From, shape.To, earliest);
-                if (!AbilityPairSweep.Find(start, pulse ? start : shape.To, surface, surface, out float at,
-                        out Vector3 point, out Vector3 normal)) continue;
-                float fraction = Mathf.Lerp(earliest, 1, at);
-                if (fraction > until || oldScope && fraction >= 1f) continue;
-                include(new ContactChoice(shape, default, null, fraction, point, normal,
-                    step, tile: tile, worldEffect: effect));
+                Submit(new ContactSweep(start, pulse ? start : shape.To, surface, surface, earliest, until, exclusive),
+                    new ContactSweepTarget(shape, tile: tile, worldEffect: effect));
             }
+        }
+
+        void Submit(ContactSweep sweep, ContactSweepTarget target)
+        {
+            if (queue != null) queue(sweep, target);
+            else if (sweep.Find() is { } hit) include(target.Resolve(hit, step));
         }
     }
 
