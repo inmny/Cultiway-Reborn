@@ -119,7 +119,7 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
                     {
                         int index = 0; Matrix4x4 actual = default;
                         foreach (var instance in FormVisualScene.Instances) { if (instance.GroundActorId == actor.id && instance.Resource.Description.Id == "hand") break; index += instance.PartCount; }
-                        var properties = new MaterialPropertyBlock(); ((Renderer)Get(nativeViews[index], "Renderer")).GetPropertyBlock(properties); actual = properties.GetMatrix("_FormMatrix");
+                        actual = (Matrix4x4)Get(Get(nativeViews[index], "Draw"), "Transform");
                         Vector3 shift = actor.move_jump_offset + actor.shake_offset;
                         Check(Vector3.Distance(actual.MultiplyPoint3x4(new Vector3(0, -.04f, 0)), pose.Hand + shift) < .0001f, environment + "原版实际绘制腕点随身体显示偏移");
                     }

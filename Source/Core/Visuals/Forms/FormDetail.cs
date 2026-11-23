@@ -24,6 +24,19 @@ public static class FormDetail
     /// <param name="viewProjection">本帧实际投影。</param><param name="pixels">实际输出像素尺寸。</param>
     public static int Projected(Bounds bounds, Matrix4x4 transform, Matrix4x4 viewProjection, Vector2Int pixels)
     {
+        TryProjected(bounds, transform, viewProjection, pixels, out int level);
+        return level;
+    }
+
+    /// <summary>由同一保守屏幕边界判断是否完全离开画面，并选取实际细节。</summary>
+    /// <param name="bounds">当前部件的保守局部边界。</param>
+    /// <param name="transform">当前实际位姿。</param>
+    /// <param name="viewProjection">本帧确定的三维投影。</param>
+    /// <param name="pixels">实际输出尺寸。</param>
+    /// <param name="level">近、中、远显示等级。</param>
+    internal static bool TryProjected(Bounds bounds, Matrix4x4 transform, Matrix4x4 viewProjection,
+        Vector2Int pixels, out int level)
+    {
         Vector2 minimum = new(float.PositiveInfinity, float.PositiveInfinity), maximum = -minimum;
         Matrix4x4 matrix = viewProjection * transform;
         for (int corner = 0; corner < 8; corner++)
@@ -31,11 +44,17 @@ public static class FormDetail
             Vector3 point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
                 (corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
             Vector4 clip = matrix * new Vector4(point.x, point.y, point.z, 1f);
-            if (clip.w <= .00001f) return 0;
+            if (!(clip.w > .00001f))
+            {
+                level = 0;
+                return true;
+            }
             Vector2 screen = new(clip.x / clip.w, clip.y / clip.w);
             minimum = Vector2.Min(minimum, screen); maximum = Vector2.Max(maximum, screen);
         }
         Vector2 span = (maximum - minimum) * .5f;
-        return Level(Mathf.Max(span.x * pixels.x, span.y * pixels.y));
+        level = Level(Mathf.Max(span.x * pixels.x, span.y * pixels.y));
+        // 跨视线边缘和数值边界时仍留给图形接口裁剪。
+        return minimum.x <= 1.00001f && minimum.y <= 1.00001f && maximum.x >= -1.00001f && maximum.y >= -1.00001f;
     }
 }

@@ -11,13 +11,11 @@ internal static class FormTerrainTextures
     /// <summary>弱引用避免显示缓存延长已经无人使用的地表快照寿命。</summary>
     private static readonly List<(WeakReference<AbilityHeightField> Field, Texture2D Texture)> entries = new();
 
-    /// <summary>为这份完成姿态设置对应地表，不改变共用材质。</summary>
+    /// <summary>为这份完成姿态取得对应地表，不经过逐部件属性块。</summary>
     /// <param name="field">同一逻辑轮次的只读快照。</param>
-    /// <param name="properties">本视图的独占属性。</param>
-    internal static void Bind(AbilityHeightField field, MaterialPropertyBlock properties)
+    internal static Texture2D Get(AbilityHeightField field)
     {
-        properties.SetFloat("_TerrainEnabled", field == null ? 0f : 1f);
-        if (field == null) return;
+        if (field == null) return null;
         Texture2D texture = null;
         foreach (var entry in entries)
             if (entry.Field.TryGetTarget(out AbilityHeightField found) && ReferenceEquals(found, field)) { texture = entry.Texture; break; }
@@ -32,8 +30,7 @@ internal static class FormTerrainTextures
             texture.Apply(false, true);
             entries.Add((new WeakReference<AbilityHeightField>(field), texture));
         }
-        properties.SetTexture("_TerrainHeights", texture);
-        properties.SetVector("_TerrainSize", new Vector4(field.Size.x, field.Size.y, field.Outside, 0));
+        return texture;
     }
 
     /// <summary>主线程回收已经没有快照持有者的纹理，切世界时释放全部。</summary>

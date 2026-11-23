@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Cultiway.Const;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 
@@ -11,23 +10,8 @@ public sealed class FormNativeRenderSystem : BaseSystem
     /// <summary>一个可复用部件视图及本帧已经确定的投影资料。</summary>
     internal sealed class PartView
     {
-        /// <summary>实际网格绘制器。</summary>
-        internal MeshRenderer Renderer;
-
-        /// <summary>缓存的网格入口。</summary>
-        internal MeshFilter Filter;
-
-        /// <summary>本部件的复用参数，在深度范围确定后一起提交。</summary>
-        internal readonly MaterialPropertyBlock Properties = new();
-
         /// <summary>尚未映射到相机范围的完整投影边界。</summary>
         internal Bounds Projection;
-
-        /// <summary>实际姿态的前后位置，越小越近。</summary>
-        internal float Depth;
-
-        /// <summary>相同深度时保留实际发布顺序。</summary>
-        internal int Index;
 
         /// <summary>本次是否为半透明表面。</summary>
         internal bool Transparent;
@@ -41,6 +25,12 @@ public sealed class FormNativeRenderSystem : BaseSystem
         /// <summary>动态曲面保留共同格网，不以静态远景模型替代。</summary>
         internal bool Dynamic;
 
+        /// <summary>需要时才为当前视口建立的动态地表网格。</summary>
+        internal FormLayerFrame Layer;
+
+        /// <summary>薄霜在着色器中沿地图平面重投影，不能按普通边界裁剪。</summary>
+        internal bool FlatNative;
+
         /// <summary>本相机当前使用的显示等级。</summary>
         internal int Detail;
 
@@ -50,6 +40,12 @@ public sealed class FormNativeRenderSystem : BaseSystem
 
     /// <summary>复用到实际显示峰值的部件视图。</summary>
     private readonly List<PartView> views = new();
+
+    /// <summary>整帧的共享表面与默认颜色。</summary>
+    private readonly FormFrameSurfaces surfaces = new(native: true);
+
+    /// <summary>保持原版形体所在的默认相机层；独立绘制验证可使用专用层。</summary>
+    internal int LayerMask { get; set; } = 1;
 
     /// <summary>保持当前绘制使用的完整资源版本。</summary>
     internal FormResource FrameResource => frameResource ??
@@ -75,9 +71,9 @@ public sealed class FormNativeRenderSystem : BaseSystem
     protected override void OnUpdateGroup()
     {
         int index = 0;
-        float minimum = float.PositiveInfinity, maximum = float.NegativeInfinity;
         float time = World.world == null ? 0f : (float)World.world.getCurWorldTime();
         frameResource = null;
+        surfaces.Begin(time);
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
             frameResource ??= instance.Resource;
@@ -93,55 +89,40 @@ public sealed class FormNativeRenderSystem : BaseSystem
                             !instance.Resource.Description.ConformToGround;
             float anchorHeight =
                 anchored ? instance.Terrain.Sample(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
+            Texture2D terrainTexture = FormTerrainTextures.Get(instance.Terrain);
+            Vector4 terrainSize = instance.Terrain == null ? default :
+                new Vector4(instance.Terrain.Size.x, instance.Terrain.Size.y, instance.Terrain.Outside, 0);
             for (int part = 0; part < instance.PartCount; part++)
             {
-                if (index == views.Count) views.Add(CreateView());
-                PartView view = views[index];
-                view.Index = index++;
-                bool changed = !ReferenceEquals(view.Resource, instance.Resource) || view.Part != part;
+                if (index == views.Count) views.Add(new PartView());
+                PartView view = views[index++];
                 view.Resource = instance.Resource;
                 view.Part = part;
                 view.Dynamic = instance.DynamicGeometry;
-                Mesh mesh = instance.MeshFor(part);
-                if (changed || view.Dynamic) view.Filter.sharedMesh = mesh;
-                Material material = instance.Resource.Surface(instance.SurfaceFor(part), true, instance.IsTranslucent);
-                material.SetFloat("_WorldTime", time);
-                view.Renderer.sharedMaterial = material;
+                view.Layer = instance.Layer;
+                Mesh mesh = instance.Geometry ?? instance.Resource.Meshes[part];
+                var surface = surfaces.Get(instance.Resource, instance.SurfaceFor(part), instance.IsTranslucent);
+                FormPartDescription description = instance.Resource.Description.Parts[part];
                 Matrix4x4 transform = instance.PartTransform(part);
                 transform.m03 += bodyOffset.x;
                 transform.m13 += bodyOffset.y;
-                MaterialPropertyBlock properties = view.Properties;
-                properties.Clear();
-                properties.SetMatrix("_FormMatrix", transform);
-                FormTerrainTextures.Bind(instance.Terrain, properties);
-                properties.SetVector("_TerrainAnchor", new Vector4(anchorHeight, anchored ? 1 : 0, 0, 0));
-                properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
-                bool skinned = !instance.DynamicGeometry && instance.Skin != null &&
-                               instance.Resource.Description.Parts[part].Skin;
-                properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
-                properties.SetFloat("_FormHideBelowGround", instance.Resource.Description.HideBelowGround ? 1f : 0f);
-                properties.SetFloat("_FormClosedVolume",
-                    !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
-                properties.SetVector("_FormBuild", new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                    !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength));
-                properties.SetVector("_FormContact", instance.Feedback.Region(new Vector3(bodyOffset.x, bodyOffset.y, 0f)));
-                if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
-                properties.SetColor("_Dye", instance.Dye ?? Color.white);
+                bool skinned = !view.Dynamic && instance.Skin != null && description.Skin;
                 view.Draw = new FormDrawItem
                 {
                     Resource = instance.Resource,
-                    Material = material,
+                    Mesh = view.Layer == null ? mesh : null,
+                    Material = surface.Material,
                     Transform = transform,
-                    Normal = properties.GetMatrix("_FormNormalMatrix"),
                     Skin = skinned ? instance.Skin : null,
-                    Tint = instance.Tint ?? material.GetColor("_Color"),
+                    Tint = instance.Tint ?? surface.Color,
                     Dye = instance.Dye ?? Color.white,
-                    Build = properties.GetVector("_FormBuild"),
-                    Contact = properties.GetVector("_FormContact"),
-                    Anchor = properties.GetVector("_TerrainAnchor"),
-                    ClosedVolume = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData,
-                    Terrain = properties.GetTexture("_TerrainHeights"),
-                    TerrainSize = properties.GetVector("_TerrainSize")
+                    Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
+                        !view.Dynamic && description.HasBuildData ? 1f : 0f, instance.Feedback.Strength),
+                    Contact = instance.Feedback.Region(new Vector3(bodyOffset.x, bodyOffset.y, 0f)),
+                    Anchor = new Vector4(anchorHeight, anchored ? 1 : 0, 0, 0),
+                    ClosedVolume = !view.Dynamic && description.HasSurfaceData,
+                    Terrain = terrainTexture,
+                    TerrainSize = terrainSize
                 };
                 Bounds bounds = instance.Layer != null ? ProjectBounds(instance.Layer.Bounds, Matrix4x4.identity) :
                     instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) :
@@ -159,26 +140,19 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 }
 
                 view.Projection = bounds;
-                view.Depth = bounds.center.z;
-                minimum = Mathf.Min(minimum, bounds.min.z);
-                maximum = Mathf.Max(maximum, bounds.max.z);
-                view.Transparent = material.GetFloat("_ZWrite") < .5f;
-                view.Renderer.sortingOrder = 0;
-                view.Renderer.gameObject.SetActive(true);
+                view.Transparent = surface.Transparent;
+                view.FlatNative = surface.FlatNative;
             }
         }
 
+        int previousCount = ViewCount;
         ViewCount = index;
-        MinimumDepth = minimum;
-        MaximumDepth = maximum;
         if (index > 0 || FormNativeSpriteDeformation.HasPoses) FormNativeScenePass.Attach(World.world.camera, this);
-        while (index < views.Count)
+        while (index < previousCount)
         {
             PartView hidden = views[index++];
-            hidden.Renderer.gameObject.SetActive(false);
-            hidden.Filter.sharedMesh = null;
-            hidden.Renderer.sharedMaterial = null;
             hidden.Resource = null;
+            hidden.Layer = null;
             hidden.Draw = default;
         }
 
@@ -186,12 +160,6 @@ public sealed class FormNativeRenderSystem : BaseSystem
         FormTerrainTextures.Collect();
         FormLayerMeshes.Collect();
     }
-
-    /// <summary>本帧形体的共同前后边界。</summary>
-    internal float MinimumDepth { get; private set; }
-
-    /// <summary>本帧形体的共同后方边界。</summary>
-    internal float MaximumDepth { get; private set; }
 
     /// <summary>相机收集精灵后，把双方一起映射到同一个有精度的深度范围。</summary>
     /// <param name="camera">实际相机。</param>
@@ -204,35 +172,20 @@ public sealed class FormNativeRenderSystem : BaseSystem
                      (minimum + maximum) * .5f * scale;
         DepthScale = scale;
         DepthBias = bias;
-        for (int i = 0; i < ViewCount; i++)
-        {
-            PartView view = views[i];
-            view.Detail = FormDetail.Native(view.Projection, camera);
-            if (!view.Dynamic)
-            {
-                Mesh mesh = view.Resource.DetailMesh(view.Part, view.Detail);
-                if (view.Filter.sharedMesh != mesh) view.Filter.sharedMesh = mesh;
-            }
-
-            view.Properties.SetFloat("_NativeDepthScale", scale);
-            view.Properties.SetFloat("_NativeDepthBias", bias);
-            view.Renderer.SetPropertyBlock(view.Properties);
-            Bounds bounds = view.Projection;
-            Vector3 centre = bounds.center, size = bounds.size;
-            centre.z = centre.z * scale + bias;
-            size.z *= scale;
-            view.Renderer.localBounds = new Bounds(centre, size);
-        }
     }
 
-    /// <summary>为实际需要的部件建立可复用视图，不逐帧获取组件或创建参数块。</summary>
-    private static PartView CreateView()
+    /// <summary>相机只为可能进入画面的部件选择远近几何及法线矩阵。</summary>
+    /// <param name="view">本次可见部件。</param>
+    /// <param name="camera">实际原版相机。</param>
+    internal static FormDrawItem Prepare(PartView view, Camera camera)
     {
-        var root = new GameObject("Cultiway.FormPart", typeof(MeshFilter), typeof(MeshRenderer));
-        MeshRenderer renderer = root.GetComponent<MeshRenderer>();
-        renderer.forceRenderingOff = true;
-        renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
-        return new PartView { Renderer = renderer, Filter = root.GetComponent<MeshFilter>() };
+        view.Detail = FormDetail.Native(view.Projection, camera);
+        FormDrawItem item = view.Draw;
+        item.Mesh = view.Layer != null ? FormLayerMeshes.Get(view.Layer) :
+            view.Dynamic ? item.Mesh : view.Resource.DetailMesh(view.Part, view.Detail);
+        item.Normal = item.Transform.inverse.transpose;
+        view.Draw = item;
+        return item;
     }
 
     /// <summary>计算实际投影平面和未压缩的前后边界，供裁剪与共同深度映射使用。</summary>
@@ -263,7 +216,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
         FormVisualScene.Clear();
         FormTerrainTextures.Collect(true);
         FormLayerMeshes.Collect(true);
-        foreach (PartView view in views) Object.Destroy(view.Renderer.gameObject);
+        surfaces.Begin(0f);
         views.Clear();
     }
 }

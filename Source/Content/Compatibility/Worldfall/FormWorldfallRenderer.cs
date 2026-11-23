@@ -16,6 +16,11 @@ internal static class FormWorldfallRenderer
 
     /// <summary>与原版共用实例及骨架上传，按真实网格、表面和通道合批。</summary>
     private static readonly FormDrawBatch batch = new();
+    /// <summary>本次读取的材质及默认表面色。</summary>
+    private static readonly FormFrameSurfaces surfaces = new(native: false);
+    /// <summary>当前投影下实际透明提交及对应的合成资源。</summary>
+    private static int visibleTransparent;
+    private static FormResource transparentResource;
 
     /// <summary>外部场景的真实深度及前景颜色，透明合成仍使用相同实体遮挡。</summary>
     private static FieldInfo sceneColor, foreground;
@@ -100,7 +105,7 @@ internal static class FormWorldfallRenderer
     {
         solids.Clear();
         transparent.Clear();
-        float time = (float)World.world.getCurWorldTime();
+        surfaces.Begin((float)World.world.getCurWorldTime());
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
             float height = instance.Terrain == null && instance.Geometry == null
@@ -112,7 +117,7 @@ internal static class FormWorldfallRenderer
                 transform.m03 += shift.x;
                 transform.m13 += shift.y;
                 transform.m23 += height + shift.z;
-                AddDraw(in instance, part, transform, time, new Vector3(shift.x, shift.y, height + shift.z));
+                AddDraw(in instance, part, transform, new Vector3(shift.x, shift.y, height + shift.z));
             }
         }
 
@@ -126,37 +131,37 @@ internal static class FormWorldfallRenderer
     {
         var instance = new FormVisualInstance(resource, transform);
         for (int part = 0; part < instance.PartCount; part++)
-            AddDraw(in instance, part, instance.PartTransform(part), (float)World.world.getCurWorldTime());
+            AddDraw(in instance, part, instance.PartTransform(part));
     }
 
     /// <summary>共用形体和器官使用同一材质、深度与提交路径。</summary>
     /// <param name="instance">实际显示实例。</param>
     /// <param name="part">实际资源部件。</param>
     /// <param name="transform">已完成空间转换的姿态。</param>
-    /// <param name="time">当前游戏时间。</param>
     /// <param name="shift">本视图实际施加的身体及地面偏移。</param>
-    private static void AddDraw(in FormVisualInstance instance, int part, Matrix4x4 transform, float time, Vector3 shift = default)
+    private static void AddDraw(in FormVisualInstance instance, int part, Matrix4x4 transform, Vector3 shift = default)
     {
-        Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
-        material.SetFloat("_WorldTime", time);
-        Mesh mesh = instance.MeshFor(part);
-        bool opaque = material.GetFloat("_ZWrite") > .5f && !instance.IsTranslucent;
+        var surface = surfaces.Get(instance.Resource, instance.SurfaceFor(part), instance.IsTranslucent);
+        Mesh mesh = instance.Geometry ?? instance.Resource.Meshes[part];
+        bool opaque = !surface.Transparent && !instance.IsTranslucent;
         var draw = new DrawEntry
         {
             Resource = instance.Resource,
             Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
                 !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength),
             Contact = instance.Feedback.Region(shift),
-            Mesh = mesh,
+            Mesh = instance.Layer == null ? mesh : null,
             Transform = transform,
-            Material = material,
-            Tint = BodyWorldfallRenderer.ResolveTint(in instance),
+            Material = surface.Material,
+            Tint = BodyWorldfallRenderer.ResolveTint(in instance) ?? surface.Color,
             Dye = instance.Dye,
             Skin = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
             ClosedVolume = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData,
             Part = part,
             Dynamic = instance.DynamicGeometry,
-            Bounds = instance.Skin != null && instance.Resource.Description.Parts[part].Skin
+            Layer = instance.Layer,
+            Bounds = instance.Layer != null ? instance.Layer.Bounds :
+                instance.Skin != null && instance.Resource.Description.Parts[part].Skin
                 ? instance.PoseBounds ?? mesh.bounds
                 : mesh.bounds
         };
@@ -167,27 +172,32 @@ internal static class FormWorldfallRenderer
     /// <param name="__0">当前帧命令缓冲。</param>
     private static void DrawSolid(CommandBuffer __0)
     {
-        SelectDetails(solids);
-        SelectDetails(transparent);
         batch.Begin();
-        foreach (DrawEntry draw in solids) AddBatch(draw, 2);
-        foreach (DrawEntry draw in transparent) AddBatch(draw, 4);
+        transparentResource = null;
+        LastDrawCount = PrepareVisible(solids, 2);
+        visibleTransparent = PrepareVisible(transparent, 4);
         batch.Upload();
-        LastDrawCount = solids.Count;
         batch.Draw(__0, 2);
     }
 
     /// <summary>相机投影已经确定后选择共享网格，主体位置及实际作用保持原资料。</summary>
     /// <param name="draws">当前实体或透明部件。</param>
-    private static void SelectDetails(List<DrawEntry> draws)
+    /// <param name="pass">共用实体或透明通道。</param>
+    private static int PrepareVisible(List<DrawEntry> draws, int pass)
     {
+        int count = 0;
         for (int i = 0; i < draws.Count; i++)
         {
             DrawEntry draw = draws[i];
-            draw.Detail = FormDetail.Projected(draw.Bounds, draw.Transform, viewProjection, outputPixels);
-            if (!draw.Dynamic) draw.Mesh = draw.Resource.DetailMesh(draw.Part, draw.Detail);
+            if (!FormDetail.TryProjected(draw.Bounds, draw.Transform, viewProjection, outputPixels, out draw.Detail)) continue;
+            if (draw.Layer != null) draw.Mesh = FormLayerMeshes.Get(draw.Layer);
+            else if (!draw.Dynamic) draw.Mesh = draw.Resource.DetailMesh(draw.Part, draw.Detail);
             draws[i] = draw;
+            AddBatch(draw, pass);
+            if (pass == 4) transparentResource ??= draw.Resource;
+            count++;
         }
+        return count;
     }
 
     /// <summary>按片元累加交叉曲面，保留外部前景层和场景深度，不依赖部件中心排序。</summary>
@@ -195,14 +205,14 @@ internal static class FormWorldfallRenderer
     /// <param name="__0">当前帧命令缓冲。</param>
     private static void DrawTransparent(object __instance, CommandBuffer __0)
     {
-        if (transparent.Count == 0) return;
+        if (visibleTransparent == 0) return;
         var scene = (RenderTexture)sceneColor.GetValue(__instance);
         var front = (RenderTexture)foreground.GetValue(__instance);
         FormTransparency.Begin(__0, front.width, front.height, scene.depthBuffer);
         batch.Draw(__0, 4);
-        FormTransparency.Resolve(__0, transparent[0].Resource.Generation.Transparency(), front, scene.depthBuffer,
+        FormTransparency.Resolve(__0, transparentResource.Generation.Transparency(), front, scene.depthBuffer,
             new Rect(0, 0, front.width, front.height));
-        LastDrawCount += transparent.Count;
+        LastDrawCount += visibleTransparent;
     }
 
     /// <summary>同一实际部件加入共用批量提交，不改变姿态、表面或透明层。</summary>
@@ -217,7 +227,7 @@ internal static class FormWorldfallRenderer
             Material = draw.Material,
             Transform = draw.Transform,
             Normal = draw.Transform.inverse.transpose,
-            Tint = draw.Tint ?? draw.Material.GetColor("_Color"),
+            Tint = draw.Tint,
             Dye = draw.Dye ?? Color.white,
             Skin = draw.Skin,
             Build = draw.Build,
@@ -242,7 +252,8 @@ internal static class FormWorldfallRenderer
         internal Material Material;
 
         /// <summary>独立实例色及仅显示染色。</summary>
-        internal Color? Tint, Dye;
+        internal Color Tint;
+        internal Color? Dye;
 
         /// <summary>发布的骨架姿态。</summary>
         internal Matrix4x4[] Skin;
@@ -263,6 +274,8 @@ internal static class FormWorldfallRenderer
 
         /// <summary>动态格网仍保留真实水面。</summary>
         internal bool Dynamic;
+        /// <summary>水层或传播面的实际动力网格，在确认可见后准备。</summary>
+        internal FormLayerFrame Layer;
 
         /// <summary>本视点当前使用的显示等级。</summary>
         internal int Detail;
@@ -274,6 +287,9 @@ internal static class FormWorldfallRenderer
         solids.Clear();
         transparent.Clear();
         batch.Clear();
+        surfaces.Begin(0f);
+        transparentResource = null;
+        visibleTransparent = 0;
         LastDrawCount = 0;
         OrganWorldfallRenderer.ClearFrame();
     }

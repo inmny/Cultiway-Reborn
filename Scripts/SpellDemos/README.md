@@ -3261,3 +3261,14 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 130 -- python3 Scri
 ```
 
 第一段检查不断移动时的候选与去重、多层分布及静止或变形骨架；后两段检查碎解的余力、归属和回退重放。实际战斗用原有 `verify_sword_grave.py --section fracture` 与 `verify_contact_candidates.py --section ordered`。
+
+### 原版和三维绘制提交（13.10）
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_render_submission.py --section pixels
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 140 -- python3 Scripts/SpellDemos/verify_render_submission.py --section views
+```
+
+像素段从真实绘制目标读取单件、实例、材质和透明结果，不依赖外部模组。视角段需要启动实际安装了 Worldfall 的环境，复用原版及三维的遮挡场景，附加屏幕边缘和离屏实例的提交记录。传播波面实机继续用 `verify_construction_allocation.py`。
+
+`--section detail` 和 `--section fade` 可单补远近网格及过渡。用 `--fixture` 指定前后相同的旧测试世界；旧过渡绝对断言的结果仍原样保留。两版画面都取到后，用 `--section compare --before <旧输出目录> --after <新输出目录>` 比较，复验程序不启动游戏。

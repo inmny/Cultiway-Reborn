@@ -43,6 +43,8 @@ public sealed class FormNativeScenePass : MonoBehaviour
 
     /// <summary>原版界面性上层效果，最后绘制。</summary>
     private readonly List<Entry> overlays = new();
+    /// <summary>本相机一次筛出的形体，深度范围与实际提交使用同一集合。</summary>
+    private readonly List<FormNativeRenderSystem.PartView> visibleForms = new();
     /// <summary>复用批量网格的材质列表，保留各层的独立绘制队列。</summary>
     private readonly List<Material> overlayMaterials = new();
 
@@ -100,11 +102,25 @@ public sealed class FormNativeScenePass : MonoBehaviour
         objects.Clear();
         transparent.Clear();
         overlays.Clear();
+        visibleForms.Clear();
         resource = source.FrameResource;
         atlas.Begin();
         if (resource == null) return;
-        bool hasVisibleForm = false;
-        for (int i = 0; i < source.ViewCount; i++) hasVisibleForm |= Visible(source.ViewAt(i));
+        GeometryUtility.CalculateFrustumPlanes(camera, planes);
+        float minimum = float.PositiveInfinity, maximum = float.NegativeInfinity;
+        if ((camera.cullingMask & source.LayerMask) != 0)
+        {
+            bool aligned = camera.orthographic && Mathf.Abs(camera.transform.forward.z) > .9999999f;
+            for (int i = 0; i < source.ViewCount; i++)
+            {
+                var part = source.ViewAt(i);
+                if (aligned && !part.FlatNative && !Visible(part.Projection)) continue;
+                visibleForms.Add(part);
+                minimum = Mathf.Min(minimum, part.Projection.min.z);
+                maximum = Mathf.Max(maximum, part.Projection.max.z);
+            }
+        }
+        bool hasVisibleForm = visibleForms.Count != 0;
         if (!hasVisibleForm && !FormNativeSpriteDeformation.HasVisiblePoses(camera.cullingMask))
         {
             resource = null;
@@ -118,8 +134,6 @@ public sealed class FormNativeScenePass : MonoBehaviour
         }
 
         registered.RemoveWhere(renderer => renderer == null);
-        GeometryUtility.CalculateFrustumPlanes(camera, planes);
-        float minimum = source.MinimumDepth, maximum = source.MaximumDepth;
         foreach (Renderer renderer in registered)
         {
             FormNativeSpriteDeformation.Pose deformation = null;
@@ -131,7 +145,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
             }
 
             if (!renderer.gameObject.scene.IsValid() || !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
-                renderer.forceRenderingOff || renderer.name == "Cultiway.FormPart" ||
+                renderer.forceRenderingOff ||
                 (camera.cullingMask & (1 << renderer.gameObject.layer)) == 0 || !Visible(bounds)) continue;
             int layer = renderer.sortingLayerID;
             Material original = renderer.sharedMaterial;
@@ -192,13 +206,12 @@ public sealed class FormNativeScenePass : MonoBehaviour
 
         source.MapDepth(camera, minimum, maximum);
         objects.Sort(CompareOverlay);
-        for (int i = 0; i < source.ViewCount; i++)
+        bool hasTransparentForm = false;
+        foreach (FormNativeRenderSystem.PartView part in visibleForms)
         {
-            FormNativeRenderSystem.PartView part = source.ViewAt(i);
-            if (!Visible(part)) continue;
-            FormDrawItem item = part.Draw;
-            item.Mesh = part.Filter.sharedMesh;
+            FormDrawItem item = FormNativeRenderSystem.Prepare(part, camera);
             batch.Add(item, part.Transparent ? 3 : 0);
+            hasTransparentForm |= part.Transparent;
         }
 
         batch.Upload();
@@ -217,26 +230,29 @@ public sealed class FormNativeScenePass : MonoBehaviour
             if (!entry.Stamp.HasValue)
                 DrawObject(entry, 1);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 1);
-        FormTransparency.Begin(commands, camera.pixelWidth, camera.pixelHeight, BuiltinRenderTextureType.CameraTarget);
-        for (int i = 0; i < transparent.Count;)
+        if (hasTransparentForm || transparent.Count != 0)
         {
-            Entry entry = transparent[i];
-            if (entry.Stamp.HasValue)
+            FormTransparency.Begin(commands, camera.pixelWidth, camera.pixelHeight, BuiltinRenderTextureType.CameraTarget);
+            for (int i = 0; i < transparent.Count;)
             {
-                FormNativeSpriteAtlas.Run run = atlas.Runs[i];
-                atlas.Draw(commands, entry.Material, run.Submesh, 3);
-                i = run.End;
+                Entry entry = transparent[i];
+                if (entry.Stamp.HasValue)
+                {
+                    FormNativeSpriteAtlas.Run run = atlas.Runs[i];
+                    atlas.Draw(commands, entry.Material, run.Submesh, 3);
+                    i = run.End;
+                }
+                else
+                {
+                    DrawObject(entry, 3);
+                    i++;
+                }
             }
-            else
-            {
-                DrawObject(entry, 3);
-                i++;
-            }
-        }
 
-        batch.Draw(commands, 3, source.DepthScale, source.DepthBias);
-        FormTransparency.Resolve(commands, resource.Generation.Transparency(), BuiltinRenderTextureType.CameraTarget,
-            BuiltinRenderTextureType.CameraTarget, camera.pixelRect);
+            batch.Draw(commands, 3, source.DepthScale, source.DepthBias);
+            FormTransparency.Resolve(commands, resource.Generation.Transparency(), BuiltinRenderTextureType.CameraTarget,
+                BuiltinRenderTextureType.CameraTarget, camera.pixelRect);
+        }
         overlays.Sort(CompareOverlay);
         if (overlays.Count > 0) commands.ClearRenderTarget(true, false, Color.clear);
         foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, entry.Submesh, 0);
@@ -277,13 +293,6 @@ public sealed class FormNativeScenePass : MonoBehaviour
             commands.DrawMesh(entry.Deformation.Mesh, entry.Matrix, entry.Material, 0, pass,
                 entry.Deformation.Properties);
     }
-
-    /// <summary>显式绘制同样遵守相机图层，三维端隐藏原版时不能继续提交二维副本。</summary>
-    /// <param name="part">本帧已准备的形体部件。</param>
-    private bool Visible(FormNativeRenderSystem.PartView part) => part.Renderer.enabled &&
-                                                                  part.Renderer.gameObject.activeInHierarchy &&
-                                                                  (camera.cullingMask &
-                                                                   (1 << part.Renderer.gameObject.layer)) != 0;
 
     /// <summary>只按画面四边检查，前后范围随后统一映射，不沿用精灵旧屏幕深度。</summary>
     /// <param name="bounds">精灵的原版边界。</param>
@@ -356,6 +365,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         objects.Clear();
         transparent.Clear();
         overlays.Clear();
+        visibleForms.Clear();
         resource = null;
         atlas.Clear();
     }

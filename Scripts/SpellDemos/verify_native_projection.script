@@ -66,18 +66,15 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
         string actualDepthFormat = target.descriptor.depthStencilFormat.ToString();
         var previous = RenderTexture.active;
         var results = new List<object>();
-        var originalLayers = new Dictionary<MeshRenderer, int>();
+        var formMask = typeof(FormNativeRenderSystem).GetProperty("LayerMask", Flags);
+        int originalMask = (int)formMask.GetValue(system);
         var probeObjects = new List<UnityEngine.Object>();
         async System.Threading.Tasks.Task Frames(int count = 2) { for (int i = 0; i < count; i++) await Game.NextFrame(); }
         Color Draw(string name, params FormVisualInstance[] instances)
         {
             FormVisualScene.Publish("native-projection-verification", instances);
             update.Invoke(system, null);
-            foreach (var renderer in Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart"))
-            {
-                if (!originalLayers.ContainsKey(renderer)) originalLayers.Add(renderer, renderer.gameObject.layer);
-                renderer.gameObject.layer = 29;
-            }
+            formMask.SetValue(system, 1 << 29);
             camera.Render(); RenderTexture.active = target;
             read.ReadPixels(new Rect(0, 0, 128, 128), 0, 0); read.Apply();
             File.WriteAllBytes(Path.Combine(folder, name + ".png"), read.EncodeToPNG());
@@ -249,7 +246,7 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
             particlesGo.SetActive(false);
             spriteRenderer.enabled = false; camera.transform.position = Vector3.zero;
 
-            foreach (var entry in originalLayers) if (entry.Key != null) entry.Key.gameObject.layer = entry.Value;
+            formMask.SetValue(system, originalMask);
             // 完整资源在真正游戏窗口中连续绘制，世界暂停，动作时间单独记录为显示时间。
             PlayerConfig.setFullScreen(false, false);
             UnityEngine.Screen.SetResolution(1280, 720, false);
@@ -282,8 +279,8 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
                 }
                 FormVisualScene.Publish("native-projection-verification", instances);
                 update.Invoke(system, null);
-                if (frame == 0) Check(Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart" && r.gameObject.activeInHierarchy)
-                    .All(r => (World.world.camera.cullingMask & (1 << r.gameObject.layer)) != 0), "完整模型的所有部件均位于主相机可见图层");
+                if (frame == 0) Check((World.world.camera.cullingMask & (int)formMask.GetValue(system)) != 0,
+                    "完整模型的部件位于主相机可见图层");
                 World.world.camera.transform.position = new Vector3(74, 76, 0);
                 MoveCamera.instance.forceZoom(13);
                 await Frames(1);
@@ -329,7 +326,7 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
             UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(read); UnityEngine.Object.Destroy(go);
             foreach (var mesh in meshes) UnityEngine.Object.Destroy(mesh);
             foreach (var item in probeObjects) UnityEngine.Object.Destroy(item);
-            foreach (var entry in originalLayers) if (entry.Key != null) entry.Key.gameObject.layer = entry.Value;
+            formMask.SetValue(system, originalMask);
             GeneralSettings.SwitchSkillSystems(oldSkillSystems);
             Config.paused = true;
         }

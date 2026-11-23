@@ -39,13 +39,21 @@ try
     foreach (bool native in new[] { true, false }) foreach (int kind in native ? new[] { 0, 1, 2, 3 } : new[] { 0, 1, 3 })
         {
             var items = Enumerable.Range(0, 8).Select(i => Item(i, native, kind)).ToArray(); var single = Render(items, native, false, kind == 1); int individual = (int)Get(probe, "DrawCount"); var combined = Render(items, native, true, kind == 1); int draws = (int)Get(probe, "DrawCount");
+            int counted = (int)Get(probe, "InstanceCount"), poseCount = ((System.Collections.IDictionary)Get(probe, "poseOffsets")).Count;
             float error = 0, sum = 0; int different = 0, occupied = 0; for (int i = 0; i < single.Length; i++) { Color d = single[i] - combined[i]; float e = Mathf.Max(Mathf.Abs(d.r), Mathf.Abs(d.g), Mathf.Abs(d.b), Mathf.Abs(d.a)); error = Mathf.Max(error, e); sum += e; if (e > .005f) different++; if (combined[i].a > .02f) occupied++; }
             // 不同着色变体的水冰运算有舍入差，另以同一实例变体逐件提交核对，不拿平均值掩盖参数串用。
             float sameVariantError = 0; int separateDraws = 0;
-            if (kind == 1) { var copies = new List<Mesh>(); try { var separated = items.Select(item => { var copy = UnityEngine.Object.Instantiate((Mesh)Get(item, "Mesh")); copies.Add(copy); object clone = Activator.CreateInstance(itemType); foreach (var field in itemType.GetFields(Flags)) field.SetValue(clone, field.GetValue(item)); Set(clone, "Mesh", copy); return clone; }).ToArray(); var separate = Render(separated, native, true, true); separateDraws = (int)Get(probe, "DrawCount"); for (int i = 0; i < separate.Length; i++) { Color d = separate[i] - combined[i]; sameVariantError = Mathf.Max(sameVariantError, Mathf.Abs(d.r), Mathf.Abs(d.g), Mathf.Abs(d.b), Mathf.Abs(d.a)); } } finally { foreach (var copy in copies) UnityEngine.Object.Destroy(copy); } }
+            if (kind == 1) { var copies = new List<Mesh>(); try { var separated = items.Select(item => { var copy = UnityEngine.Object.Instantiate((Mesh)Get(item, "Mesh")); copies.Add(copy); object clone = Activator.CreateInstance(itemType); foreach (var field in itemType.GetFields(Flags)) field.SetValue(clone, field.GetValue(item)); Set(clone, "Mesh", copy); return clone; }).ToArray(); var outside = separated.Select(item =>
+            {
+                // 独立网格各配一个完全离开画面的实例，保留同一实例着色变体。
+                object copy = Activator.CreateInstance(itemType);
+                foreach (var field in itemType.GetFields(Flags)) field.SetValue(copy, field.GetValue(item));
+                var away = (Matrix4x4)Get(item, "Transform"); away.m03 += 1000f; Set(copy, "Transform", away);
+                return copy;
+            }); var separate = Render(separated.Concat(outside).ToArray(), native, true, true); separateDraws = (int)Get(probe, "DrawCount"); for (int i = 0; i < separate.Length; i++) { Color d = separate[i] - combined[i]; sameVariantError = Mathf.Max(sameVariantError, Mathf.Abs(d.r), Mathf.Abs(d.g), Mathf.Abs(d.b), Mathf.Abs(d.a)); } } finally { foreach (var copy in copies) UnityEngine.Object.Destroy(copy); } }
             Check(occupied > 200 && sum / single.Length < .0001f && error < (kind == 1 ? .02f : .0001f) && (kind != 1 || sameVariantError < .005f && separateDraws == 8), (native ? "原版" : "三维") + "/" + kind + "独立姿态、颜色、成形及透明逐像素对照", new { error, mean = sum / single.Length, different, occupied, sameVariantError, separateDraws });
             Check(individual == 8 && draws == (kind == 0 ? 1 : 2), (native ? "原版" : "三维") + "/" + kind + "实际命令按几何表面和地表分批", new { individual, draws });
-            Check((int)Get(probe, "InstanceCount") == 8 && ((System.Collections.IDictionary)Get(probe, "poseOffsets")).Count == 4, "同一姿态跨部件只上传一次：" + native + "/" + kind);
+            Check(counted == 8 && poseCount == 4, "同一姿态跨部件只上传一次：" + native + "/" + kind);
             File.WriteAllBytes(Path.Combine(folder, (native ? "native" : "worldfall") + "-channels-" + kind + ".png"), read.EncodeToPNG());
         }
     var many = Enumerable.Range(0, 1100).Select(i => { var item = Item(i % 8, true, 0); Set(item, "Skin", null); Set(item, "Build", new Vector4(1, .04f, 0, 0)); var matrix = Matrix4x4.TRS(new Vector3((i % 50 - 25) * .14f, (i / 50 - 11) * .24f, 0), Quaternion.identity, Vector3.one * .055f); Set(item, "Transform", matrix); Set(item, "Normal", matrix.inverse.transpose); return item; }).ToArray(); Render(many, true, true, false); object buffer = Get(probe, "instanceBuffer"); long bytes = (long)Get(probe, "BufferBytes");

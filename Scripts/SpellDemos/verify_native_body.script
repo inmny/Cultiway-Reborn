@@ -56,7 +56,8 @@ void Check(bool pass, string name, object evidence = null)
 
 var system = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
 var update = typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup", F);
-var views = new Dictionary<MeshRenderer, int>();
+var formMask = typeof(FormNativeRenderSystem).GetProperty("LayerMask", F);
+int originalMask = (int)formMask.GetValue(system);
 var go = new GameObject("Cultiway.NativeBody.Camera");
 var camera = go.AddComponent<Camera>();
 camera.enabled = false;
@@ -103,12 +104,7 @@ void Draw(string name)
 {
     FormVisualScene.Publish("native-body-verification", new[] { helper });
     update.Invoke(system, null);
-    foreach (var r in Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart"))
-    {
-        if (!views.ContainsKey(r)) views.Add(r, r.gameObject.layer);
-        r.gameObject.layer = 29;
-    }
-
+    formMask.SetValue(system, 1 << 29);
     camera.Render();
     RenderTexture.active = target;
     read.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
@@ -155,9 +151,7 @@ finally
     FormNativeSpriteDeformation.EndFrame();
     FormVisualScene.Publish("native-body-verification", Array.Empty<FormVisualInstance>());
     RenderTexture.active = previous;
-    foreach (var entry in views)
-        if (entry.Key != null)
-            entry.Key.gameObject.layer = entry.Value;
+    formMask.SetValue(system, originalMask);
     UnityEngine.Object.Destroy(picture);
     UnityEngine.Object.Destroy(sprite);
     UnityEngine.Object.Destroy(texture);

@@ -62,7 +62,7 @@ object Difference(Color32[] reference,Color32[] actual,int dx=0,int dy=0){int ch
         if(a.a>0||b.a>0)occupied++;if(Math.Max(Math.Abs(a.r-b.r),Math.Max(Math.Abs(a.g-b.g),Math.Max(Math.Abs(a.b-b.b),Math.Abs(a.a-b.a))))>6)changed++;}
     return new{changed,occupied};}
 int Changed(object comparison)=>(int)comparison.GetType().GetProperty("changed").GetValue(comparison);
-Matrix4x4 ViewMatrix(int index){var r=(Renderer)views[index].GetType().GetField("Renderer",Flags).GetValue(views[index]);var p=new MaterialPropertyBlock();r.GetPropertyBlock(p);return p.GetMatrix("_FormMatrix");}
+Matrix4x4 ViewMatrix(int index){var draw=views[index].GetType().GetField("Draw",Flags).GetValue(views[index]);return (Matrix4x4)draw.GetType().GetField("Transform",Flags).GetValue(draw);}
 try{
     foreach(float angle in new[]{0f,90f,180f,270f}){
         actor.position_height=0;actor.move_jump_offset=Vector2.zero;actor.shake_offset=Vector2.zero;actor.updatePos();

@@ -83,11 +83,11 @@ try
                 bool matches = matching.Length == 3 * resource.Meshes.Length && matching.Select((view, i) =>
                 {
                     int level = i / resource.Meshes.Length;
-                    return actual[i] == level && ReferenceEquals(((MeshFilter)Read(view, "Filter")).sharedMesh,
+                    return actual[i] == level && ReferenceEquals((Mesh)Read(Read(view, "Draw"), "Mesh"),
                         resource.DetailMesh((int)Read(view, "Part"), level));
                 }).All(match => match);
                 var fullAtFar = matching.Where((view, i) => actual[i] == 2 &&
-                        ReferenceEquals(((MeshFilter)Read(view, "Filter")).sharedMesh, resource.Meshes[(int)Read(view, "Part")]))
+                        ReferenceEquals((Mesh)Read(Read(view, "Draw"), "Mesh"), resource.Meshes[(int)Read(view, "Part")]))
                     .Select(view => resource.Description.Parts[(int)Read(view, "Part")].Id).ToArray();
                 if (id == "warhammer" && !fullAtFar.Contains("handle")) matches = false;
                 if (!matches) failures.Add(new { id, actual, fullAtFar });
