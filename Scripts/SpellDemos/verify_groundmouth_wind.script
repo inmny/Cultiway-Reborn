@@ -44,6 +44,23 @@ try
     }
 
     bool film = section == "film";
+    City city = null;
+    if (cityFilm)
+    {
+        Actor settler = Make(60);
+        settler.joinLanguage(World.world.languages.newLanguage(settler, true));
+        settler.setCulture(World.world.cultures.newCulture(settler, true));
+        World.world.kingdoms.makeNewCivKingdom(settler);
+        city = World.world.cities.buildNewCity(settler, settler.current_tile.zone);
+        settler.joinCity(city);
+        for (int y = 64; y <= 80; y += 8)
+        for (int x = 56; x <= 80; x += 8)
+            city.addZone(World.world.GetTileSimple(x, y).zone);
+        city.recalculateNeighbourZones();
+        var building = World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(69, 70));
+        Check(building != null && building.isAlive(), "复用城域场地的原版城区和建筑");
+    }
+    bool IsCity(Vector2 point) => city != null && World.world.GetTileSimple((int)point.x, (int)point.y)?.zone?.city == city;
     Item sword = await LooseItem(68.2f, 76.7f);
     Item outside = await LooseItem(73f, 86.5f);
     await Advance(.62f);
@@ -54,6 +71,8 @@ try
     Check((bool)Field(swordData, "Resting") && (bool)Field(outsideData, "Resting"), "两件原物都由正式掉落入口放下并落稳");
     Actor inLane = Opponent(73.5f, 77.8f), outOfLane = Opponent(73.5f, 86f);
     Vector2 insideStart = inLane.current_position, outsideStart = outOfLane.current_position;
+    bool wasInCity = IsCity(insideStart);
+    bool outsideMovedFromCity = IsCity(outsideStart);
     var definition = Spell("地口行风");
     var cast = await Use(definition, 94f);
     source.addAggro(inLane);
@@ -115,9 +134,17 @@ try
     await Advance(.26f);
     Check(Vector2.Distance(atRest, inLane.current_position) < .12f && !BodyControlState.IsBusy(inLane.id),
           "卸压后无持续牵引且人物无被占用的身体控制");
+    var cityRoute = cityFilm ? new
+    {
+        start = insideStart.ToString(), end = inLane.current_position.ToString(),
+        cityStart = wasInCity, cityEnd = IsCity(inLane.current_position),
+        unaffected = outsideStart.ToString(), unaffectedInCity = outsideMovedFromCity
+    } : null;
+    if (cityFilm) Check(cityRoute.cityStart && !cityRoute.cityEnd,
+        "真实风槽把同一名城内对手推过原版城区边界", cityRoute);
     PickUp(sword, swordData);
     return new { passed = true, section, scene = "construction", view = film ? recordView : "",
-        path, times, duration, resource = definition.Resource, paid = definition.Cost,
+        path, cityRoute, times, duration, resource = definition.Resource, paid = definition.Cost,
         previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(at => at > expelledAt - .15f)) };
 }
 finally { ReleaseChecks(); }

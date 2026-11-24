@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--section", choices=("behavior", "variant", "film"), default="behavior")
     parser.add_argument("--view", choices=("native", "worldfall"), default="native")
+    parser.add_argument("--city", action="store_true", help="复用实际城区边界，录制城内到城外的路径")
     args = parser.parse_args()
+    if args.city and (args.section != "film" or args.view != "native"):
+        parser.error("--city 只用于 --section film --view native")
     if not os.getenv("CULTIWAY_DEV_ACTIVE"):
         raise SystemExit("请通过 dev.py exec 运行")
 
@@ -61,7 +64,7 @@ def main():
                           ".Invoke(null, new object[] { victim }) == null; i++)\n"
                           "    { victim.checkAnimationContainer(); await Advance(.065f); }\n"
                           "    await Game.NextFrame();", 1)
-    flags = f'const string section = "{args.section}";\n'
+    flags = f'const string section = "{args.section}";\nbool cityFilm = {str(args.city).lower()};\n'
     path = output / "input.script"
     path.write_text("\n".join([helpers, shared, loose, flags, (scripts / "verify_groundmouth_wind.script").read_text()]))
     try:
@@ -71,7 +74,7 @@ def main():
         raise RuntimeError(f"地口行风复验位于 {output}") from error
     write_json(output / "result.json", result)
     if result.get("passed") and args.section == "film":
-        encode(output.parent, dict(key=output.name, name="地口行风", label="正式施放", variant=1,
+        encode(output.parent, dict(key=output.name, name="地口行风", label="城区实录" if args.city else "正式施放", variant=1,
                                   trajectory="moving channel", modifiers=[],
                                   caption="双侧地口、实物卷送、窄口抛出与自然卸压"), keep_frames=True)
     print(json.dumps(dict(output=str(output), result=result), ensure_ascii=False), flush=True)
