@@ -1833,12 +1833,9 @@ private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
 /// <param name="options">实际形体或材料编号。</param>
 private static AbilityDefinition DemoVariant(AbilityDefinition definition, string mode, JToken options)
 {
-    var result = ConstructionEditing.Copy(definition);
-    if (mode is "modifiers" or "combined")
-    {
-        if (result.Root == null) throw new InvalidDataException("巨化需要一个可改变尺寸的实际主体");
-        result.Root.Scale *= 1.6f;
-    }
+    var result = mode is "modifiers" or "combined"
+        ? ConstructionMagnitudeEdits.Resize(definition, 1.6f, reprice: false)
+        : ConstructionEditing.Copy(definition);
     if (mode is "trajectory" or "combined")
     {
         var flights = result.Root?.Operations?.Where(operation => operation.Kind == ConstructionOperationKind.Fly).ToArray();
