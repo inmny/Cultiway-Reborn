@@ -19,6 +19,14 @@ CLIENT = Path(os.environ.get("CULTIWAY_DEBUG_CLIENT", PROJECT.parent / "DebugToo
 LABELS = {"base": "原始效果", "modifiers": "添加词条", "trajectory": "改变轨迹", "combined": "词条与轨迹"}
 
 
+def demo_modes(text):
+    modes = list(dict.fromkeys(part.strip() for part in text.split(",")))
+    for mode in modes:
+        if mode not in LABELS:
+            raise ValueError(f"未知演示类型：{mode}")
+    return modes
+
+
 def version_stamp():
     """计算实际文件内容，未提交的代码和资源变化也会使旧录像失效。"""
     digest = hashlib.sha256()
@@ -180,11 +188,21 @@ def read_constructions(path):
     return entries
 
 
-def construction_cases(entries, single_file):
-    """每段携带自己的完整输入，继续共用录制、续录和目录生成。"""
-    return [dict(entry, key="construction" if single_file else f"construction-{index:04d}",
-                 label="真实施放", variant=0, modifiers=[], trajectory="构造资料")
-            for index, entry in enumerate(entries, 1)]
+def construction_case(entry, key, mode):
+    """同一份完整原式配上改造类型，交给游戏生成并校验独立候选。"""
+    label = {"base": LABELS["base"], "modifiers": "巨化", "trajectory": "波形轨迹",
+             "combined": "巨化与波形轨迹"}[mode]
+    return dict(entry, key=key, mode=mode, label=label, variant=0, modifiers=[],
+                trajectory=entry.get("trajectory", "构造资料"))
+
+
+def construction_cases(entries, single_file, modes):
+    rows = []
+    for entry in entries:
+        for mode in modes:
+            key = "construction" if single_file and len(modes) == 1 else f"construction-{len(rows) + 1:04d}"
+            rows.append(construction_case(entry, key, mode))
+    return rows
 
 
 def modifier_spec(text, catalog):
@@ -203,10 +221,7 @@ def modifier_spec(text, catalog):
 def choose_cases(spells, catalog, args):
     """按游戏导出的兼容结果选择变化，不把不支持的轨迹硬塞给法术。"""
     rows, skipped = [], []
-    modes = args.cases.split(",")
-    for mode in modes:
-        if mode not in LABELS:
-            raise ValueError(f"未知演示类型：{mode}")
+    modes = demo_modes(args.cases)
     modifier_by_id = {entry["id"]: entry for entry in catalog["modifiers"]}
     trajectory_by_id = {entry["id"]: entry for entry in catalog["trajectories"]}
     for spell in spells:
@@ -215,16 +230,10 @@ def choose_cases(spells, catalog, args):
             skipped.extend(dict(id=spell["id"], case=mode, reason=unavailable) for mode in modes)
             continue
         if "construction" in spell:
+            if args.variant != 0:
+                raise ValueError(f"{spell['name']} 的构造原式没有旧动画变体")
             for mode in modes:
-                if mode != "base":
-                    skipped.append({"id": spell["id"], "case": mode,
-                                    "reason": "构造改造需要完整的构造资料，不能附加旧词条或轨迹"})
-                    continue
-                if args.variant != 0:
-                    raise ValueError(f"{spell['name']} 的构造原式没有旧动画变体")
-                rows.append(dict(spell, key=f"registered-{len(rows) + 1:04d}", mode=mode,
-                                 label=LABELS[mode], variant=0, trajectoryName=spell["trajectory"],
-                                 modifiers=[], modifierLabels=[]))
+                rows.append(construction_case(spell, f"registered-{len(rows) + 1:04d}", mode))
             continue
         variants = range(spell["variants"]) if args.variants == "all" else [args.variant]
         for variant in variants:
@@ -302,7 +311,7 @@ def encode(output, case, keep_frames):
             "mana": "法力", "stamina": "体力", "talisman": "张符箓", "yao_power": "妖力",
         }[data["resource"]]
         detail = case.get('caption', '真实接触验证')
-        title = f"{case['name']} · {view} · 实际施放\n消耗：{data['paid']:g} {resource}　{detail}"
+        title = f"{case['name']} · {view} · {case['label']}\n消耗：{data['paid']:g} {resource}　{detail}"
     elif data.get("scene") == "resources":
         title = f"形体资源接入验证 · {view}\n独立部件、表面坐标、材质和连续姿态；不代表战斗或美术验收"
     else:
@@ -372,7 +381,10 @@ def publish(output, cases, results, skipped, failures=()):
     if skipped:
         markdown.extend(["", "## 跳过", ""])
         for entry in skipped:
-            markdown.append(f"- {entry['id']} · {entry['case']}　{entry['reason']}")
+            name = f"{entry['id']} · {entry['case']}"
+            if entry.get("report"):
+                name = f"[{name}]({entry['report']})"
+            markdown.append(f"- {name}　{entry['reason']}")
             body.append(f'<article><h2>跳过 · {html.escape(entry["id"])}</h2>'
                         f'<p>{html.escape(entry["case"])} · {html.escape(entry["reason"])}</p></article>')
     (output / "演示目录.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
@@ -400,7 +412,7 @@ def main(all_spells):
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
     for key, title in CATALOG_FILTERS.items():
         parser.add_argument("--" + key, default="", help=f"按登记{title}筛选，支持标签名称或编号，可用逗号分隔")
-    parser.add_argument("--cases", default="base,modifiers,trajectory", help="base,modifiers,trajectory,combined")
+    parser.add_argument("--cases", help="base,modifiers,trajectory,combined；文件默认只录原式")
     parser.add_argument("--modifier", action="append", default=[], help="词条名称:参数=值，可重复指定")
     parser.add_argument("--trajectory", help="指定兼容轨迹名称或编号")
     parser.add_argument("--variant", type=int, default=0, help="单个动画变体编号")
@@ -427,6 +439,8 @@ def main(all_spells):
     parser.add_argument("--resume", action="store_true", help="复用指定输出目录中已经完成的录像")
     parser.add_argument("--output", type=Path, help="独立输出目录")
     args = parser.parse_args()
+    if args.cases is None:
+        args.cases = "base" if args.construction else "base,modifiers,trajectory"
     if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0 or args.zoom <= 0:
         parser.error("时长、战力须大于零，截图频率须为 1～60")
     if args.opponent_construction and not args.construction:
@@ -457,8 +471,8 @@ def main(all_spells):
                 raise ValueError("四类标签来自游戏登记；本地构造文件可用 --filter 按名称或编号查找")
             if args.resource_probe or args.inventory or args.scene != "single":
                 raise ValueError("构造演示请使用单招场景，不与资源探针或清单导出同时运行")
-            if args.modifier or args.trajectory or args.variant or args.variants != "first" or args.cases not in {"base", "base,modifiers,trajectory"}:
-                raise ValueError("构造的词条和轨迹变化请写入各自资料；旧词条、轨迹和动画变体参数只用于旧法术")
+            if args.modifier or args.trajectory or args.variant or args.variants != "first":
+                raise ValueError("构造改造由 --cases 选择；--modifier、--trajectory 和动画变体参数用于旧法术")
             if args.list:
                 for entry in constructions:
                     print(f"{entry['name']}\t{entry['id']}\t{entry['constructionSource']}")
@@ -516,7 +530,7 @@ def main(all_spells):
         if not spells:
             parser.error("筛选后没有法术")
         if constructions is not None:
-            cases, skipped = construction_cases(constructions, args.construction.is_file()), []
+            cases, skipped = construction_cases(constructions, args.construction.is_file(), demo_modes(args.cases)), []
         elif args.resource_probe:
             cases, skipped = [dict(key="resource-probe", id="Cultiway.ResourceProbe", name="形体资源接入验证",
                 group="开发资源验证", label="模型与材质", variant=0, modifiers=[], trajectory="共同姿态")], []
@@ -586,7 +600,8 @@ def main(all_spells):
         remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
         for case in remaining:
             (output / case["key"] / "result.json").unlink(missing_ok=True)
-        continue_on_failure = all_spells and args.scene == "single" and not args.resource_probe
+        has_edits = any("construction" in case and case.get("mode") != "base" for case in cases)
+        continue_on_failure = (all_spells or has_edits) and args.scene == "single" and not args.resource_probe
         request = dict(manifest, id=str(time.time_ns()), action="construction" if constructions is not None else "resources" if args.resource_probe else "record",
                        output=str(output), cases=remaining, continueOnFailure=continue_on_failure)
         write_json(CONTROL / "request.json", request)
@@ -598,6 +613,13 @@ def main(all_spells):
                 report = output / case["key"] / "result.json"
                 if case["key"] not in results and report.exists():
                     data = json.loads(report.read_text(encoding="utf-8"))
+                    if data.get("skipped"):
+                        skipped.append(dict(id=case["id"], case=case["mode"], reason=data["reason"],
+                                            report=case["key"] + "/result.json"))
+                        results[case["key"]] = data
+                        last_change = time.monotonic()
+                        print(f"[{len(results)}/{len(cases)}] 跳过：{case['name']} · {case['label']}，{data['reason']}", flush=True)
+                        continue
                     if not data.get("passed"):
                         reason = data.get("error", "").split("\n", 1)[0] or "实际结果未通过"
                         if not continue_on_failure:
@@ -644,9 +666,12 @@ def main(all_spells):
         if version_stamp()[0]["sha256"] != version["sha256"]:
             raise ValueError("录制期间代码或资源发生了修改，本目录不可作为同一版本的验收结果，请重新录制")
         recording_requested = False
-        publish(output, cases, {key: result for key, result in results.items() if result["passed"]}, skipped, failures)
+        accepted = {key: result for key, result in results.items() if result["passed"]}
+        publish(output, cases, accepted, skipped, failures)
         if failures:
             raise RuntimeError(f"批次已结束，{len(failures)} 项失败。查看 {output / '演示目录.md'}")
+        if not accepted:
+            raise RuntimeError(f"本次改造均未成立。查看 {output / '演示目录.md'}")
         print(f"完成：{output / '演示目录.md'}", flush=True)
     except KeyboardInterrupt:
         if recording_requested:

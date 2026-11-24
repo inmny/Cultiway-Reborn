@@ -1748,7 +1748,8 @@ private IEnumerator Run()
         heldSwordDemo = false;
         RestoreTerrainFirstPersonLook();
         legacyScene = item["construction"] is not JObject;
-        if (continueOnFailure && (bool?)JObject.Parse(File.ReadAllText(result))["passed"] != true)
+        JObject recorded = continueOnFailure ? JObject.Parse(File.ReadAllText(result)) : null;
+        if (recorded != null && (bool?)recorded["passed"] != true && (bool?)recorded["skipped"] != true)
         {
             // 失败点可能已经开始施放。先恢复夹具，再允许后续录像。
             Config.paused = true;
@@ -1772,6 +1773,28 @@ private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
 {
     if (item["construction"] is JObject definition)
     {
+        string mode = (string)item["mode"] ?? "base";
+        if (mode != "base")
+        {
+            Write(Path.Combine(folder, "source-definition.json"), definition);
+            string reason = null;
+            try
+            {
+                definition = ConstructionDefinitionLayers.Snapshot(DemoVariant(definition.ToObject<AbilityDefinition>(), mode));
+            }
+            catch (Exception error) when (error is InvalidDataException or ArgumentException)
+            {
+                reason = error.Message;
+            }
+
+            if (reason != null)
+            {
+                Write(Path.Combine(folder, "result.json"), new { passed = false, skipped = true, reason, item });
+                yield break;
+            }
+            item = (JObject)item.DeepClone();
+            item["construction"] = definition;
+        }
         Write(Path.Combine(folder, "definition.json"), definition);
         var recording = RecordConstruction(item);
         while (recording.MoveNext()) yield return recording.Current;
@@ -1801,6 +1824,42 @@ private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
 
     var record = (string)request["scene"] == "battle" ? RecordBattle(item, folder) : Record(item, folder);
     while (record.MoveNext()) yield return record.Current;
+}
+
+/// <summary>在独立草稿上依次完成所选改造，再用与万法阁相同的校验判断能否实际施放。</summary>
+/// <param name="definition">完整原式。</param>
+/// <param name="mode">词条、轨迹或二者叠加。</param>
+private static AbilityDefinition DemoVariant(AbilityDefinition definition, string mode)
+{
+    var result = ConstructionEditing.Copy(definition);
+    if (mode is "modifiers" or "combined")
+    {
+        if (result.Root == null) throw new InvalidDataException("巨化需要一个可改变尺寸的实际主体");
+        result.Root.Scale *= 1.6f;
+    }
+    if (mode is "trajectory" or "combined")
+    {
+        var flights = result.Root?.Operations?.Where(operation => operation.Kind == ConstructionOperationKind.Fly).ToArray();
+        if (flights?.Length != 1) throw new InvalidDataException("波形轨迹需要根部恰好一个实际飞行操作");
+        var flight = flights[0];
+        if (flight.Goal?.DirectArrival == true)
+            throw new InvalidDataException("原飞行声明直达，保留直达时无法增加波形路径");
+        Vector3 direction = new Vector3(flight.Vector[0], flight.Vector[1], flight.Vector[2]).normalized;
+        Vector3 side = flight.Path?.Space == ConstructionPathSpace.TargetLine ? Vector3.up :
+            direction == Vector3.zero ? Vector3.right :
+            Vector3.Cross(direction, Mathf.Abs(Vector3.Dot(direction, Vector3.up)) > .9f ? Vector3.right : Vector3.up).normalized;
+        var wave = ConstructionPathCurves.Wave(1f, side * .4f);
+        if (flight.Path == null)
+        {
+            wave.Forward = direction == Vector3.zero ? null : new[] { direction.x, direction.y, direction.z };
+            flight.Path = wave;
+        }
+        else
+            flight.Path.Additions = (flight.Path.Additions ?? Array.Empty<ConstructionPathTerm>())
+                .Append(new ConstructionPathTerm { Keys = wave.Keys, Loop = wave.Loop }).ToArray();
+    }
+    ConstructionEditing.Access.Validate(result);
+    return result;
 }
 
 /// <summary>仅加载仓库中的测试夹具，不保存或覆盖玩家世界。</summary>

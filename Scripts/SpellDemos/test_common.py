@@ -44,9 +44,11 @@ class RegisteredConstructionTests(unittest.TestCase):
         args = Namespace(cases="base,trajectory", variant=0, variants="first", modifier=[], trajectory=None)
 
         cases, skipped = common.choose_cases(catalog["spells"], catalog, args)
-        self.assertEqual([case["id"] for case in cases], [legacy["id"], construction["id"]])
+        self.assertEqual([(case["id"], case["mode"]) for case in cases],
+                         [(legacy["id"], "base"), (construction["id"], "base"), (construction["id"], "trajectory")])
         self.assertNotIn("construction", cases[0])
         self.assertEqual(cases[1]["construction"], definition)
+        self.assertEqual(cases[2]["construction"], definition)
         self.assertIn(dict(id=unsupported["id"], case="base", reason="需要兽足"), skipped)
         selected = common.resolve(catalog["spells"], definition["Id"])
         self.assertEqual(common.choose_cases([selected], catalog, args)[0][0]["construction"], definition)
