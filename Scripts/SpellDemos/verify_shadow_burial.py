@@ -16,7 +16,10 @@ def main():
     parser.add_argument('--case', choices=('all', 'rescue', 'escape', 'death', 'world'), default='all')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
     parser.add_argument('--saved', type=Path)
+    parser.add_argument('--city', action='store_true', help='录制同一原身体跨城区边界')
     args = parser.parse_args()
+    if args.city and (args.section != 'film' or args.view != 'native'):
+        parser.error('--city 只用于原版主术录像')
     if args.section in ('variant', 'cold') and args.saved is None:
         parser.error('variant 和 cold 都需要 --saved 指向 save 段输出目录')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
@@ -40,7 +43,11 @@ def main():
                             'var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.ShadowBurial.Mana") ?? '
                             'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ShadowBurial.Mana")')
     shared = shared.replace('const string recordView = "";', f'const string recordView = "{args.view}";')
-    shared = shared.replace('67.7f, 72f', '69.6f, 72.5f')
+    shared = shared.replace('67.7f, 72f', '72f, 73f' if args.city else '69.6f, 72.5f')
+    if args.city:
+        shared = shared.replace('Place(source, 64);', 'Place(source, 66);')
+    shared += f'\nbool cityFilm = {str(args.city).lower()};\n'
+    shared += (scripts / 'city_film_scene.script').read_text()
     grip = (scripts / 'verify_shadow_burial.script').read_text()
     drag = (scripts / 'verify_shadow_burial_drag.script').read_text()
     if args.section == 'grip':
@@ -66,7 +73,7 @@ def main():
         raise RuntimeError(f'影中葬身复验结果位于 {output}') from error
     write_json(output / 'result.json', result)
     if result.get('passed') and args.section == 'film':
-        encode(output.parent, dict(key=output.name, name='影中葬身', label='正式施放', variant=1,
+        encode(output.parent, dict(key=output.name, name='影中葬身', label='城区实录' if args.city else '正式施放', variant=1,
                                    trajectory='static', modifiers=[], caption='原身的影反向站起，合臂后拖入深影，再归还活体'),
                keep_frames=True)
     print(json.dumps({'output': str(output), 'result': result}, ensure_ascii=False), flush=True)

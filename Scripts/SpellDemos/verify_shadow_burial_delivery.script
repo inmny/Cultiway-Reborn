@@ -74,21 +74,22 @@ async Task<object> SavePair()
 
 async Task<object> Record()
 {
-    var cast = await Use(definition);
-    await SetCamera(3.1f);
-    if (recordView == "native")
+    var cast = await Use(definition, cityFilm ? 71f : 69f);
+    await SetCamera(cityFilm ? 10f : 3.1f);
+    City city = cityFilm ? CreateFilmCity(64) : null;
+    if (recordView == "native" && !cityFilm)
     {
         World.world.camera.orthographicSize = 3.1f;
         World.world.setZoomOrthographic(3.1f);
     }
-    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
-    var mod = type.GetProperty("Instance", F).GetValue(null);
-    var god = type.GetProperty("GodShown", F);
-    var gpu = type.GetField("_gpuShown", F);
-    var firstPerson = type.GetProperty("IsFirstPerson", F);
+    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    var mod = type?.GetProperty("Instance", F)?.GetValue(null);
+    var god = type?.GetProperty("GodShown", F);
+    var gpu = type?.GetField("_gpuShown", F);
+    var firstPerson = type?.GetProperty("IsFirstPerson", F);
     if (recordView == "worldfall")
     {
-        var applied = type.GetField("_godGpuApplied", F);
+        var applied = type?.GetField("_godGpuApplied", F);
         int earlier = (int)applied.GetValue(mod);
         await Game.WaitUntil(() => (int)applied.GetValue(mod) >= earlier + 4, 600);
     }
@@ -101,7 +102,7 @@ async Task<object> Record()
     var times = await Film(duration, () =>
     {
         bool worldfall = recordView == "worldfall";
-        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == worldfall && (!worldfall || (bool)gpu.GetValue(mod));
+        if (mod != null) stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == worldfall && (!worldfall || (bool)gpu.GetValue(mod));
         var forms = Shadows();
         float rise = forms.Length == 0 ? 0f : forms[0].Transform.m22;
         low |= rise > .05f && rise < .6f && !Controlled(victim);
@@ -112,7 +113,7 @@ async Task<object> Record()
             pocket = true;
             if (mark < 0d) mark = World.world.getCurWorldTime() - started;
         }
-        drew |= forms.Length > 0 && (int)lastDraw.GetValue(null) > 0;
+        if (worldfall) drew |= forms.Length > 0 && (int)lastDraw.GetValue(null) > 0;
         samples.Add(new { age = cast.Cast.Age, rise, grip = Controlled(victim), inside = entered.Count == 1,
             x = Position().x, y = Position().y });
     });
@@ -126,7 +127,19 @@ async Task<object> Record()
     Check(stable && drew && low && high && held && pocket && entered.Count == 1 && cast.Cast.Finished &&
         Released(cast.Id)?.ReleaseReason == "Released" && victim.isAlive() && !Controlled(victim) && Shadows().Length == 0,
         "原速录到同一次立影、合臂、拖入及活体归还", new { stable, drew, low, high, held, pocket, shots = times.Count });
-    return new { passed = true, view = recordView, duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t >= mark)),
+    var cityShadow = cityFilm ? new
+    {
+        entry = entered[0].Entry.ToString(), inCity = IsInFilmCity(city, entered[0].Entry),
+        foot = entered[0].Foot.ToString(), restsInCity = IsInFilmCity(city, entered[0].Foot),
+        target = entered[0].TargetId, release = Released(cast.Id)?.ReleaseReason
+    } : null;
+    if (cityFilm)
+    {
+        File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        Check(cityShadow.inCity && !cityShadow.restsInCity && cityShadow.target == victim.id && Legal(),
+            "影身拖住同一实际人物越过城区边界，最后合法落脚并松开", cityShadow);
+    }
+    return new { passed = true, cityShadow, view = recordView, duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t >= mark)),
         scene = "construction", resource = "mana", paid = definition.Cost };
 
     bool BuriedPose(bool worldfall)

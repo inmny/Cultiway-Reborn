@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('intake', 'shadow'), required=True)
     parser.add_argument('--record', choices=('native', 'worldfall'))
+    parser.add_argument('--city', action='store_true', help='录制跨城区边界的玄阴汲流')
     args = parser.parse_args()
+    if args.city and (args.section != 'intake' or args.record != 'native'):
+        parser.error('--city 只用于原版玄阴汲流录像')
     section, view = args.section, args.record
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise RuntimeError('请通过 develop 的 dev.py exec 运行阴影复验')
@@ -26,6 +29,9 @@ def main():
                               json.dumps(str(PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1')))
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('    if (fact.AbilityId.StartsWith("test.body-footwork."))\n', '')
+    helpers = helpers.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
+                              'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
+                              'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     body = Path(__file__).with_name(f'verify_yin_combat_{section}.script').read_text()
     shared = Path(__file__).with_name('verify_wind_combat.script').read_text()
     shared = shared.replace('const string inputRoot = "";',
@@ -33,6 +39,14 @@ def main():
     shared = shared.replace('const string recordView = "";', 'const string recordView = ' + json.dumps(view or '') + ';')
     # 两项复用同一施放、取景和录像入口，避免再建测试世界。
     shared = shared.replace('Cultiway.Verify.Wind.Mana', 'Cultiway.Verify.Yin.Mana')
+    shared = shared.replace('var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Yin.Mana")',
+                            'var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Yin.Mana") ?? '
+                            'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Yin.Mana")')
+    if args.city:
+        shared = shared.replace('Place(source, 64);', 'Place(source, 67.5f);')
+        shared = shared.replace('67.7f, 72f', '71f, 73f')
+    shared += f'\nbool cityFilm = {str(args.city).lower()};\n'
+    shared += Path(__file__).with_name('city_film_scene.script').read_text()
     script = output / 'input.script'
     script.write_text(helpers + '\n' + shared + '\n' + body)
     try:
@@ -45,7 +59,7 @@ def main():
         raise RuntimeError('阴影复验失败，请查看 ' + str(output / 'checks.json'))
     if view:
         name = '玄阴汲流：包裹、入账与退场' if section == 'intake' else '潜影牵身：立影、行动限制与回落'
-        encode(output.parent, dict(key=output.name, name=name, label='原速', variant=0,
+        encode(output.parent, dict(key=output.name, name=name, label='城区实录' if args.city else '原速', variant=0,
                                    trajectory='', modifiers=[]), keep_frames=True)
     print(json.dumps(dict(section=section, output=str(output), result=result), ensure_ascii=False))
 

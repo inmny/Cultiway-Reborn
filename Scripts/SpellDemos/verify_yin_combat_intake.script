@@ -33,12 +33,14 @@ WakanResourceService.RegisterMutationCommitted(Changed);
 Set(source, 8); Set(victim, 24);
 try
 {
-    var first = await Use(definition);
+    var first = await Use(definition, cityFilm ? 72.5f : 69f);
     float ownerBefore = Balance(source), targetBefore = Balance(victim);
     Check(!Shows("yin_transfer_wrap") && !Shows("yin_transfer_flow"), "接触前不出现裹身和转移画面");
     if (recordView.Length > 0)
     {
-        await SetCamera(5.9f);
+        await SetCamera(cityFilm ? 11f : 5.9f);
+        City city = cityFilm ? CreateFilmCity(64) : null;
+        Vector2 donor = victim.current_position, receiver = source.current_position;
         const float duration = 3.48f;
         double mark = -1, start = World.world.getCurWorldTime();
         var times = await Film(duration, () =>
@@ -47,7 +49,20 @@ try
         });
         Check(Hits(first.Id) >= 2 && Spent() > 0 && Mathf.Abs(Received() - Spent()) < .01f && mark >= 0 && first.Cast.Finished && !Shows("yin_transfer_flow"),
             "常速记录了实际入账、阴质包裹、流束和自然退场", new { hits = Hits(first.Id), mark, finished = first.Cast.Finished, owner = Balance(source) });
-        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost,
+        var cityIntake = cityFilm ? new
+        {
+            from = donor.ToString(), donorInCity = IsInFilmCity(city, donor),
+            to = receiver.ToString(), receiverInCity = IsInFilmCity(city, receiver),
+            paidOut = Spent(), takenIn = Received(), hits = Hits(first.Id)
+        } : null;
+        if (cityFilm)
+        {
+            File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+            Check(cityIntake.receiverInCity && !cityIntake.donorInCity && cityIntake.paidOut > 0 &&
+                Mathf.Abs(cityIntake.paidOut - cityIntake.takenIn) < .01f,
+                "真元从城外对手转出、由城内修士实际收到", cityIntake);
+        }
+        return new { passed = true, cityIntake, scene = "construction", resource = "mana", paid = definition.Cost,
             view = recordView, ownerBefore, targetBefore, ownerAfter = Balance(source), targetAfter = Balance(victim),
             actualTransfer = Spent(),
             duration, times, previewFrame = times.FindIndex(t => t >= mark) };

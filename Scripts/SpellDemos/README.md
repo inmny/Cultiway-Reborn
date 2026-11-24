@@ -3432,3 +3432,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 原版城区冰、雷可分别用 `verify_frost_flower.py --section film --view native --city` 和 `verify_conduction_visuals.py --section native --record native --city` 复验。两条入口分别保留真实霜面、冻结和碎片位置，以及到达水格、城区两侧的实际伤害和结冰断路。
 
 城区切风和凝潭使用 `verify_wind_combat.py --section erosion --record native --city` 及 `verify_poison_combat.py --section condense --record native --city`。结果含城内外两件铁甲的实际损耗，或城区内凝潭、城外染毒和离潭停止侵蚀。
+
+城区阴系入口为 `verify_yin_combat.py --section intake --record native --city`，影系入口为 `verify_shadow_burial.py --section film --view native --city`。前者核对城内外真元账目，后者记录同一活体的跨界拖拽和自然松抱。
