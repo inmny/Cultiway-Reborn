@@ -1,7 +1,7 @@
 // 4.32C2：附着在B2同一实际场景，连续读取正式发布后的画面。
 bool filmCapturing = false, filmStop = false, filmClose = true;
 bool multiScaleFilm = "GROUND_SCALE_VIEWPOINTS" == "yes";
-string filmViewpoint = "near";
+string filmViewpoint = firstPersonFilm ? "firstperson" : "near";
 var verifiedViewpoints = new Dictionary<string, int>();
 Task filmRecording = null;
 var filmFrames = new List<object>();
@@ -14,50 +14,58 @@ void CaptureGroundFrame()
 {
     var previous = RenderTexture.active;
     RenderTexture target = nativeTarget;
-    float captureZoom;
-    if (mod == null)
+    float captureZoom = 0f;
+    if (firstPersonFilm)
     {
-        var oldTarget = camera.targetTexture; var oldPosition = camera.transform.position;
-        float oldZoom = camera.orthographicSize;
-        var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled && r.gameObject.activeInHierarchy &&
-            (r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5 || r.sprite != null &&
-                (r.sprite.name.StartsWith("minimap_", StringComparison.Ordinal) || r.sprite.name.StartsWith("fx_status_", StringComparison.Ordinal)))).ToArray();
-        foreach (var picture in muted) picture.enabled = false;
-        try
-        {
-            bool middle = multiScaleFilm && filmViewpoint == "mid";
-            camera.transform.position = filmClose || middle ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
-                cityCase ? new Vector3(64, 64, 0f) : new Vector3(MapBox.width * .5f, MapBox.height * .5f, 0f);
-            camera.orthographicSize = filmClose ? 4f : middle ? 22f : cityCase ? 50f : MapBox.height * .61f;
-            captureZoom = camera.orthographicSize;
-            camera.targetTexture = target; camera.Render();
-        }
-        finally
-        {
-            camera.targetTexture = oldTarget; camera.transform.position = oldPosition; camera.orthographicSize = oldZoom;
-            foreach (var picture in muted) picture.enabled = true;
-        }
+        if (!InSourceView()) throw new InvalidOperationException("镜头已离开实际施术者");
+        Screen.Capture(Path.Combine(folder, "frames", filmFrames.Count.ToString("00000") + ".png"));
     }
     else
     {
-        object gpu = mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod);
-        target = (RenderTexture)Field(gpu, "Output");
-        captureZoom = (float)Field(Field(mod, "_godShown"), "Z");
+        if (mod == null)
+        {
+            var oldTarget = camera.targetTexture; var oldPosition = camera.transform.position;
+            float oldZoom = camera.orthographicSize;
+            var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled && r.gameObject.activeInHierarchy &&
+                (r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5 || r.sprite != null &&
+                    (r.sprite.name.StartsWith("minimap_", StringComparison.Ordinal) || r.sprite.name.StartsWith("fx_status_", StringComparison.Ordinal)))).ToArray();
+            foreach (var picture in muted) picture.enabled = false;
+            try
+            {
+                bool middle = multiScaleFilm && filmViewpoint == "mid";
+                camera.transform.position = filmClose || middle ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
+                    cityCase ? new Vector3(64, 64, 0f) : new Vector3(MapBox.width * .5f, MapBox.height * .5f, 0f);
+                camera.orthographicSize = filmClose ? 4f : middle ? 22f : cityCase ? 50f : MapBox.height * .61f;
+                captureZoom = camera.orthographicSize;
+                camera.targetTexture = target; camera.Render();
+            }
+            finally
+            {
+                camera.targetTexture = oldTarget; camera.transform.position = oldPosition; camera.orthographicSize = oldZoom;
+                foreach (var picture in muted) picture.enabled = true;
+            }
+        }
+        else
+        {
+            object gpu = mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod);
+            target = (RenderTexture)Field(gpu, "Output");
+            captureZoom = (float)Field(Field(mod, "_godShown"), "Z");
+        }
+        if (read == null || read.width != target.width || read.height != target.height)
+        {
+            if (read != null) UnityEngine.Object.Destroy(read);
+            read = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+        }
+        try
+        {
+            RenderTexture.active = target;
+            read.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); read.Apply();
+            File.WriteAllBytes(Path.Combine(folder, "frames", filmFrames.Count.ToString("00000") + ".png"), read.EncodeToPNG());
+        }
+        finally { RenderTexture.active = previous; }
     }
-    if (read == null || read.width != target.width || read.height != target.height)
-    {
-        if (read != null) UnityEngine.Object.Destroy(read);
-        read = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
-    }
-    try
-    {
-        RenderTexture.active = target;
-        read.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); read.Apply();
-        File.WriteAllBytes(Path.Combine(folder, "frames", filmFrames.Count.ToString("00000") + ".png"), read.EncodeToPNG());
-    }
-    finally { RenderTexture.active = previous; }
     var live = Live(); double time = World.world.getCurWorldTime();
-    if (multiScaleFilm && !verifiedViewpoints.ContainsKey(filmViewpoint))
+    if ((multiScaleFilm || firstPersonFilm) && !verifiedViewpoints.ContainsKey(filmViewpoint))
     {
         var contactsNow = new List<AbilityCapsule>();
         live?.AppendContacts(contactsNow);
@@ -94,8 +102,9 @@ void CaptureGroundFrame()
     {
         frame = filmFrames.Count, time, confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
         stage = started < 0d || time - started < .45d ? "真实足底蓄势" :
-            finishes.Count > 0 ? "传播结束与身体归还" : filmClose ? "实际触地启动" : "沿真实地面传播与到达",
-        viewpoint = filmViewpoint, zoom = captureZoom, close = filmClose, age = live?.Age, bodyBusy = BodyControlState.IsBusy(source.id),
+            finishes.Count > 0 ? "传播结束与身体归还" : filmClose && !firstPersonFilm ? "实际触地启动" : "沿真实地面传播与到达",
+        viewpoint = filmViewpoint, zoom = captureZoom, close = filmClose,
+        host = firstPersonFilm ? (FirstPersonView("Host") as Actor)?.id : null, age = live?.Age, bodyBusy = BodyControlState.IsBusy(source.id),
         health = targets.Select(t => new { t.id, t.data.health }).ToArray(), contacts = contacts.Count
     });
     filmTimes.Add(time);
@@ -120,9 +129,13 @@ async Task RecordGroundFrames()
                 filmClose = wanted == "near";
                 await Shot("view-" + wanted, filmClose);
             }
-            else if (!multiScaleFilm && filmClose && started >= 0d && age >= .5d)
+            else if (!firstPersonFilm && !multiScaleFilm && filmClose && started >= 0d && age >= .5d)
             {
                 filmClose = false; await Shot("overview");
+            }
+            else if (firstPersonFilm)
+            {
+                for (int i = 0; i < 3; i++) await Game.NextFrame();
             }
             else if (mod != null)
             {
@@ -143,5 +156,5 @@ void SaveGroundFilm()
             c.Age, c.TargetId, c.DamageAttempted, point = new[] { c.Position.x, c.Position.y, c.Position.z } })).Concat(
         finishes.Select(f => (object)new { kind = "end", f.WorldTime, f.Age, f.Cancelled })).ToArray();
     File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new
-    { view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", started, viewpoints = verifiedViewpoints, frames = filmFrames, events }, Formatting.Indented));
+    { view = actualView, scale = "GROUND_SCALE_CASE", started, viewpoints = verifiedViewpoints, frames = filmFrames, events }, Formatting.Indented));
 }

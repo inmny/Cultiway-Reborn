@@ -10,12 +10,12 @@ from pathlib import Path
 from common import PROJECT, version_stamp, write_json
 
 
-def catalog_film(fragment, folder, case):
+def catalog_film(fragment, folder, case, mode):
     """把现有的实际帧录制接到正式目录的两种尺度。"""
     (folder / 'frames').mkdir()
     film = (Path(__file__).with_name('record_ground_scale.script').read_text()
             .replace('GROUND_SCALE_CASE', case)
-            .replace('GROUND_SCALE_VIEWPOINTS', 'yes'))
+            .replace('GROUND_SCALE_VIEWPOINTS', 'no' if mode == 'firstperson' else 'yes'))
     fragment = fragment.replace('ConstructedAbilityService.CastStarted += Started;',
                                 film + '\nConstructedAbilityService.CastStarted += Started;', 1)
     fragment = fragment.replace('        await Shot("source", true);\n        Config.paused = false;',
@@ -24,11 +24,13 @@ def catalog_film(fragment, folder, case):
                                 '        Config.paused = false;', 1)
     fragment = fragment.replace('() => finishes.Count > 0, 3600',
                                 '() => finishes.Count > 0 && !filmCapturing, 10000', 1)
+    viewpoints = ('verifiedViewpoints.ContainsKey("firstperson")' if mode == 'firstperson' else
+                  'verifiedViewpoints.ContainsKey("near") && verifiedViewpoints.ContainsKey("mid") && '
+                  'verifiedViewpoints.ContainsKey(cityCase ? "city" : "world")')
     fragment = fragment.replace('        Check(healthAtGroundContact != null',
                                 '        filmStop = true; if (filmRecording != null) await filmRecording;\n'
                                 '        if (World.world.getCurWorldTime() > filmTimes.Last()) CaptureGroundFrame();\n'
-                                '        Check(filmFrames.Count >= 24 && verifiedViewpoints.ContainsKey("near") &&\n'
-                                '              verifiedViewpoints.ContainsKey("mid") && verifiedViewpoints.ContainsKey(cityCase ? "city" : "world"),\n'
+                                f'        Check(filmFrames.Count >= 24 && {viewpoints},\n'
                                 '              "连续画面覆盖要求的各取景及实际波面", verifiedViewpoints);\n'
                                 '        Check(!FormVisualScene.Instances.Any(form => form.Layer != null && form.Resource.Description.Id == definition.Root.Form),\n'
                                 '              "实际结束后已确认的波面不再绘制");\n'
@@ -54,6 +56,8 @@ def encode_catalog_film(folder, case, mode):
         frames.pop(-2)
         write_json(recording, data)
     name = '城域地脉传力' if case == 'city' else '全域地脉传力'
+    if mode == 'firstperson':
+        name += ' · 施术者第一人称'
     return encode(case, folder, folder, mode == 'native', name, '11.20 实际传播取景', crop_worldfall=False)
 
 
@@ -72,9 +76,10 @@ def verify_catalog(world, cases, mode, film=False):
         helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);',
                                   'contacts.Add(contact);')
         fragment = (Path(__file__).with_suffix('.script').read_text()
-                    .replace('GROUND_SCALE_CASE', case).replace('GROUND_SCALE_CATALOG', 'yes'))
+                    .replace('GROUND_SCALE_CASE', case).replace('GROUND_SCALE_CATALOG', 'yes')
+                    .replace('GROUND_SCALE_FIRSTPERSON', 'yes' if mode == 'firstperson' else 'no'))
         if film:
-            fragment = catalog_film(fragment, folder, case)
+            fragment = catalog_film(fragment, folder, case, mode)
         script = folder / 'input.script'
         script.write_text(helpers + '\n' + fragment)
         write_json(folder / 'metadata.json', dict(connection=connected, view=mode, case=case,
@@ -94,19 +99,24 @@ def verify_catalog(world, cases, mode, film=False):
 def main():
     """指定一类或依次运行，两种显示使用同一冻结场景输入。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--worldfall', action='store_true')
+    views = parser.add_mutually_exclusive_group()
+    views.add_argument('--worldfall', action='store_true')
+    views.add_argument('--firstperson', action='store_true', help='使用实际附身录制已确认的地脉传播')
     parser.add_argument('--film', action='store_true', help='只附加本项连续画面，不重跑已通过的额外交锋回归')
     parser.add_argument('--case', nargs='+', choices=['city', 'world'])
     parser.add_argument('--catalog', action='store_true', help='在独立游戏中实测正式目录和玩家施放')
     parser.add_argument('--archive', type=Path, help='正式目录复验所用的既有世界目录')
     args = parser.parse_args()
+    if args.firstperson and (not args.catalog or not args.film):
+        parser.error('--firstperson 需要使用 --catalog 和 --film')
     if args.catalog:
         if not args.archive or not os.environ.get('CULTIWAY_DEV_ACTIVE'):
             parser.error('在独立游戏内运行 --catalog --archive <已有世界目录>')
         world = args.archive.resolve()
         if not (world / 'map.wbox').is_file():
             parser.error(f'找不到已有世界：{world}')
-        verify_catalog(world, args.case or ('city', 'world'), 'worldfall' if args.worldfall else 'native', args.film)
+        mode = 'firstperson' if args.firstperson else 'worldfall' if args.worldfall else 'native'
+        verify_catalog(world, args.case or ('city', 'world'), mode, args.film)
         return
     if args.archive:
         parser.error('--archive 供正式目录复验使用')

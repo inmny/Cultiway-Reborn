@@ -1,5 +1,6 @@
 // 4.32B2：复用城市或完整平坦世界，实际推进同一地表过程。
 bool cityCase = "GROUND_SCALE_CASE" == "city";
+bool firstPersonFilm = "GROUND_SCALE_FIRSTPERSON" == "yes";
 bool useWorldCatalog = "GROUND_SCALE_CATALOG" == "yes";
 if (!cityCase)
     for (int y = 0; y < MapBox.height; y++)
@@ -151,6 +152,13 @@ void QuietBody()
 }
 Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
 object mod = external?.GetProperty("Instance", F).GetValue(null);
+if (firstPersonFilm && mod == null) throw new InvalidOperationException("第一人称录像需要 Worldfall");
+string actualView = firstPersonFilm ? "firstperson" : mod == null ? "native" : "worldfall";
+bool? oldMouseLook = null;
+object FirstPersonView(string name) => external.GetProperty(name, F).GetValue(mod);
+bool InSourceView() => (bool)FirstPersonView("IsFirstPerson") && (bool)FirstPersonView("DiveDone") &&
+    !(bool)FirstPersonView("GodShown") && ReferenceEquals(FirstPersonView("Host"), source);
+
 float? originalGodZoom = null, originalFogRange = null, originalLens = null;
 Camera camera = World.world.camera;
 RenderTexture nativeTarget = null;
@@ -163,6 +171,24 @@ async Task Shot(string name, bool close = false)
     bool middleView = name == "view-mid";
     World.world.console.Hide(); Tooltip.hideTooltipNow();
     foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    if (firstPersonFilm)
+    {
+        if (name == "before") return;
+        if (!oldMouseLook.HasValue)
+        {
+            external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+            external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { true });
+            var mouse = external.GetField("MouseLookOff", F);
+            oldMouseLook = (bool)mouse.GetValue(mod);
+            mouse.SetValue(mod, true);
+            external.GetMethod("SetYaw", F).Invoke(mod, new object[] { 0f });
+            external.GetMethod("SetPitchDegrees", F).Invoke(mod, new object[] { -19f });
+        }
+        await Game.WaitUntil(InSourceView, 1800);
+        for (int i = 0; i < 3; i++) await Game.NextFrame();
+        Screen.Capture(Path.Combine(folder, name + ".png"));
+        return;
+    }
     RenderTexture target = nativeTarget;
     var previous = RenderTexture.active;
     if (mod != null)
@@ -442,7 +468,7 @@ try
         finally { ConstructedAbilityService.ClashConfirmed -= Clashed; }
     }
     File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
-    var result = new { passed = true, view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", cells = route.Length,
+    var result = new { passed = true, view = actualView, scale = "GROUND_SCALE_CASE", cells = route.Length,
         catalog = useWorldCatalog, damage = targets.Select((actor, i) => health[i] - actor.data.health).ToArray(),
         process = System.Diagnostics.Process.GetCurrentProcess().Id, wallMs = watch.ElapsedMilliseconds };
     File.WriteAllText(Path.Combine(folder, "result.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
@@ -464,6 +490,12 @@ finally
     }
     ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
     DebugConfig.setOption(DebugOption.SystemBuildTick, originalBuild);
+    if (oldMouseLook.HasValue)
+    {
+        external.GetField("MouseLookOff", F).SetValue(mod, oldMouseLook.Value);
+        external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        ControllableUnit.clear(false);
+    }
     if (originalGodZoom.HasValue)
     {
         object settings = Field(mod, "Settings");

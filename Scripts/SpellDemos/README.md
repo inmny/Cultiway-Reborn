@@ -3442,3 +3442,7 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 ### 城市和全图功能录像（16.07）
 
 原版独立游戏中，给 11.14 的分区净化和 11.17 的城域、全域功能复验附加`--record`。两者使用同一份 11.03 的已通过城市存档目录。分区录像在保存和读回之间分段，分别保留首轮及接通复工。`verify_solo_world_utility.py`可用`--case city`或`--case world`单独录制。本批实录在净土通过后续录全图一段，首次失败结果也保留。录像脚本按实际世界时间编码，输出原始帧、阶段和结算。
+
+### 第一人称地脉传力（16.08）
+
+在加载了 Worldfall 的独立游戏中，把 11.20 的`--worldfall`换成`--firstperson`，保留`--catalog --film --archive`。分别指定`--case city`或`--case world`，沿用同一份 4.32 世界目录。镜头从实际附体到术后一直核对是原施术者，帧文件旁保留世界时间、实际作用范围、扣血和控制归还。
