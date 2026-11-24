@@ -3422,3 +3422,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 `verify_groundmouth_wind.py --section film --view native --city` 可在上述独立游戏入口录制地口行风穿越原版城区边界。保留槽内外人物坐标、原剑落地与再次拾取、实际费用和自然卸压记录。
 
 同一城区取景支持 `verify_solar_reservoir.py --section film --view native --city` 和 `verify_five_phase_district.py --section district --record native --city`。两段分别保留来自城外的真实来势、护持和反击，以及五次换相承力和落地支座。
+
+`record_city_attack.py --case metal` 或 `--case earth` 在同一原版城域场地运行。按真实尺寸编辑、正式定价和另创入口建立独立成品，由同一场景中一名化神支付施放。落盘原构造、派生后的完整构造、城内外作用和侧边对照位置，以及常速原片。

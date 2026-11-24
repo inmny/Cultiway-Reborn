@@ -1,0 +1,159 @@
+// 实际覆盖取自共用作用形状与地表结果，避免用摄像机占比估算作用。
+bool earth = cityCase == "earth";
+City city = CreateFilmCity(64);
+Actor caster = Make(63.5f), near = Make(69f, "wolf"), far = Make(79f, "wolf"), outside = Make(69f, "wolf");
+Vector2 origin = new Vector2(63.5f, 72.5f);
+Vector2 inner = earth ? new Vector2(70.4f, 65.0f) : new Vector2(70f, 72.5f);
+Vector2 outer = earth ? new Vector2(78.6f, 72.5f) : new Vector2(78.2f, 72.5f);
+Vector2 reference = new Vector2(75f, 89f);
+for (int x = 61; x <= 89; x++)
+for (int y = 64; y <= 81; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building == null && tile.Type.liquid) tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    tile.Height = 140;
+}
+
+var owner = caster.GetExtend();
+var elements = new float[ElementIndex.Count];
+elements[ElementIndex.Earth] = 2f;
+owner.AddComponent(new ElementRoot(elements));
+owner.MarkCultiwayStatsDirty();
+int highest = Cultisyses.Xian.GetHighestGrantableRealm(Cultisyses.Xian.DefaultComponent.CurrLevel);
+Cultisyses.Xian.GrantToRealm(owner, highest);
+caster.setStatsDirty();
+caster.updateStats();
+Check(highest >= 4 && owner.GetCultisys<Xian>().CurrLevel == highest, "单名修士经正式进阶达到化神");
+
+var sourceDefinition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "source-definition.json")));
+ConstructedAbilityService.Register(sourceDefinition);
+var edit = new ConstructionEditSession(ConstructionEditing.Access.Read(sourceDefinition.Id));
+edit.Draft = ConstructionMagnitudeEdits.Resize(edit.Draft, resize);
+if (!earth) edit.Draft.Binding.Height -= .85f;
+edit.Draft.Name += "·城域";
+var definition = ConstructionEditing.Access.Apply(owner, edit, false);
+File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+
+await Advance(.22f);
+Ready(caster);
+Place(caster, origin.x, origin.y);
+Place(near, inner.x, inner.y);
+Place(far, outer.x, outer.y);
+Place(outside, reference.x, reference.y);
+bool innerCity = IsInFilmCity(city, inner), outerCity = IsInFilmCity(city, outer);
+Check(innerCity && !outerCity && !IsInFilmCity(city, reference), "坐标分别位于城区内、城区外和作用侧边",
+    new { innerCity, outerCity, inner = inner.ToString(), outer = outer.ToString(), reference = reference.ToString() });
+foreach (Actor enemy in new[] { near, far, outside })
+{
+    caster.addAggro(enemy);
+    enemy.addAggro(caster);
+    ConstructedAbilityService.NotifyActorChanged(enemy);
+}
+ConstructedAbilityService.NotifyActorChanged(caster);
+caster.lookTowardsPosition(far.current_position);
+var eyes = new Vector3(74.5f, 74.2f, 0f);
+World.world.camera.transform.position = eyes;
+MoveCamera.instance.forceZoom(24f);
+HideCameraOverlays();
+await Game.NextFrame();
+
+var starts = new List<ConstructedCastStarted>();
+var hits = new List<ConstructedContact>();
+var ground = new List<ConstructedWorldContact>();
+var ends = new List<ConstructedCastEnded>();
+void Started(ConstructedCastStarted fact) { if (fact.AbilityId == definition.Id) starts.Add(fact); }
+void Touched(ConstructedContact fact) { if (fact.AbilityId == definition.Id) hits.Add(fact); }
+void Ground(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) ground.Add(fact); }
+void Finished(ConstructedCastEnded fact) { if (fact.AbilityId == definition.Id) ends.Add(fact); }
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Touched;
+ConstructedAbilityService.WorldContactConfirmed += Ground;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    float before = caster.stats[BaseStatses.MaxWakan.id] * .82f;
+    owner.GetCultisys<Xian>().wakan = before;
+    caster.attack_timer = 0;
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    var aim = new ActiveAbilityTarget(far, far.GetSimPos());
+    Check(ActiveAbilityService.TryUse(owner, handle, aim, ActiveAbilityUseOrigin.Script) &&
+          starts.Count == 1 && starts[0].SourceId == caster.id, "正式受理唯一施术者的实际城域改造");
+    float paid = before - owner.GetCultisys<Xian>().wakan;
+    Check(Mathf.Abs(paid - definition.Cost) < .002f && paid > sourceDefinition.Cost,
+        "尺寸改造采用正式定价并按实际余额支付", new { paid, definition.Cost, original = sourceDefinition.Cost });
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    AbilityCast cast = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Where(item => (long)Field(item, "Id") == starts[0].CastId).Select(item => (AbilityCast)Field(item, "Cast")).Single();
+    float maxWidth = 0;
+    float minX = float.PositiveInfinity, maxX = float.NegativeInfinity;
+    var shapes = new List<AbilityCapsule>();
+    var sweep = new List<object>();
+    var prismField = typeof(AbilityCapsule).GetField("Prism", F);
+    Bounds Extents(AbilityCapsule shape)
+    {
+        object prism = prismField.GetValue(shape);
+        if (prism != null)
+        {
+            object pose = prism.GetType().GetProperty("Pose", F).GetValue(prism);
+            return (Bounds)pose.GetType().GetMethod("Bounds", F).Invoke(pose, null);
+        }
+        var half = shape.IsBox ? shape.HalfExtents : Vector3.one * shape.Radius;
+        var bounds = new Bounds();
+        bounds.SetMinMax(Vector3.Min(shape.A, shape.B) - half, Vector3.Max(shape.A, shape.B) + half);
+        return bounds;
+    }
+    var times = await Film(definition.Lifetime + .4f, () =>
+    {
+        shapes.Clear();
+        cast.AppendContacts(shapes);
+        if (shapes.Count == 0) return;
+        var extents = shapes.Select(Extents).ToArray();
+        float left = extents.Min(bounds => bounds.min.x);
+        float right = extents.Max(bounds => bounds.max.x);
+        minX = Mathf.Min(minX, left);
+        maxX = Mathf.Max(maxX, right);
+        maxWidth = Mathf.Max(maxWidth, right - left);
+        if (!earth) sweep.Add(new { cast.Age, shapes = extents.Select(b => new
+        {
+            minimum = new[] { b.min.x, b.min.y, b.min.z }, maximum = new[] { b.max.x, b.max.y, b.max.z }
+        }).ToArray() });
+    });
+    if (!earth) File.WriteAllText(Path.Combine(folder, "sweep.json"), JsonConvert.SerializeObject(sweep, Formatting.Indented));
+    var damage = hits.Where(hit => hit.Damage.HealthLost > 0).Select(hit => new
+    {
+        hit.TargetId, hit.Damage.HealthLost, hit.Age, at = hit.Position.ToString(),
+        inCity = IsInFilmCity(city, hit.Position)
+    }).ToArray();
+    var terrain = ground.Where(hit => hit.TriggerOnly).Select(hit => new
+    {
+        hit.X, hit.Y, inCity = IsInFilmCity(city, new Vector2(hit.X, hit.Y))
+    }).ToArray();
+    var facts = new
+    {
+        starts, ends, damage, terrain,
+        contactAttempts = hits.Select(hit => new { hit.TargetId, hit.Result, hit.DamageAttempted, position = hit.Position.ToString() }),
+        paid, minX, maxX, maxWidth, innerId = near.id, outerId = far.id, referenceId = outside.id
+    };
+    File.WriteAllText(Path.Combine(folder, "battle.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    Check(maxX - minX >= 16f && minX < 72f && maxX >= 72f && ends.Count == 1 && !ends[0].Cancelled,
+        "真实作用跨过城区边界并完整结束", facts);
+    Check(damage.All(hit => hit.TargetId != outside.id) &&
+        (earth ? terrain.Any(hit => hit.inCity) && terrain.Any(hit => !hit.inCity) && damage.Length > 0
+               : damage.Any(hit => hit.TargetId == near.id) && damage.Any(hit => hit.TargetId == far.id)),
+        "城内外发生实际作用，侧边对照无伤", facts);
+    int frame = Math.Max(0, times.FindIndex(time => time >= (damage.Length == 0 ? definition.Lifetime * .45f : damage[0].Age)));
+    return new
+    {
+        passed = true, cityCase, facts, times, duration = definition.Lifetime + .4f, previewFrame = frame,
+        title = definition.Name + " · 单名化神 · 原版\n真实作用跨城区 · 实扣 " + paid.ToString("0.##") + " 真元"
+    };
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Touched;
+    ConstructedAbilityService.WorldContactConfirmed -= Ground;
+    ConstructedAbilityService.CastEnded -= Finished;
+    Config.paused = true;
+}
