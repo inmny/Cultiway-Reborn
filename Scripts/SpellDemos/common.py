@@ -18,6 +18,9 @@ CONTROL = Path(os.environ.get("CULTIWAY_DEMO_CONTROL", PROJECT / "artifacts/spel
 CLIENT = Path(os.environ.get("CULTIWAY_DEBUG_CLIENT", PROJECT.parent / "DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll"))
 LABELS = {"base": "原始效果", "modifiers": "添加词条", "trajectory": "改变轨迹", "combined": "词条与轨迹"}
 CONSTRUCTION_ONLY = {"cross-form": "跨形态", "material": "换材", "structure": "增加子部位"}
+MOD_INPUT_DIRS = ("Source", "Content", "GameResources", "Locales", "Assemblies")
+MOD_INPUT_FILES = ("mod.json", "icon.png", "default_config.json")
+FIXTURE_DIR = "Scripts/WorldSaveTests/Fixtures/world-format-1"
 
 
 def demo_modes(text):
@@ -28,16 +31,16 @@ def demo_modes(text):
     return modes
 
 
-def version_stamp():
-    """计算实际文件内容，未提交的代码和资源变化也会使旧录像失效。"""
+def input_fingerprint(root, directories, files=()):
+    """以相对路径和文件内容核对输入，独立游戏可使用相同内容的安装副本。"""
     digest = hashlib.sha256()
-    paths = [PROJECT / "mod.json"]
-    for folder in ["Source", "Content", "GameResources", "Scripts/SpellDemos"]:
-        paths.extend(path for path in (PROJECT / folder).rglob("*")
+    paths = [root / name for name in files if (root / name).is_file()]
+    for folder in directories:
+        paths.extend(path for path in (root / folder).rglob("*")
                      if path.is_file() and "__pycache__" not in path.parts)
     latest = 0
     for path in sorted(paths):
-        relative = path.relative_to(PROJECT).as_posix()
+        relative = path.relative_to(root).as_posix()
         if relative == "mod.json":
             # 加载器会写回运行信息，只有模组声明参与比较。
             metadata = json.loads(path.read_text(encoding="utf-8"))
@@ -46,10 +49,28 @@ def version_stamp():
         else:
             content = path.read_bytes()
         digest.update(relative.encode() + b"\0" + content + b"\0")
-        if relative.startswith(("Source/", "Content/", "GameResources/")):
+        if relative != "mod.json":
             latest = max(latest, path.stat().st_mtime)
+    return digest.hexdigest(), latest
+
+
+def version_stamp():
+    """记录准备录制的模组、工具和测试世界，提交号只用于追溯。"""
+    mod, latest = input_fingerprint(PROJECT, MOD_INPUT_DIRS, MOD_INPUT_FILES)
+    tools, _ = input_fingerprint(PROJECT, ("Scripts/SpellDemos", FIXTURE_DIR))
+    digest = hashlib.sha256(f"{mod}:{tools}".encode()).hexdigest()
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=PROJECT, capture_output=True, text=True, check=True).stdout.strip()
-    return dict(sha256=digest.hexdigest(), commit=commit), latest
+    return dict(sha256=digest, modSha256=mod, toolAndFixtureSha256=tools, commit=commit), latest
+
+
+def verify_loaded_inputs(catalog, version):
+    """以运行游戏报告的安装目录为准，核对实际加载所用的文件内容。"""
+    mod_path = catalog.get("modPath")
+    if not mod_path or not (Path(mod_path) / "mod.json").is_file():
+        raise ValueError("游戏未报告可核对的实际模组目录")
+    observed, _ = input_fingerprint(Path(mod_path), MOD_INPUT_DIRS, MOD_INPUT_FILES)
+    if observed != version["modSha256"]:
+        raise ValueError("游戏所读的模组代码或资源与录制输入不同，请用当前版本的独立游戏")
 
 
 def same_recording(previous, current):
@@ -615,7 +636,8 @@ def main(all_spells):
             raise ValueError("连接和准备期间代码或资源发生了修改，请重新运行")
         if latest > catalog["processStarted"]:
             raise ValueError("游戏启动后代码或资源发生了修改，请重启游戏再录制，避免把旧程序录为新效果")
-        fixture = PROJECT / "Scripts/WorldSaveTests/Fixtures/world-format-1"
+        verify_loaded_inputs(catalog, version)
+        fixture = PROJECT / FIXTURE_DIR
         if not (fixture / "map.wbox").is_file():
             raise ValueError(f"缺少演示测试存档：{fixture}")
         manifest = dict(version=version, fixture=str(fixture), motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
@@ -733,6 +755,7 @@ def main(all_spells):
             raise RuntimeError("录像已完成，但游戏尚未完成收尾，请查看 status.json")
         if version_stamp()[0]["sha256"] != version["sha256"]:
             raise ValueError("录制期间代码或资源发生了修改，本目录不可作为同一版本的验收结果，请重新录制")
+        verify_loaded_inputs(catalog, version)
         recording_requested = False
         accepted = {key: result for key, result in results.items() if result["passed"]}
         publish(output, cases, accepted, skipped, failures)

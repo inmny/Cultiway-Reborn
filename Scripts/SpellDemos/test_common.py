@@ -64,6 +64,29 @@ class RegisteredConstructionTests(unittest.TestCase):
 
 
 class RecordingVersionTests(unittest.TestCase):
+    def test_loaded_copy_and_fixture_are_checked_independently(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            work, loaded = root / "work", root / "loaded"
+            for directory in (work, loaded):
+                (directory / "Locales").mkdir(parents=True)
+                (directory / "mod.json").write_text('{"version":"test"}', encoding="utf-8")
+                (directory / "Locales/notice.json").write_text('{"notice":"原文"}', encoding="utf-8")
+            fixture = work / common.FIXTURE_DIR / "map.wbox"
+            fixture.parent.mkdir(parents=True)
+            fixture.write_bytes(b"fixture")
+            with patch.object(common, "PROJECT", work), patch.object(common.subprocess, "run") as command:
+                command.return_value.stdout = "same-commit"
+                version, _ = common.version_stamp()
+                common.verify_loaded_inputs(dict(modPath=str(loaded)), version)
+                fixture.write_bytes(b"changed fixture")
+                changed, _ = common.version_stamp()
+                self.assertEqual(changed["modSha256"], version["modSha256"])
+                self.assertNotEqual(changed["sha256"], version["sha256"])
+                (loaded / "Locales/notice.json").write_text('{"notice":"旧文"}', encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "模组代码或资源与录制输入不同"):
+                    common.verify_loaded_inputs(dict(modPath=str(loaded)), changed)
+
     def test_commit_metadata_does_not_replace_content_check(self):
         first = {"version": {"sha256": "same-content", "commit": "before"}, "fps": 20}
         committed = {"version": {"sha256": "same-content", "commit": "after"}, "fps": 20}

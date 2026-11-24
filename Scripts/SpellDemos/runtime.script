@@ -307,6 +307,7 @@ public void Install()
         processStarted =
             (System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime() -
              new DateTime(1970, 1, 1)).TotalSeconds,
+        modPath = mod.GetDeclaration().FolderPath,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(), spells = rows,
         modifiers = modifiers.Select(item => new
             { id = item.id, name = Name(item.id), parameters = item.CreateDefaultSpec().Parameters }).ToArray(),
