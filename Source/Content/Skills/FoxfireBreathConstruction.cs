@@ -49,7 +49,8 @@ internal static class FoxfireBreathConstruction
         var target = new ActiveAbilityTarget(emission.Target, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(caster, Definition.Value, target, mouth, emission.Payment,
-            damage, direction: forward, spatialSource: emission.SpatialSource, sourceIsWorld: true)
+            damage, direction: forward, spatialSource: emission.SpatialSource, sourceIsWorld: true,
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

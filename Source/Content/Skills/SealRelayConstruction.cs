@@ -90,7 +90,8 @@ internal static class SealRelayConstruction
         direction.z = 0f;
         direction = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees + angle, Vector3.forward) * direction;
         return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos, emission.Payment,
-            damage, direction, spatialSource: emission.SpatialSource) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            damage, direction, spatialSource: emission.SpatialSource,
+            reportPreview: emission.ReportPreview) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>沿普通部位同步展开体积、时点和飞行速度，关闭接触时只保留首张纸。</summary>

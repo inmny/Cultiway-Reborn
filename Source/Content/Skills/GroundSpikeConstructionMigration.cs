@@ -43,7 +43,8 @@ internal static class GroundSpikeConstructionMigration
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
-            legacyArea: LegacyAreaImpact.From(in emission, "root")) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            legacyArea: LegacyAreaImpact.From(in emission, "root"),
+            reportPreview: emission.ReportPreview) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>先核对附加作用，再将实际强度、尺寸、寿命和固定目标展开为可保存资料。</summary>

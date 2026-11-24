@@ -155,7 +155,8 @@ internal static class FormationTargetConstruction
             damage, direction: formation.TracksTarget ? forward : null, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
             groundTravel: formation.TracksTarget ? LegacyGroundTravel.From(in emission, 0f) : null,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission), explicitReactionTarget: true,
-            formationTarget: formation) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            formationTarget: formation,
+            reportPreview: emission.ReportPreview) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>建立在目标实际位置显形的一次接触与有限退场。</summary>

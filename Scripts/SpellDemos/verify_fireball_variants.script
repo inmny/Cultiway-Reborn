@@ -194,10 +194,62 @@ async Task Play(int index)
         cast = live.Key, impact = impact.ToString(), hurt = damage.Select(hit => hit.TargetId).ToArray() });
 }
 
+async Task VerifySwitch(int index)
+{
+    Entity skill = Learn(index, false, false);
+    Ready(source);
+    Place(source, 64);
+    Place(target, 70);
+    Place(near, 12, 12);
+    Place(outside, 12, 12);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    float before = owner.GetCultisys<Xian>().wakan;
+    int beforeHealth = target.data.health;
+    int attempted = 0;
+    int payments = 0;
+    void Paid(long payer, IReadOnlyList<SkillCastPaymentEntry> entries)
+    {
+        if (payer == source.id) payments++;
+    }
+
+    var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+    {
+        if (emission.Source != source) return original(emission);
+        attempted++;
+        return SkillEmissionResult.Unhandled;
+    };
+    SkillCastPayment.Committed += Paid;
+    try
+    {
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(target, target.GetSimPos(),
+                selectionArea: new SkillTargetSelectionArea(true, target.GetSimPos(), .1f)),
+            ActiveAbilityUseOrigin.Player), "旧学会编号仍可提交正式施放");
+        source.attack_timer = 999;
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        await Advance(.20f);
+        Check(attempted == 1 && payments == 0 && oldExecutions == 0 && casts.Count == 0 &&
+              before == owner.GetCultisys<Xian>().wakan && target.data.health == beforeHealth,
+            "共同入口未接管时结束发射，无旧执行、实扣或伤害",
+            new { attempted, payments, oldExecutions, casts = casts.Count, before,
+                after = owner.GetCultisys<Xian>().wakan, beforeHealth, afterHealth = target.data.health });
+    }
+    finally
+    {
+        SkillCastPayment.Committed -= Paid;
+        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    }
+}
+
 ConstructedAbilityService.CastStarted += Started;
 Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
 try
 {
+    if (caseName == "official-switch") await VerifySwitch(chosenVariants[0]);
     foreach (int index in chosenVariants.Distinct()) await Play(index);
     return new { passed = true, casts = recordings.Count };
 }

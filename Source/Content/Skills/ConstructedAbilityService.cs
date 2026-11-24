@@ -95,7 +95,6 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
             return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
         };
-        Core.SkillLibV3.Wanfa.WanfaTestCastSession.ConstructionPreview = UtilityConstructionMigration.Emit;
         ConstructedInventoryInputs.Initialize();
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
@@ -505,7 +504,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             spatialSource: spatialSource?.a, sourceIsWorld: sourceIsWorld, legacyArea: legacyArea,
             groundTravel: groundTravel, groundContact: groundContact, buildingContact: buildingContact,
             formationFamily: formationFamily, formationArea: formationArea, explicitReactionTarget: explicitReactionTarget,
-            formationTarget: formationTarget, selectionAlreadyChecked: selectionAlreadyChecked,
+            formationTarget: formationTarget, selectionAlreadyChecked: selectionAlreadyChecked || reportPreview != null,
             artifactArea: artifactArea, commitEffect: commitEffect, utilityTravel: utilityTravel,
             preview: reportPreview != null);
         if (accepted && reportPreview != null)

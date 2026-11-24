@@ -126,7 +126,8 @@ internal static class FormationAreaConstruction
         return ConstructedAbilityService.StartPrepaid(caster, definition, target, emission.SourcePos,
             emission.Payment, force, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
-            formationArea: new FormationAreaContact(kind, strength, damage))
+            formationArea: new FormationAreaContact(kind, strength, damage),
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

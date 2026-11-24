@@ -82,7 +82,8 @@ internal static class FormationCueConstruction
         var force = new GetHitEvent { DamageOrigin = emission.RuntimeData.DamageOrigin };
         force.BindAttacker(emission.Source);
         return ConstructedAbilityService.StartPrepaid(owner, definition, target, emission.SourcePos, emission.Payment,
-            force, sourceInstance: skill.Id, spatialSource: emission.SpatialSource)
+            force, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 }

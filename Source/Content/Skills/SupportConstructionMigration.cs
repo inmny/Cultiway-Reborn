@@ -51,7 +51,8 @@ internal static class SupportConstructionMigration
             AttackType = AttackType.Other, DamageOrigin = emission.RuntimeData.DamageOrigin };
         carrier.BindAttacker(emission.Source);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
-            emission.SourcePos, emission.Payment, carrier, sourceInstance: emission.SkillContainer.Id, spatialSource: emission.SpatialSource)
+            emission.SourcePos, emission.Payment, carrier, sourceInstance: emission.SkillContainer.Id, spatialSource: emission.SpatialSource,
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

@@ -45,7 +45,8 @@ internal static class BarrierConstructionMigration
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-            buildingContact: LegacyBuildingContact.From(in emission)) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            buildingContact: LegacyBuildingContact.From(in emission),
+            reportPreview: emission.ReportPreview) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>已完整映射的原墙与护盾分别提供自身形体和实际材料。</summary>

@@ -128,7 +128,7 @@ def main():
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
                         help='只复验指定旧索引，可重复指定')
     ground_checks = ('legacy', 'legacy-edge', 'edge')
-    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'gravity', 'archive', 'cold', *ground_checks))
+    parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'gravity', 'archive', 'cold', 'official-switch', *ground_checks))
     parser.add_argument('--archive', type=Path, help='冷启动使用之前实际保存的目录')
     args = parser.parse_args()
     if args.spell in batches or args.spell in projectile_spells:
@@ -187,8 +187,8 @@ def main():
             Path(__file__).with_name('verify_fire_family_save.script'), [], args.case, archive)
         return
     case = args.case or 'hit'
-    if args.archive or case not in ('hit', 'miss', 'tracking', 'gravity'):
-        parser.error('火球实测使用 hit、miss、tracking 或 gravity')
+    if args.archive or case not in ('hit', 'miss', 'tracking', 'gravity', 'official-switch'):
+        parser.error('火球实测使用 hit、miss、tracking、gravity 或 official-switch')
     variants = args.variant or (range(18) if case == 'hit' else [0])
     run(('Cultiway.Fireball',), Path(__file__).with_name('verify_fireball_variants.script'), variants, case)
 

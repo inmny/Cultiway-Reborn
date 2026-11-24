@@ -44,7 +44,8 @@ internal static class BeamConstructionMigration
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
             emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
-            buildingContact: LegacyBuildingContact.From(in emission))
+            buildingContact: LegacyBuildingContact.From(in emission),
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

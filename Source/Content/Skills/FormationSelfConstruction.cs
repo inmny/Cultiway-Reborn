@@ -67,7 +67,8 @@ internal static class FormationSelfConstruction
         force.BindAttacker(emission.Source);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos,
             emission.Payment, force, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
-            formationFamily: family) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+            formationFamily: family,
+            reportPreview: emission.ReportPreview) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>只解析当前修炼成果仍然授予的自身效果。</summary>

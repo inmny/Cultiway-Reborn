@@ -45,7 +45,8 @@ internal static class ChainConstructionMigration
             emission.SourcePos, emission.Payment, damage, spatialSource: emission.SpatialSource,
             sourceIsWorld: emission.SourceIsWorld,
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
-            buildingContact: LegacyBuildingContact.From(in emission))
+            buildingContact: LegacyBuildingContact.From(in emission),
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

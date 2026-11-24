@@ -1,10 +1,8 @@
 using System;
-using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Wanfa;
@@ -23,9 +21,6 @@ internal static class WanfaTestCastSession
     private static Func<bool> _isExecutionActive;
     private static SessionState _state;
     public static bool IsActive => _state == SessionState.SelectingCaster;
-
-    /// <summary>内容可接管已经迁移的试放，并提供同一次执行的实际结束状态。</summary>
-    internal static Func<SkillEmission, Action<Func<bool>>, SkillEmissionResult> ConstructionPreview;
 
     public static void Enter(SkillBlueprint draft, PowerButton grantButton)
     {
@@ -63,7 +58,7 @@ internal static class WanfaTestCastSession
         float power = actor.GetExtend().GetPowerLevel();
         BaseSimObject carrier = Manager.ResolveSpatialSource(actor);
         Func<bool> active = null;
-        var result = ConstructionPreview?.Invoke(new SkillEmission
+        bool accepted = ModClass.I.SkillV3.EmitSkill(new SkillEmission
         {
             SkillContainer = compiled.Container,
             Source = actor,
@@ -73,15 +68,10 @@ internal static class WanfaTestCastSession
             TargetPos = target.GetSimPos(),
             Strength = SkillContext.DefaultStrength,
             PowerLevel = power,
-            RuntimeData = new SkillCastRuntimeData { Origin = ActiveAbilityUseOrigin.Player }
-        }, isActive => active = isActive) ?? SkillEmissionResult.Unhandled;
-        if (result == SkillEmissionResult.Unhandled)
-        {
-            Entity execution = ModClass.I.SkillV3.SpawnSkill(compiled.Container, actor, target,
-                SkillContext.DefaultStrength, power_level: power);
-            if (!execution.IsNull) active = () => !execution.IsNull;
-        }
-        if (active == null || result == SkillEmissionResult.Rejected)
+            RuntimeData = new SkillCastRuntimeData { Origin = ActiveAbilityUseOrigin.Player },
+            ReportPreview = isActive => active = isActive
+        });
+        if (!accepted || active == null)
         {
             SkillBlueprintCompiler.Recycle(compiled.Container);
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.TestUnavailable".Localize(), false, "top", 3f);

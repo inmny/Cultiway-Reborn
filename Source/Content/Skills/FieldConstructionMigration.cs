@@ -46,7 +46,8 @@ internal static class FieldConstructionMigration
             emission.SourcePos, emission.Payment, damage, sourceInstance: skill.Id, spatialSource: emission.SpatialSource,
             groundTravel: LegacyGroundTravel.From(in emission, definition.Root.ActiveFrom),
             groundContact: ConstructedAbilityService.LegacyContactElement(in emission),
-            buildingContact: LegacyBuildingContact.From(in emission))
+            buildingContact: LegacyBuildingContact.From(in emission),
+            reportPreview: emission.ReportPreview)
             ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 

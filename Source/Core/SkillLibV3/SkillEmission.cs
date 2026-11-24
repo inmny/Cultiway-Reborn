@@ -30,6 +30,9 @@ public struct SkillEmission
     /// <summary>本步骤尚未提交的实际扣费，执行入口成功时提交，失败时由来源撤销。</summary>
     internal SkillCastPayment Payment;
 
+    /// <summary>仅由万法试放传入，读取同次共同执行是否还在运行。</summary>
+    internal Action<Func<bool>> ReportPreview;
+
     /// <summary>实际已学或来源授予的容器。</summary>
     public Entity SkillContainer;
 

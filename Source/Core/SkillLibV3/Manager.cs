@@ -29,7 +29,7 @@ public class Manager
     /// <summary>执行体配置完成、作用范围初始化之前的通知；内容层可统一应用真实成长规则。</summary>
     public static event Action<Entity> ExecutionConfigured;
 
-    /// <summary>已完成原收费和步骤安排后的构造执行入口；返回真表示已经接管，不再生成旧执行体。</summary>
+    /// <summary>按原收费和步骤安排提交给共同执行。只有实际受理才推进本次发射。</summary>
     public static Func<SkillEmission, SkillEmissionResult> ConstructionEmission;
 
     /// <summary>新构造提供的真实屏障边界；旧技能在伤害前统一查询。</summary>
@@ -454,24 +454,12 @@ public class Manager
         }
     }
 
-    /// <summary>真正发射的共同入口；构造明确拒绝后不落回旧执行，受理后才提交逐发费用。</summary>
+    /// <summary>正式发射统一进入共同执行，受理后才提交逐发费用。</summary>
     /// <param name="request">同一次实际步骤及其未提交支付。</param>
     internal bool EmitSkill(SkillEmission request)
     {
         if (request.RuntimeData.WorldScope != null && !request.RuntimeData.WorldScope.IsValid()) return false;
-        SkillEmissionResult result = ConstructionEmission?.Invoke(request) ?? SkillEmissionResult.Unhandled;
-        if (result != SkillEmissionResult.Unhandled) return result == SkillEmissionResult.Accepted;
-        if (request.SourceIsWorld) return false;
-        Entity execution = request.Sourceless
-            ? SpawnSourcelessSkill(request.SkillContainer, request.SourcePos, request.Target, request.TargetPos,
-                request.Strength,
-                request.PowerLevel, initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
-                attack_kingdom: request.AttackKingdom, runtime_data: request.RuntimeData)
-            : SpawnSkillAtPosition(request.SkillContainer, request.Source, request.SourcePos, request.Target,
-                request.TargetPos,
-                request.Strength, request.PowerLevel, request.InitialAngleOffsetDegrees, request.AttackKingdom,
-                request.RuntimeData, request.SpatialSource);
-        return !execution.IsNull;
+        return ConstructionEmission?.Invoke(request) == SkillEmissionResult.Accepted;
     }
 
     public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
