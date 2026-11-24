@@ -158,7 +158,10 @@ try
     int[] threads;
     double worldBefore = World.world.getCurWorldTime();
     var timer = Stopwatch.StartNew();
-    using (var trace = Trace.Attach(typeof(AbilityCast).GetMethod("AppendContacts"),
+    // 部分版本的公开入口只转发，追踪实际生成形状的方法体。
+    var sample = typeof(AbilityCast).GetMethod("AppendContacts", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? typeof(AbilityCast).GetMethod("AppendContacts");
+    using (var trace = Trace.Attach(sample,
                new MethodTraceOptions { IncludeArguments = false, IncludeResult = false, MaxEvents = 2048 }))
     {
         await Advance(.2f);
@@ -175,7 +178,8 @@ try
     var result = new
     {
         passed = true, fillerCount, work = fillerCount * AbilityCompiler.Compile(filler).WorkSize,
-        mainThread, threads, worldSeconds, wallMillisecondsWithTrace = timer.Elapsed.TotalMilliseconds,
+        mainThread, threads, sampleParameters = sample.GetParameters().Length, worldSeconds,
+        wallMillisecondsWithTrace = timer.Elapsed.TotalMilliseconds,
         absorbed = clashes[0].Absorbed, target = right.id, initialHealth, finalHealth,
         impactAge = impacts[0].Age, remaining = new[] { clashes[0].LeftRemaining, clashes[0].RightRemaining }
     };

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""用原版雨云存读验证录制冷启动后仍在继续的天气。"""
+"""复验旧已学雨云，或录制新构造雨云冷启动后的真实天气。"""
 import argparse
 import hashlib
 import json
@@ -24,7 +24,7 @@ def save_fingerprint(folder):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("prepare", "resume"))
+    parser.add_argument("phase", choices=("legacy", "prepare", "resume"))
     parser.add_argument("--archive", type=Path, help="准备阶段输出目录，供新的游戏进程读入")
     parser.add_argument("--output", type=Path, required=True, help="本阶段结果的上级目录")
     args = parser.parse_args()
@@ -52,8 +52,10 @@ def main():
     fixture = PROJECT / "Scripts/WorldSaveTests/Fixtures/world-format-1"
     body = body.replace('Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1")',
                         json.dumps(str(fixture)), 1)
-    if not resuming:
+    if args.phase == "prepare":
         body = body.replace("const bool verifyLegacySource = true;", "const bool verifyLegacySource = false;", 1)
+    elif args.phase == "legacy":
+        body = body.replace("const bool verifyConstructedSource = true;", "const bool verifyConstructedSource = false;", 1)
     program = folder / "input.script"
     program.write_text(body, encoding="utf-8")
     version, _ = version_stamp()
@@ -64,8 +66,10 @@ def main():
         write_json(folder / "result.json", dict(passed=False, error=str(error)))
         raise RuntimeError(f"天气验证未通过，见 {folder}") from error
     write_json(folder / "result.json", result)
-    write_json(folder / "receipt.json", dict(passed=result["passed"], saved=save_fingerprint(folder),
-                                             version=version, connection=connection, phase=args.phase))
+    receipt = dict(passed=result["passed"], version=version, connection=connection, phase=args.phase)
+    if args.phase != "legacy":
+        receipt["saved"] = save_fingerprint(folder)
+    write_json(folder / "receipt.json", receipt)
     if not result["passed"]:
         raise RuntimeError(f"天气验证未通过，见 {folder}")
     if resuming:

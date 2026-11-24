@@ -1,17 +1,20 @@
 // 在独立测试世界运行：旧配方转换、原档保留、单招参数、实际施法和编辑页。
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Content;
 using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Settings;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Newtonsoft.Json;
@@ -146,13 +149,21 @@ Actor target = World.world.units.createNewUnit("wolf", World.world.GetTileSimple
 target.addTrait("super_health"); ControllableUnit.setControllableCreatureAndSelected(actor);
 int spawned = 0; float radiusScale = 0; bool contactEnabled = true;
 float expectedRadiusScale = SkillEffectRadius.ResolveForCaster(owner, fireball, 1f);
-Action<Entity> observe = entity =>
+const BindingFlags members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+void Observe(ConstructedCastStarted fact)
 {
-    if (entity.GetComponent<SkillEntity>().SkillContainer != fireball) return;
-    spawned++; radiusScale = entity.GetComponent<EffectRadiusScale>().Value;
-    contactEnabled = entity.GetComponent<ColliderConfig>().Enabled;
-};
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += observe;
+    if (fact.SourceId != actorId || fact.AbilityId != SkillEntities.Fireball.id) return;
+    var casts = (IEnumerable)typeof(ConstructedAbilityService).GetField("casts", members).GetValue(null);
+    object running = casts.Cast<object>().Single(cast => (long)cast.GetType().GetField("Id", members).GetValue(cast) == fact.CastId);
+    var active = (AbilityCast)running.GetType().GetField("Cast", members).GetValue(running);
+    var nodes = (Array)active.Plan.GetType().GetProperty("Nodes", members).GetValue(active.Plan);
+    object subject = nodes.GetValue(0);
+    spawned++;
+    radiusScale = (float)subject.GetType().GetField("Scale", members).GetValue(subject);
+    contactEnabled = nodes.Cast<object>().Any(node =>
+        (ConstructionContactRole)node.GetType().GetField("ContactRole", members).GetValue(node) != ConstructionContactRole.Decoration);
+}
+ConstructedAbilityService.CastStarted += Observe;
 try
 {
     owner.GetCultisys<Xian>().wakan = 10000;
@@ -160,7 +171,7 @@ try
     Config.paused = false; double until = World.world.getCurWorldTime() + 1;
     while (World.world.getCurWorldTime() < until) await Game.NextFrame();
 }
-finally { Config.paused = true; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= observe; }
+finally { Config.paused = true; ConstructedAbilityService.CastStarted -= Observe; }
 Check(spawned > 0 && Math.Abs(radiusScale - expectedRadiusScale) < .001f && !contactEnabled,
     $"实际执行没有采用保留的范围与碰撞设置：生成 {spawned}，范围 {radiusScale}/{expectedRadiusScale}，接触 {contactEnabled}");
 

@@ -22,6 +22,7 @@ using Cultiway.Content.Combat;
 using Cultiway.Utils.Extension;
 const BindingFlags F=BindingFlags.Static|BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic;
 const bool verifyLegacySource = true;
+const bool verifyConstructedSource = true;
 string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/rain-process");Directory.CreateDirectory(folder);
 var checks=new List<string>();void Check(bool ok,string name){if(!ok)throw new InvalidOperationException(name);checks.Add(name);Log.Info(name);}
 var rt=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=rt.GetProperty("Instance").GetValue(null);
@@ -39,10 +40,7 @@ var cloudsType=typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Cont
 JObject Weather()=>JObject.FromObject(cloudsType.GetMethod("Capture",F).Invoke(null,null));
 IDictionary Clouds()=>(IDictionary)cloudsType.GetField("Clouds",F).GetValue(null);
 AbilityDefinition Def(string name,float? duration=40)=>new(){Id="test.rain-process."+name,Name="凝雨·"+name,Resource="wakan",Cost=3,Cooldown=0,Lifetime=.8f,TargetRange=80,Power=0,Use=new ConstructionUse{Channels=ActiveAbilityChannel.World,Target=ActiveAbilityTargetMode.Point},Impact=new ConstructionImpact{DamageScale=0,WorldEffects=new[]{new ConstructionWorldEffect{Action="weather.rain",Duration=duration,MaximumTiles=1}}},Root=new ConstructionNode{Id="seed",Form="sword",Matter="iron",Rotation=new[]{0f,90f,0f},ActiveFrom=.1f}};
-var ordinary=Def("default",null);var explicitDefault=Def("explicit",12);Check(AbilityCompiler.Compile(ordinary).Impact.WorldEffects[0].Duration==12,"默认持续时间由已登记原理解析");Check(ConstructionSimilarity.Describe(ordinary).Near(ConstructionSimilarity.Describe(explicitDefault)),"缺省和明确填写相同持续时间不伪造另一种新术");var different=Def("different",24);Check(!ConstructionSimilarity.Describe(ordinary).Near(ConstructionSimilarity.Describe(different)),"创法比较保留实际持续差别");var snapshot=Def("snapshot",18);var compiled=AbilityCompiler.Compile(snapshot);snapshot.Impact.WorldEffects[0].Duration=50;Check(compiled.Impact.WorldEffects[0].Duration==18,"共享计划独立保存已经检查的持续参数");
-foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,-1f,0f,3601f}){var d=Def("invalid",invalid);bool rejected=false;try{AbilityCompiler.Compile(d);}catch(InvalidDataException){rejected=true;}Check(rejected,"非法持续参数在资料入口拒绝："+invalid);}
-var unsupported=Def("unsupported",3);unsupported.Impact.WorldEffects[0].Action="land.cleanse";bool refused=false;try{AbilityCompiler.Compile(unsupported);}catch(InvalidDataException){refused=true;}Check(refused,"没有持续参数的原理不会悄悄吞掉声明");
-// 独立运行此脚本仍验旧法术；冷读续录只准备即将保存的新构造。
+// 已学来源使用实际付款凭据，保留支付与天气各自的现场事实。
 object[] manaPayments = Array.Empty<object>();
 if (verifyLegacySource)
 {
@@ -52,21 +50,68 @@ if (verifyLegacySource)
     builder.SetModifier(new SummonRainCloudModifier { Duration = 21 });
     builder.Build(SkillContainerBuildMode.RuleOnly);
     owner.LearnSkillV3(old);
-    using var manaWrites = Trace.Method(typeof(SkillCastResources), "WriteMana");
-    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", old),
-        new ActiveAbilityTarget(null, new Vector3(68, 78, 0)), ActiveAbilityUseOrigin.Script),
-        "原已学雨云仍由正式入口受理，不绕过资源检查");
-    await Advance(1);
-    manaPayments = manaWrites.Events.Select(e => (object)e.Arguments).ToArray();
-    Check(manaPayments.Length > 0 && SkillCastCost.CalculateStepDemand(old) > 0 && Weather()["Clouds"].Count() == 1,
-        "旧法术真实支付法力并交出一朵可保存的原版雨云");
-    Check((float)Weather()["Clouds"][0]["Lifespan"] == 21, "旧持续词条写入同一实际天气状态");
-    Check((long)Weather()["Clouds"][0]["Source"] == actor.id &&
-        (string)Weather()["Clouds"][0]["Ability"] == SkillEntities.SummonRainCloud.id,
-        "旧雨云保留实际施法人物和法术来源");
-    ((Cloud)Clouds().Keys.Cast<object>().Single()).kill();
-    Check(Weather()["Clouds"].Count() == 0, "原版回收立即解除云身份，不等待下一帧");
+    var handle = new ActiveAbilityHandle("core.learned_skill", old);
+    var target = new ActiveAbilityTarget(null, new Vector3(68, 78, 0));
+    float baseDemand = SkillCastCost.CalculateStepDemand(old);
+    float demand = baseDemand * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, old));
+    int quoted = (int)SkillCastPayment.Quote(owner, SkillCastResources.Mana, demand);
+    var payments = new List<SkillCastPaymentEntry[]>();
+    var legacyContacts = new List<ConstructedWorldContact>();
+    void Paid(long payer, IReadOnlyList<SkillCastPaymentEntry> entries)
+    {
+        if (payer == actor.id) payments.Add(entries.ToArray());
+    }
+    void Changed(ConstructedWorldContact contact)
+    {
+        if (contact.SourceId == actor.id && contact.Action == "weather.rain") legacyContacts.Add(contact);
+    }
+    bool accepted = false;
+    JObject formed = null;
+    SkillCastPayment.Committed += Paid;
+    ConstructedAbilityService.WorldContactConfirmed += Changed;
+    try
+    {
+        actor.setMana(quoted - 1, false);
+        Check(quoted > 0 && !ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script)
+            && payments.Count == 0 && Clouds().Count == 0, "法力不足时旧雨云拒绝施放，无扣费或成云");
+        actor.setMana(500, false);
+        accepted = ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script);
+        Check(accepted, "原已学雨云由正式入口受理");
+        await Advance(1);
+        formed = Weather();
+        manaPayments = payments.Select(entries => (object)entries.Select(entry => new
+            { resource = entry.Resource.id, entry.Cost, entry.Spent }).ToArray()).ToArray();
+        Check(payments.Count == 1 && payments[0].Length == 1 &&
+            payments[0][0].Resource == SkillCastResources.Mana && payments[0][0].Cost == quoted &&
+            payments[0][0].Spent == quoted, "旧雨云以实际法力通道支付一次，报价与实扣一致");
+        Check(formed["Clouds"].Count() == 1 && Clouds().Count == 1, "旧雨云生成一朵可保存的原版云");
+        Check(legacyContacts.Count == 1 && legacyContacts[0].Result.Changed &&
+            legacyContacts[0].X == 68 && legacyContacts[0].Y == 78, "旧术在瞄准地块真实成云，只结算一次");
+        var cloud = formed["Clouds"].Single();
+        Check((float)cloud["Lifespan"] == 21, "旧持续词条写入同一实际天气状态");
+        Check((long)cloud["Source"] == actor.id && (string)cloud["Ability"] == SkillEntities.SummonRainCloud.id,
+            "旧雨云保留实际施法人物和法术来源");
+        ((Cloud)Clouds().Keys.Cast<object>().Single()).kill();
+        Check(Weather()["Clouds"].Count() == 0, "原版回收立即解除云身份");
+    }
+    finally
+    {
+        SkillCastPayment.Committed -= Paid;
+        ConstructedAbilityService.WorldContactConfirmed -= Changed;
+        Config.paused = true;
+        File.WriteAllText(Path.Combine(folder, "legacy-state.json"), JsonConvert.SerializeObject(new
+        {
+            checks, actor = actor.id, baseDemand, quoted, accepted, manaPayments, formed,
+            remaining = Weather()["Clouds"].Count(), contacts = legacyContacts
+        }, Formatting.Indented));
+    }
 }
+if (!verifyConstructedSource)
+    return new { passed = true, checks, manaPayments };
+
+var ordinary=Def("default",null);var explicitDefault=Def("explicit",12);Check(AbilityCompiler.Compile(ordinary).Impact.WorldEffects[0].Duration==12,"默认持续时间由已登记原理解析");Check(ConstructionSimilarity.Describe(ordinary).Near(ConstructionSimilarity.Describe(explicitDefault)),"缺省和明确填写相同持续时间不伪造另一种新术");var different=Def("different",24);Check(!ConstructionSimilarity.Describe(ordinary).Near(ConstructionSimilarity.Describe(different)),"创法比较保留实际持续差别");var snapshot=Def("snapshot",18);var compiled=AbilityCompiler.Compile(snapshot);snapshot.Impact.WorldEffects[0].Duration=50;Check(compiled.Impact.WorldEffects[0].Duration==18,"共享计划独立保存已经检查的持续参数");
+foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,-1f,0f,3601f}){var d=Def("invalid",invalid);bool rejected=false;try{AbilityCompiler.Compile(d);}catch(InvalidDataException){rejected=true;}Check(rejected,"非法持续参数在资料入口拒绝："+invalid);}
+var unsupported=Def("unsupported",3);unsupported.Impact.WorldEffects[0].Action="land.cleanse";bool refused=false;try{AbilityCompiler.Compile(unsupported);}catch(InvalidDataException){refused=true;}Check(refused,"没有持续参数的原理不会悄悄吞掉声明");
 var rain=Def("saved",40);ConstructedAbilityService.Register(rain);ConstructedAbilityService.Learn(owner,rain.Id);
 var contacts=new List<ConstructedWorldContact>();var starts=new List<ConstructedCastStarted>();var ends=new List<ConstructedCastEnded>();
 void Contact(ConstructedWorldContact e){if(e.SourceId==actor.id)contacts.Add(e);}void Started(ConstructedCastStarted e){if(e.SourceId==actor.id)starts.Add(e);}void Ended(ConstructedCastEnded e){if(e.SourceId==actor.id)ends.Add(e);}

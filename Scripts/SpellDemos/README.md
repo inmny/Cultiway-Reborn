@@ -21,6 +21,27 @@
 
 以下命令在项目根目录执行，两个入口也支持从其他工作目录调用。
 
+## 按改动复验
+
+`check_skill_changes.py --plan` 列出可选项。
+`build` 编译模组，`tools` 检查演示脚本，`save-data` 核对存档的纯资料转换。其余项通过已有独立游戏的 `dev.py exec` 运行。
+
+| 改动 | 选择 |
+|---|---|
+| 普通施放、录像结束恢复 | `runtime` |
+| 轨迹、作用范围、反射 | `bounds` |
+| 构造改造、支付或无效资料 | `edits` |
+| 批量形状采样、并行接触或切换世界 | `parallel` |
+| 旧单招迁移、真实读写或读档后施放 | `save-data save` |
+| 旧已学雨云的支付和持续时间 | `rain` |
+
+```bash
+python3 Scripts/SpellDemos/check_skill_changes.py build tools
+dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/check_skill_changes.py bounds edits --output <新目录>
+```
+
+每项保留命令和结果。遇到问题先检查该项的报告和日志，再用新目录单独补测对应项。变更直接影响冷启动读档时，另用[世界存档分步检查](../WorldSaveTests/README.md)复核真正重启。
+
 凝固动量另用 `verify_solidification.script` 检查，正式学习、支付和留置用 `verify_solidification_runtime.script`，真正退出并重启后用 `verify_solidification_restart.script`。对应输入为 `Doc/技能系统全面重构/构造输入/流水凝固留置.json`。
 
 材料与物态验证分别使用 `verify_matter_state.script` 和 `verify_matter_contacts.script`：前者检查真正发布资源的冻结、解冻、凝壳、染色及预测恢复；后者通过正式施放和真实接触追踪伤害系统，检查变化时序与交锋余力。运行前先等待 `demo_all.py --launch --list` 完整结束，再用 DebugToolbox 客户端执行，避免打断原版初次世界载入。保存测试仍使用 `verify_construction.script`，真正退出并重启游戏后执行 `verify_construction_restart.script`。
@@ -803,7 +824,7 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 先执行 `verify_rain_process.script`，检查新构造原理和旧已学雨云的真实支付、持续参数、实际雨滴、暂停及对象池清理，保存结果到 `artifacts/skill_rebuild/rain-process/save`。真正退出并重启游戏后执行 `verify_rain_process_restart.script`，比较实际云龄、位置和行动进度，继续降雨、检查来源死亡、再次保存和逐条恢复，同时录制原版功能过程。
 
-可通过独立游戏先运行 `record_rain_process.py prepare --output <目录>` 正式保存新构造产生的雨云，再在新游戏进程运行 `record_rain_process.py resume --archive <准备阶段输出目录> --output <目录>`。保存指纹、真实状态和续录视频都写入各段输出目录。
+通过独立游戏运行 `record_rain_process.py legacy --output <目录>` 可以单独核对旧已学来源的法力、地块和实际成云。用 `record_rain_process.py prepare --output <目录>` 正式保存新构造产生的雨云，再在新游戏进程运行 `record_rain_process.py resume --archive <准备阶段输出目录> --output <目录>`。保存指纹、真实状态和续录视频都写入各段输出目录。
 
 ```bash
 dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_rain_process.script 180000
