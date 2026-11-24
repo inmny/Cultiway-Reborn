@@ -3,6 +3,19 @@ var definition = Spell("赑风削甲");
 Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: victim);
 victim.equipment.setItem(armor, victim); victim.setStatsDirty(); victim.updateStats();
 int before = armor.getDurabilityCurrent();
+Actor inner = null;
+Item innerArmor = null;
+if (cityFilm)
+{
+    inner = Make(71.15f);
+    inner.setKingdom(victim.kingdom);
+    source.addAggro(inner);
+    inner.addAggro(source);
+    innerArmor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: inner);
+    inner.equipment.setItem(innerArmor, inner);
+    inner.setStatsDirty();
+    inner.updateStats();
+}
 var losses = new List<ConstructedEquipmentErosion>();
 void Worn(ConstructedEquipmentErosion fact) { if (fact.SourceId == source.id && fact.AbilityId == definition.Id) losses.Add(fact); }
 bool HasScar() => FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "baleful_wind_mark");
@@ -11,18 +24,35 @@ try
 {
     MoveCamera.instance.transform.position = new Vector3(68, 72, MoveCamera.instance.transform.position.z);
     MoveCamera.instance.forceZoom(7f);
-    var first = await Use(definition);
+    var first = await Use(definition, cityFilm ? 72.5f : 69f);
     Check(!HasScar() && armor.getDurabilityCurrent() == before, "施放开始并未凭空削甲或留下余痕");
     if (recordView.Length > 0)
     {
-        await SetCamera(5.6f);
+        await SetCamera(cityFilm ? 12.5f : 5.6f);
+        City city = cityFilm ? CreateFilmCity(64) : null;
+        if (cityFilm)
+        {
+            Place(inner, 71.15f);
+            ConstructedAbilityService.NotifyActorChanged(inner);
+            File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        }
         const float duration = 2.05f;
         double mark = -1, movieStart = World.world.getCurWorldTime();
         var times = await Film(duration, () => { if (mark < 0 && HasScar()) mark = World.world.getCurWorldTime() - movieStart; });
-        Check(losses.Count >= 2 && losses.All(f => f.ItemId == armor.id && f.After < f.Before) && mark >= 0 &&
+        Check(losses.Count >= 2 && losses.All(f => (f.ItemId == armor.id || (cityFilm && f.ItemId == innerArmor.id)) &&
+                    f.After < f.Before) && mark >= 0 &&
               first.Cast.Finished && !HasScar() && armor.getActor() == victim,
               "原速原片拍到实际接触、削甲余痕及退场", losses.ToArray());
-        return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+        var cityWear = cityFilm ? new
+        {
+            inner = new { inner.id, position = inner.current_position.ToString(), inCity = IsInFilmCity(city, inner.current_position) },
+            outer = new { victim.id, position = victim.current_position.ToString(), inCity = IsInFilmCity(city, victim.current_position) },
+            losses = losses.Select(hit => new { hit.TargetId, hit.ItemId, hit.Before, hit.After }).ToArray()
+        } : null;
+        if (cityFilm) Check(cityWear.inner.inCity && !cityWear.outer.inCity &&
+            cityWear.losses.Any(hit => hit.TargetId == inner.id) && cityWear.losses.Any(hit => hit.TargetId == victim.id),
+            "同一次风切消耗城区两侧的原版铁甲", cityWear);
+        return new { passed = true, cityWear, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
             item = armor.id, after = armor.getDurabilityCurrent(), duration, times, previewFrame = Math.Max(0, times.FindIndex(t => t >= mark)) };
     }
     while (losses.Count < 2 && !first.Cast.Finished) await Advance(.055f);

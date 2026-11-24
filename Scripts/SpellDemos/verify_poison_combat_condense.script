@@ -1,7 +1,8 @@
 var definition = Spell("瘴潮凝潭");
+float shift = cityFilm ? 14f : 0f;
 Actor side = Make(69), outside = Make(69);
 foreach (Actor actor in new[] { side, outside }) actor.setKingdom(victim.kingdom);
-Place(side, 69, 75.25f); Place(outside, 68.2f, 78.1f);
+Place(side, 69, 75.25f + shift); Place(outside, 68.2f, 78.1f + shift);
 Item armor = World.world.items.generateItem(AssetManager.items.get("armor_iron"), pActor: victim);
 victim.equipment.setItem(armor, victim); victim.setStatsDirty(); victim.updateStats();
 int initial = armor.getDurabilityCurrent(), sideHealth = side.data.health, outsideHealth = outside.data.health;
@@ -39,8 +40,19 @@ try
             "错开实际毒息后没有凝潭、扩散、蚀痕或耐久损失");
         return new { passed = true, miss };
     }
+    if (cityFilm)
+    {
+        for (int x = 63; x <= 73; x++)
+        for (int y = 86; y <= 92; y++)
+        {
+            var tile = World.world.GetTileSimple(x, y);
+            if (tile.Type.liquid) tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        }
+        File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    }
     var first = await Use(definition);
-    if (recordView.Length > 0) await SetCamera(6.8f);
+    if (recordView.Length > 0) await SetCamera(cityFilm ? 12.5f : 6.8f);
+    City city = cityFilm ? CreateFilmCity(72, north: 72) : null;
     Check(spreads.Count == 0 && losses.Count == 0 && initial == armor.getDurabilityCurrent(), "未接触时尚无传播和蚀甲");
     float maxRadius = 0f, finalRadius = -1f;
     int armorAfterExit = 0, exitCount = -1;
@@ -65,7 +77,7 @@ try
         if (losses.Count < 2 || exitCount >= 0) return;
         armorAfterExit = armor.getDurabilityCurrent();
         exitCount = losses.Count;
-        Place(victim, 69, 69.3f);
+        Place(victim, 69, 69.3f + shift);
     }
     const float duration = 6.1f;
     List<double> times = null;
@@ -102,7 +114,17 @@ try
         }, Formatting.Indented));
         Check(File.Exists(Path.Combine(archive, "map.wbox")), "正式存档保留原甲损耗与已学构造");
     }
-    return new { passed = true, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
+    var cityPoison = cityFilm ? new
+    {
+        hit = contact.Position.ToString(), inCity = IsInFilmCity(city, contact.Position),
+        pool = condensed.ToString(), poolInCity = IsInFilmCity(city, condensed),
+        infected = side.current_position.ToString(), infectedInCity = IsInFilmCity(city, side.current_position),
+        infectedLoss = sideHealth - side.data.health, initial, final = armorAfterExit, exit = victim.current_position.ToString()
+    } : null;
+    if (cityFilm) Check(cityPoison.inCity && cityPoison.poolInCity && !cityPoison.infectedInCity &&
+                           cityPoison.infectedLoss > 0 && cityPoison.final < cityPoison.initial,
+        "城区内实际凝潭并蚀甲，原扩散规则伤到城区外围对手", cityPoison);
+    return new { passed = true, cityPoison, scene = "construction", resource = "mana", paid = definition.Cost, view = recordView,
         duration, times, previewFrame = times?.FindIndex(t => t >= preview) ?? 0, hits = hitRows, spreads = spreadRows, losses,
         maxRadius, finalRadius, initial, armorAfterExit, lingering, archive };
 }

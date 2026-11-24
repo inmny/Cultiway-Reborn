@@ -16,7 +16,10 @@ def main():
     parser.add_argument('--record', choices=('native', 'worldfall'))
     parser.add_argument('--miss', action='store_true', help='只检查瘴潮飞空')
     parser.add_argument('--save', action='store_true', help='在瘴潮凝潭退场后保存同一实际世界')
+    parser.add_argument('--city', action='store_true', help='复用城区边界及原版常速录像')
     args = parser.parse_args()
+    if args.city and (args.section != 'condense' or args.record != 'native'):
+        parser.error('--city 只用于原版主术录像')
     if args.miss and (args.section != 'condense' or args.record):
         parser.error('飞空复验只适用于瘴潮凝潭，且无需录制')
     if args.save and (args.section != 'condense' or args.miss):
@@ -44,6 +47,11 @@ def main():
     shared = shared.replace('var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Wind.Mana")',
                             'var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Poison.Mana") ?? '
                             'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Poison.Mana")')
+    if args.city:
+        shared = shared.replace('Place(source, 64);', 'Place(source, 64, 86);').replace('Place(victim, targetX);', 'Place(victim, targetX, 86);')
+        shared = shared.replace('67.7f, 72f', '69f, 87f')
+    shared += f'\nbool cityFilm = {str(args.city).lower()};\n'
+    shared += Path(__file__).with_name('city_film_scene.script').read_text()
     if section == 'condense':
         shared += f'\nconst bool miss = {str(args.miss).lower()};\nconst bool save = {str(args.save).lower()};'
     script = output / 'input.script'
@@ -62,7 +70,7 @@ def main():
             'pool': '蚀甲毒潭：留在潭内才掉耐久',
             'condense': '瘴潮凝潭：传播、凝聚和蚀甲',
         }[section]
-        encode(output.parent, dict(key=output.name, name=name, label='原速', variant=0,
+        encode(output.parent, dict(key=output.name, name=name, label='城区实录' if args.city else '原速', variant=0,
                                    trajectory='', modifiers=[]), keep_frames=True)
     print(json.dumps(dict(section=section, output=str(output), result=result), ensure_ascii=False))
 

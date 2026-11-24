@@ -3430,3 +3430,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 `verify_sky_furnace.py --section native --city` 和 `verify_hanging_tree.py --section native --city` 共用原版城区。前者记录熔流的实际触地与城区两侧峰值熔料，后者记录实际根尖触地以及城区内外两名原对练对象的抓持与解除。
 
 原版城区冰、雷可分别用 `verify_frost_flower.py --section film --view native --city` 和 `verify_conduction_visuals.py --section native --record native --city` 复验。两条入口分别保留真实霜面、冻结和碎片位置，以及到达水格、城区两侧的实际伤害和结冰断路。
+
+城区切风和凝潭使用 `verify_wind_combat.py --section erosion --record native --city` 及 `verify_poison_combat.py --section condense --record native --city`。结果含城内外两件铁甲的实际损耗，或城区内凝潭、城外染毒和离潭停止侵蚀。

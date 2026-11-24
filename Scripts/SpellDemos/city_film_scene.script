@@ -1,5 +1,5 @@
 // 复用地脉传力的原版建城办法，只在专门的城域录制中启用。
-City CreateFilmCity(int east, int settlerY = 72, int windmillY = 70)
+City CreateFilmCity(int east, int settlerY = 72, int windmillY = 70, int north = 80)
 {
     Actor settler = Make(60);
     if (settlerY != 72) Place(settler, 60, settlerY);
@@ -8,7 +8,7 @@ City CreateFilmCity(int east, int settlerY = 72, int windmillY = 70)
     World.world.kingdoms.makeNewCivKingdom(settler);
     var city = World.world.cities.buildNewCity(settler, settler.current_tile.zone);
     settler.joinCity(city);
-    for (int y = 64; y <= 80; y += 8)
+    for (int y = 64; y <= north; y += 8)
     for (int x = 56; x <= east; x += 8)
         city.addZone(World.world.GetTileSimple(x, y).zone);
     city.recalculateNeighbourZones();
