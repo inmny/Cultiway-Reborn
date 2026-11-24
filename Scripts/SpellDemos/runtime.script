@@ -940,7 +940,7 @@ private IEnumerator Guarded(IEnumerator steps)
     ControllableUnit.clear(false);
     bool sceneRestored = false;
     if ((bool?)request["continueOnFailure"] == true || (string)request["action"] == "construction" ||
-        (string)request["scene"] == "battle" ||
+        (string)request["scene"] == "battle" || request["requiredSource"] != null ||
         ((JArray)request["cases"]).Any(item => item["construction"] is JObject))
     {
         // 每批结束及失败都回到同一个现成夹具，清除临时已学、材料和未结束动作。
@@ -2548,6 +2548,9 @@ private IEnumerator Record(JObject item, string folder)
 
     Entity skill = default;
     bool dedicated = !artifact.IsNull || technique != null || id == "Cultiway.PalmStrike" || formationActive;
+    string requiredSource = (string)request["requiredSource"];
+    if (requiredSource != null && !dedicated)
+        throw new InvalidOperationException("当前能力没有来自指定入口的正式授予：" + id + " / " + requiredSource);
     if (dedicated) skill = technique != null || formationActive ? ability.Source : default;
     else if (granted.TryGetValue(asset.id, out Entity original)) skill = original;
     else
@@ -2645,6 +2648,9 @@ private IEnumerator Record(JObject item, string folder)
             ability = handles.Single(handle => handle.ProviderId == "content.palm_strike");
         }
 
+        if (requiredSource != null && ability.ProviderId != requiredSource)
+            throw new InvalidOperationException("当前能力没有来自指定入口的正式授予：" + id + " / " + requiredSource);
+
         var descriptor = ActiveAbilityService.Describe(owner, ability);
         if (descriptor.TargetMode == ActiveAbilityTargetMode.Self) target = caster;
         if (id == "Cultiway.PalmStrike")
@@ -2695,6 +2701,9 @@ private IEnumerator Record(JObject item, string folder)
                                                     .BlockReason
                                                 : ""));
     mod.CommandBuffer.Playback();
+    var formationStatus = formationActive && CoreFormationEffectResolver.TryResolveFamily(owner, ability.EntryId, out var effect)
+        ? effect.Definition.StateStatus : null;
+    double? formationActiveAt = null;
     var times = new List<double>();
     var meshes = (IList)typeof(Cultiway.ModClass).Assembly
         .GetType("Cultiway.Content.Combat.CombatSpatialVisualSystem", true)
@@ -2724,6 +2733,9 @@ private IEnumerator Record(JObject item, string folder)
         Camera();
         Tooltip.hideTooltipNow();
         double elapsed = World.world.getCurWorldTime() - start;
+        if (!formationActiveAt.HasValue && formationStatus != null &&
+            CombatStatusEffects.TryGetStatus(caster, formationStatus, caster, out _))
+            formationActiveAt = World.world.getCurWorldTime();
         if ((string)request["scene"] == "shield") ProbeShield(elapsed);
         if (elapsed + .00001 >= nextCapture)
         {
@@ -2766,11 +2778,15 @@ private IEnumerator Record(JObject item, string folder)
     Write(Path.Combine(folder, "result.json"), new
     {
         passed = (spawned > 0 || dedicated && !formationActive && used) && errors.Count == 0 &&
+                 (requiredSource == null || formationStatus == null || formationActiveAt.HasValue) &&
                  (!palm || palmCast > 0 && palmHits.Length == 1 && palmDamage.Length == 1 &&
                      (int?)palmDamage[0]["count"] == 1 && (int?)palmDamage[0]["lost"] > 0 && palmReleased) &&
                  ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest) &&
                  ((bool?)request["shieldBreak"] != true || breakProbeUsed && barrierLowest == 0f),
         id, item, frames = times.Count, times, start, motionFrames,
+        sourceProvider = dedicated ? ability.ProviderId : null,
+        sourceEntry = dedicated ? ability.EntryId : null,
+        formationActiveAt,
         duration = actual, spawned, peakMeshes, previewFrame, artifactDetails,
         palm = palm ? new { cast = palmCast, contacts = palmHits.Length, settlements = palmDamage.Length,
             lost = palmDamage.Sum(hit => (int?)hit["lost"] ?? 0), released = palmReleased,

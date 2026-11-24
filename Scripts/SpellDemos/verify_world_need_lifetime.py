@@ -19,7 +19,10 @@ def main():
     fixture = PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     helpers = (scripts / 'verify_world_use.script').read_text().split('var temp=', 1)[0]
     helpers = helpers.replace('Path.Combine(root,"artifacts/skill_rebuild/world-use")', json.dumps(str(folder)))
-    helpers = helpers.replace('Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1")', json.dumps(str(fixture)))
+    load_path = 'Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1")'
+    helpers = helpers.replace('Config.paused=true;Game.Resume();', f'string fixture = {json.dumps(str(fixture))};\n'
+                              'Config.paused=true;Game.Resume();')
+    helpers = helpers.replace(load_path, 'fixture')
     helpers = helpers.replace('var other=Make(65);other.Base.setKingdom(owner.Base.kingdom);', '')
     script = folder / 'input.script'
     script.write_text(helpers + '\n' + Path(__file__).with_suffix('.script').read_text())
@@ -27,10 +30,12 @@ def main():
     try:
         result = baseline.call('run', str(script), '135000')
     except RuntimeError as error:
-        write_json(folder / 'result.json', dict(passed=False, error=str(error)))
+        write_json(folder / 'result.json', dict(passed=False, error=str(error),
+                    sceneRestored=(folder / 'restore.json').is_file()))
         raise
+    result['sceneRestored'] = (folder / 'restore.json').is_file()
     write_json(folder / 'result.json', result)
-    if not result.get('passed'):
+    if not result.get('passed') or not result['sceneRestored']:
         raise RuntimeError(f'日常回收未通过，见 {folder}')
     print(folder)
 

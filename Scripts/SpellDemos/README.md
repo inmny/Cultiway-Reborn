@@ -127,6 +127,8 @@ python3 -m unittest discover -s Scripts/SpellDemos -p 'test_*.py'
 
 依赖真实身体关节的单招可用 `--caster-species` 选择实际生物。已登记的「伏地扑」默认采用狼形，原有器官构造继续使用所需真身。缺少关节或承接动作时报告拒绝并恢复测试世界。[身体关节复验](../../Doc/技能系统全面重构/演示入口与能力目录.md#不同来源和使用情形1406)
 
+验证专属主动能力时可加 `--require-source content.core_formation` 等实际入口编号。没有对应主动授予时明确拒绝，用于严格区分专属来源和内部容器的普通演示。结果记录实际使用的入口及来源条目。
+
 法宝演示按能力选择钟、印、幡等代表器形；材料和能力参数来自同一份实际炼制设计，结果记录器形、材料与参数。为观察指定能力，演示仅保留这一项能力，不代表自然炼制一定只产出该能力。
 
 全量遍历可加 `--speed 5` 使用游戏自身的加速档，成片依然按世界时间正常播放；这适合快速查漏。正式动作、迎击和自主交战验收保持 `--speed 1`，避免较大的模拟步长改变接触细节。
@@ -792,6 +794,8 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ## 持续天气与原版雨云
 
 先执行 `verify_rain_process.script`，检查新构造原理和旧已学雨云的真实支付、持续参数、实际雨滴、暂停及对象池清理，保存结果到 `artifacts/skill_rebuild/rain-process/save`。真正退出并重启游戏后执行 `verify_rain_process_restart.script`，比较实际云龄、位置和行动进度，继续降雨、检查来源死亡、再次保存和逐条恢复，同时录制原版功能过程。
+
+可通过独立游戏先运行 `record_rain_process.py prepare --output <目录>` 正式保存新构造产生的雨云，再在新游戏进程运行 `record_rain_process.py resume --archive <准备阶段输出目录> --output <目录>`。保存指纹、真实状态和续录视频都写入各段输出目录。
 
 ```bash
 dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_rain_process.script 180000

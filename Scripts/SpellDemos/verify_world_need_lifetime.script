@@ -100,4 +100,10 @@ finally
     Config.paused = true;
     File.WriteAllText(Path.Combine(folder, "observations.json"),
         JsonConvert.SerializeObject(new { checks, starts, ends, changes, observations }, Formatting.Indented));
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Boundary();
+    File.WriteAllText(Path.Combine(folder, "restore.json"),
+        JsonConvert.SerializeObject(new { sceneRestored = true }));
 }
