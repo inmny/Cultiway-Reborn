@@ -1,5 +1,4 @@
 // 同一正式档，按旧时点核对实际对象、状态和资源。
-bool legacy = caseName == "legacy";
 owner.NewCultisys(Cultisyses.Magic);
 source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
 owner.MarkCultiwayStatsDirty();
@@ -15,34 +14,13 @@ foreach (var actor in new[] { source, target, second, outside, enemy })
 }
 await Advance(.2f);
 
-var manager = Cultiway.ModClass.I.SkillV3;
-var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
-if (legacy)
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
-        chosenAssets.Contains(request.SkillContainer.GetComponent<SkillContainer>().Asset.id)
-            ? SkillEmissionResult.Unhandled : original(request);
 float[] Stats(Actor actor) => new[] { actor.stats["multiplier_damage"], actor.stats["armor"],
     actor.stats["multiplier_speed"], actor.stats["multiplier_attack_speed"] };
 var actors = new[] { target, second, outside, enemy };
-var originalAreas = new List<(long id, double time, float radius)>();
-var originalBirths = new Dictionary<int, double>();
-void OldBirth(Entity entity)
-{
-    if (chosenAssets.Contains(entity.GetComponent<SkillEntity>().Asset.id))
-        originalBirths[entity.Id] = World.world.getCurWorldTime();
-}
-void OldArea(Entity entity, Vector3 center, float radius)
-{
-    if (originalBirths.TryGetValue(entity.Id, out double birth))
-        originalAreas.Add((entity.Id, World.world.getCurWorldTime() - birth, radius));
-}
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OldBirth;
-SkillHitResolver.AreaResolved += OldArea;
 try
 {
-    if (!legacy && section != "area")
+    if (section != "area")
     {
         Ready(source);
         Place(source, 64);
@@ -94,28 +72,25 @@ try
         target.updateStats();
         var attributes = Stats(target);
         source.setMana(source.getMaxMana());
-        int mana = source.getMana(), oldCount = oldExecutions, count = casts.Count;
+        int mana = source.getMana(), count = casts.Count;
         double price = SkillCastResources.Mana.Quote(owner, SkillCastCost.CalculateStepDemand(skill) *
             Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
         Vector3 aim = area ? point : target.GetSimPos();
-        if (!legacy)
+        var converter = service.Assembly.GetType("Cultiway.Content.Skills.SupportConstructionMigration").GetMethod("Convert", F);
+        var definition = (AbilityDefinition)converter.Invoke(null, new object[] { new SkillEmission
         {
-            var converter = service.Assembly.GetType("Cultiway.Content.Skills.SupportConstructionMigration").GetMethod("Convert", F);
-            var definition = (AbilityDefinition)converter.Invoke(null, new object[] { new SkillEmission
-            {
-                SkillContainer = skill, Source = source, SpatialSource = source, Target = area ? null : target,
-                SourcePos = source.GetSimPos(), TargetPos = aim, Strength = 100f
-            } });
-            var plan = AbilityCompiler.Compile(definition, cache: false);
-            if (area)
-            {
-                // 两种范围术的旧成形只有一帧，用实际构造时间检查该帧，避免实机刷新越过它。
-                var forming = new AbilityCast(plan, Matrix4x4.identity,
-                    inputs: new AbilityInputs(source.GetSimPos(), aim, Vector3.right, .8f));
-                forming.Advance(rise * .5f, aim);
-                Check(Views(forming).Any(view => view.Resource.Description.Id == entry.Form) &&
-                    ShapeCount(forming) == 0, "旧单帧成形可见，作用面尚未启用", asset.id);
-            }
+            SkillContainer = skill, Source = source, SpatialSource = source, Target = area ? null : target,
+            SourcePos = source.GetSimPos(), TargetPos = aim, Strength = 100f
+        } });
+        var plan = AbilityCompiler.Compile(definition, cache: false);
+        if (area)
+        {
+            // 两种范围术的旧成形只有一帧，用实际构造时间检查该帧，避免实机刷新越过它。
+            var forming = new AbilityCast(plan, Matrix4x4.identity,
+                inputs: new AbilityInputs(source.GetSimPos(), aim, Vector3.right, .8f));
+            forming.Advance(rise * .5f, aim);
+            Check(Views(forming).Any(view => view.Resource.Description.Id == entry.Form) &&
+                ShapeCount(forming) == 0, "旧单帧成形可见，作用面尚未启用", asset.id);
         }
         Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
             new ActiveAbilityTarget(target, aim, selectionArea: new SkillTargetSelectionArea(area, aim, .1f)),
@@ -126,33 +101,29 @@ try
         await Advance(.12f);
         int paid = mana - source.getMana();
         Check(paid == price, "只实际支付原法力", new { asset.id, paid, price });
-        Check(legacy ? oldExecutions == oldCount + 1 && casts.Count == count :
-              oldExecutions == oldCount && casts.Count == count + 1,
+        Check(casts.Count == count + 1,
             "只执行本次对应的一个载体", asset.id);
-        var cast = legacy ? null : casts.Last().Value;
+        var cast = casts.Last().Value;
         bool Changed(Actor actor) => healing ? actor.data.health > health[actor.id] :
             cleanse ? !CombatStatusEffects.HasStatus(actor, StatusEffects.Freeze) :
             CombatStatusEffects.HasStatus(actor, status);
         bool[] early = actors.Select(Changed).ToArray();
         Check(cleanse || early.All(changed => !changed),
-            "成形期间的状态取样", new { asset.id, rise, early, oldArea = originalAreas.Select(a => new { a.time, a.radius }).ToArray() });
-        if (!legacy && !area)
+            "成形期间的状态取样", new { asset.id, rise, early });
+        if (!area)
         {
             Check(Views(cast).Any(view => view.Resource.Description.Id == entry.Form) && ShapeCount(cast) == 0,
                 "从旧帧长取得可见成形，作用面尚未启用", asset.id);
         }
         if (bloom)
         {
-            if (legacy) await Advance(.87f);
-            else await Stage(cast, rise + .84f);
+            await Stage(cast, rise + .84f);
             Check(actors.All(actor => !Changed(actor)), "回春尚未到有效段的第一个整秒", asset.id);
-            if (legacy) await Advance(.4f);
-            else await Stage(cast, rise + 1.14f);
+            await Stage(cast, rise + 1.14f);
         }
         else if (cleanse)
         {
-            if (legacy) await Advance(.45f);
-            else await Stage(cast, rise + fall * .52f);
+            await Stage(cast, rise + fall * .52f);
         }
         else
         {
@@ -175,41 +146,30 @@ try
               (!cleanse || target.hasStatus(Cultiway.WorldboxGame.StatusEffects.SpellSilence.id)) &&
               actors.All(actor => actor.data.health >= health[actor.id]),
             "只改变正确的友方，属性或优先净化保持原值", new { asset.id, radius, changed, restored, deltas });
-        if (!legacy)
-        {
-            long castId = casts.Last().Key;
-            var hits = contacts.Where(hit => hit.CastId == castId).ToArray();
-            float expectedHit = bloom ? rise + 1f : rise;
-            Check(hits.Length == (area ? 2 : 1) && hits.All(hit => hit.Age >= rise - .001f && !hit.DamageAttempted) &&
-                  (!area || hits.All(hit => Math.Abs(hit.Age - expectedHit) < .002f)),
-                "真实作用次数和时点，友方术不扣血",
-                new { asset.id, expectedHit, hits = hits.Select(hit => new { hit.TargetId, hit.Age }).ToArray() });
-        }
+        long castId = casts.Last().Key;
+        var hits = contacts.Where(hit => hit.CastId == castId).ToArray();
+        float expectedHit = bloom ? rise + 1f : rise;
+        Check(hits.Length == (area ? 2 : 1) && hits.All(hit => hit.Age >= rise - .001f && !hit.DamageAttempted) &&
+              (!area || hits.All(hit => Math.Abs(hit.Age - expectedHit) < .002f)),
+            "真实作用次数和时点，友方术不扣血",
+            new { asset.id, expectedHit, hits = hits.Select(hit => new { hit.TargetId, hit.Age }).ToArray() });
         if (bloom)
         {
             int priorHealth = target.data.health;
-            if (legacy) await Advance(1.21f);
-            else await Stage(cast, rise + 2.31f);
+            await Stage(cast, rise + 2.31f);
             Check(target.data.health > priorHealth && outside.data.health == health[outside.id] &&
                 enemy.data.health == health[enemy.id], "回春确实恢复生命，场外和敌人不受益", asset.id);
             // 移开边内友军，保持同场最强状态的独立剩余时间，检查场到期后无续刷。
             Place(second, point.x + radius + .5f, point.y);
             ConstructedAbilityService.NotifyActorChanged(second);
         }
-        if (legacy)
-        {
-            await Advance(bloom ? lifetime + 1.5f : .25f);
-        }
-        else
-        {
-            await Stage(cast, cast.Plan.Lifetime + .12f);
-            var ended = endings.Single(end => end.Fact.CastId == casts.Last().Key).Fact;
-            var ticks = contacts.Where(hit => hit.CastId == ended.CastId && hit.TargetId == target.id).ToArray();
-            bool timing = bloom ? ticks.Length == Mathf.CeilToInt(lifetime) - 1 :
-                cleanse || ticks.Length == 1 && Math.Abs(ended.Age - ticks[0].Age - fall) < .07f;
-            Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 && !ended.Cancelled && timing,
-                "收势后自然清理显示和作用", asset.id);
-        }
+        await Stage(cast, cast.Plan.Lifetime + .12f);
+        var ended = endings.Single(end => end.Fact.CastId == casts.Last().Key).Fact;
+        var ticks = contacts.Where(hit => hit.CastId == ended.CastId && hit.TargetId == target.id).ToArray();
+        bool timing = bloom ? ticks.Length == Mathf.CeilToInt(lifetime) - 1 :
+            cleanse || ticks.Length == 1 && Math.Abs(ended.Age - ticks[0].Age - fall) < .07f;
+        Check(cast.Finished && Views(cast).Length == 0 && ShapeCount(cast) == 0 && !ended.Cancelled && timing,
+            "收势后自然清理显示和作用", asset.id);
         if (!healing && !cleanse)
             foreach (var actor in actors) CombatStatusEffects.RemoveStatus(actor, status);
         if (cleanse)
@@ -220,19 +180,13 @@ try
                 actor.finishStatusEffect(Cultiway.WorldboxGame.StatusEffects.SpellSilence.id);
             }
         }
-        recordings.Add(new { asset = asset.id, entry.Form, rise, fall, radius, lifetime, paid, early, changed, restored, deltas,
-            areaEvents = originalAreas.Select(value => new { value.time, value.radius }).ToArray() });
-        originalAreas.Clear();
+        recordings.Add(new { asset = asset.id, entry.Form, rise, fall, radius, lifetime, paid, early, changed, restored, deltas });
     }
     return new { passed = true, process, spells = recordings.Count };
 }
 finally
 {
     File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OldBirth;
-    SkillHitResolver.AreaResolved -= OldArea;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

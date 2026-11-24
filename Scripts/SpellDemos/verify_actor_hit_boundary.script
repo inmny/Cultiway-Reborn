@@ -19,7 +19,6 @@ var target = Make(66, "wolf");
 var owner = source.GetExtend();
 owner.NewCultisys(Cultisyses.Xian);
 owner.GetCultisys<Xian>().level = 2;
-var active = new List<Entity>();
 try
 {
     Ready(source);
@@ -36,9 +35,9 @@ try
     Check(reach + edgeGap < shotRadius + Mathf.Max(1f, target.stats[strings.S.size]),
         "外侧样本确实落在原来的额外容差中", new { reach, tested = reach + edgeGap });
     var shape = FormResources.Load("fireball").Description.Contacts.Single();
-    Check(Mathf.Abs(shape.Radius - shotRadius) < .00001f, "两条执行入口使用同样的技能厚度");
+    Check(Mathf.Abs(shape.Radius - shotRadius) < .00001f, "火球形体厚度符合验证输入");
     float centre = h * .5f;
-    // 留出这段原版下落路程，确保旧、新两种实际判定时人物仍在攻击上方。
+    // 留出这段原版下落路程，确保实际判定时人物仍在攻击上方。
     float lift = h + shotRadius + 12f;
     float minimumLift = centre + shotRadius + .1f;
     void Stage(float lateral, float targetLift)
@@ -50,88 +49,44 @@ try
         ConstructedAbilityService.NotifyActorChanged(target);
     }
 
-    if (section != "construction")
+    const string id = "test.actor-hit-boundary.fireball";
+    var definition = new AbilityDefinition
     {
-        var world = Cultiway.ModClass.I.SkillV3.World;
-        int callbacks = 0;
-        var asset = new SkillEntityAsset();
-        asset.OnObjCollision = (ref SkillContext context, Entity container, Entity entity, BaseSimObject hit) =>
+        Id = id, Name = "受击范围边界验证", Resource = "wakan", Cost = 2f, Cooldown = .1f,
+        Power = 2f, Lifetime = .9f, TargetRange = 12f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = centre },
+        Root = new ConstructionNode
         {
-            if (hit != target || context.SourceObj != source) throw new InvalidOperationException("旧路径命中错误目标");
-            callbacks++;
-            hit.changeHealth(-13);
-            return true;
-        };
-        async Task OldPath(string test, float lateral, float targetLift, bool hit, bool rising = false)
-        {
-            Stage(lateral, targetLift);
-            int before = target.data.health, count = callbacks;
-            var end = new Position(68, 72, rising ? h + shotRadius + .1f : centre);
-            var from = new PrevPosition { Value = new Vector2(64, 72), Height = centre };
-            var entry = world.CreateEntity(new SkillContext { SourceObj = source, TargetObj = target },
-                new SkillEntity { Asset = asset }, new ColliderSphere { Radius = shotRadius },
-                new ColliderConfig { Enabled = true, Actor = true, ExplicitTargetOnly = true }, end);
-            entry.AddComponent(from);
-            entry.AddComponent(new EffectRadiusScale { Value = 1 });
-            entry.AddComponent(SkillHitMemory.Create());
-            active.Add(entry);
-            await Advance(.14f);
-            Check(callbacks - count == (hit ? 1 : 0) && target.data.health == before - (hit ? 13 : 0),
-                "旧执行：" + test, new { before, after = target.data.health, callbacks = callbacks - count, lateral, targetLift, actualLift = target.position_height });
-            if (targetLift > 0) Check(target.position_height > minimumLift, "空中目标在旧执行判定期间保留真实离地高度");
-            entry.DeleteEntity();
+            Id = "heart", Form = "fireball", Matter = "iron", OnContact = ConstructionContactResponse.Continue,
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                Vector = new[] { 6f, 0f, 0f }, WorldVelocity = true, InheritVelocity = false } }
         }
-        if (section != "legacy-height")
-        {
-            await OldPath("真实范围内只命中一次", reach - edgeGap, 0, true);
-            await OldPath("只在旧额外容差内不命中", reach + edgeGap, 0, false);
-        }
-        await OldPath("平面重叠但目标在上方不命中", 0, lift, false);
-        await OldPath("归地后斜向来袭可再命中", 0, 0, true, rising: true);
-    }
-
-    if (section == "all" || section == "construction")
+    };
+    async Task NewPath(string test, float lateral, float targetLift, bool hit)
     {
-        const string id = "test.actor-hit-boundary.fireball";
-        var definition = new AbilityDefinition
-        {
-            Id = id, Name = "受击范围边界验证", Resource = "wakan", Cost = 2f, Cooldown = .1f,
-            Power = 2f, Lifetime = .9f, TargetRange = 12f,
-            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = centre },
-            Root = new ConstructionNode
-            {
-                Id = "heart", Form = "fireball", Matter = "iron", OnContact = ConstructionContactResponse.Continue,
-                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
-                    Vector = new[] { 6f, 0f, 0f }, WorldVelocity = true, InheritVelocity = false } }
-            }
-        };
-        async Task NewPath(string test, float lateral, float targetLift, bool hit)
-        {
-            Stage(lateral, targetLift);
-            owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
-            int before = target.data.health, start = contacts.Count;
-            await Fire(definition, source, target);
-            owner.E.RemoveComponent<ConstructedKnowledge>();
-            await Advance(.60f);
-            var confirmed = contacts.Skip(start).Where(contact => contact.TargetId == target.id).ToArray();
-            Check(confirmed.Length == (hit ? 1 : 0) && (hit ? target.data.health < before : target.data.health == before),
-                "新构造：" + test, new { before, after = target.data.health, lateral, targetLift, actualLift = target.position_height,
-                    contacts = confirmed.Select(contact => new { contact.Age, contact.Position.x, contact.Position.y, contact.Position.z }) });
-            if (targetLift > 0) Check(target.position_height > minimumLift, "空中目标在新构造判定期间保留真实离地高度");
-            await Advance(.5f);
-            Check(endings.Any(end => end.Fact.AbilityId == id && !end.Fact.Cancelled), "整次施放自然结束");
-            endings.Clear();
-        }
-        await NewPath("真实边界内命中", reach - edgeGap, 0, true);
-        await NewPath("刚超真实水平边界不命中", reach + edgeGap, 0, false);
-        await NewPath("目标在上方不命中", 0, lift, false);
-        await NewPath("归地后再施放命中", 0, 0, true);
+        Stage(lateral, targetLift);
+        owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .9f;
+        int before = target.data.health, start = contacts.Count;
+        await Fire(definition, source, target);
+        owner.E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.60f);
+        var confirmed = contacts.Skip(start).Where(contact => contact.TargetId == target.id).ToArray();
+        Check(confirmed.Length == (hit ? 1 : 0) && (hit ? target.data.health < before : target.data.health == before),
+            "实际受击：" + test, new { before, after = target.data.health, lateral, targetLift, actualLift = target.position_height,
+                contacts = confirmed.Select(contact => new { contact.Age, contact.Position.x, contact.Position.y, contact.Position.z }) });
+        if (targetLift > 0) Check(target.position_height > minimumLift, "空中目标在受击判定期间保留真实离地高度");
+        await Advance(.5f);
+        Check(endings.Any(end => end.Fact.AbilityId == id && !end.Fact.Cancelled), "整次施放自然结束");
+        endings.Clear();
     }
+    await NewPath("真实边界内命中", reach - edgeGap, 0, true);
+    await NewPath("刚超真实水平边界不命中", reach + edgeGap, 0, false);
+    await NewPath("目标在上方不命中", 0, lift, false);
+    await NewPath("归地后再施放命中", 0, 0, true);
     return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, worldfall, ground, section, checks };
 }
 finally
 {
-    foreach (var entity in active) if (!entity.IsNull) entity.DeleteEntity();
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ControllableUnit.clear(false); Config.paused = true;

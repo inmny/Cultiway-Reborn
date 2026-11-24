@@ -1,10 +1,6 @@
 // 在实际接触提交时取样，避开原版之后的气候、植被和农田维护。
-bool legacy = caseName == "legacy";
-var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
-var baseline = legacy ? null : JObject.Parse(File.ReadAllText(baselinePath));
+var baseline = JObject.Parse(File.ReadAllText(baselinePath));
 var attempts = new List<(string Id, int X, int Y, float Age, SkillEffectResult Effect, string Building, bool Mature)>();
-var oldBirths = new Dictionary<int, double>();
-var oldEffects = new Dictionary<SkillEffectDescriptor, SkillTileEffectAction>();
 var outcomes = new JArray();
 var debits = new List<double>();
 var paymentObserver = new HarmonyLib.Harmony("cultiway.test.world-utility." + Guid.NewGuid().ToString("N"));
@@ -23,11 +19,6 @@ JArray Clouds() => (JArray)JObject.FromObject(cloudsType.GetMethod("Capture", F)
 void Collect(string id, WorldTile tile, float age, SkillEffectResult result) =>
     attempts.Add((id, tile.pos.x, tile.pos.y, age, result, tile.building?.asset?.id,
         tile.building?.component_wheat?.isMaxLevel() == true));
-void OldBirth(Entity entity)
-{
-    if (utilitySpells.Contains(entity.GetComponent<SkillEntity>().Asset.id))
-        oldBirths[entity.Id] = World.world.getCurWorldTime();
-}
 void WorldContact(ConstructedWorldContact fact)
 {
     if (fact.SourceId == source.id && fact.Action != null && utilitySpells.Contains(fact.AbilityId))
@@ -74,11 +65,6 @@ int manaChange = SimGlobals.m.mana_change;
 bool buildTick = DebugConfig.isOn(DebugOption.SystemBuildTick);
 SimGlobals.m.mana_change = 0;
 DebugConfig.setOption(DebugOption.SystemBuildTick, false);
-if (legacy)
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
-        utilitySpells.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
-            ? SkillEmissionResult.Unhandled : original(emission);
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OldBirth;
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.WorldContactConfirmed += WorldContact;
 using var drops = Trace.Method(typeof(DropManager), "spawn",
@@ -103,19 +89,6 @@ try
         float interval = growth ? 1f : clean ? .5f : 0f;
         double price = SkillCastResources.Mana.Quote(owner, SkillCastCost.CalculateStepDemand(skill) *
             Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
-        if (legacy)
-        {
-            var effect = skill.GetComponent<SkillContainer>().EffectPipeline.Effects.Single(value => value.IsTileEffect);
-            SkillTileEffectAction apply = effect.ApplyTile;
-            oldEffects.Add(effect, apply);
-            effect.ApplyTile = (in SkillEffectContext context, WorldTile tile) =>
-            {
-                SkillEffectResult result = apply(in context, tile);
-                if (context.Cast.SourceObj == source && oldBirths.TryGetValue(context.SkillEntity.Id, out double birth))
-                    Collect(asset.id, tile, (float)(World.world.getCurWorldTime() - birth), result);
-                return result;
-            };
-        }
         if (clean)
         {
             WashFixture(dryTile);
@@ -145,7 +118,6 @@ try
         }
 
         int from = attempts.Count, previous = casts.Count;
-        oldBirths.Clear();
         source.setMana(source.getMaxMana());
         int balance = source.getMana(), priorDebits = debits.Count;
         int formerClouds = Clouds().Count;
@@ -154,11 +126,10 @@ try
         Check(Use(skill, aim), "原学习资料正式施放", asset.id);
         await Advance(.26f);
         double spent = debits.Skip(priorDebits).Sum();
-        Check(debits.Count == priorDebits + 1 && spent == price && (legacy ? oldBirths.Count == 1 && casts.Count == previous :
-              oldBirths.Count == 0 && casts.Count == previous + 1), "按原价只启动一个实际执行体",
+        Check(debits.Count == priorDebits + 1 && spent == price && casts.Count == previous + 1, "按原价只启动一个实际执行体",
             new { asset.id, spent, price, balance, current = source.getMana(), debits = debits.Skip(priorDebits).ToArray(),
-                oldBirths = oldBirths.Count, newCasts = casts.Count - previous });
-        var cast = legacy ? null : casts.Last().Value;
+                newCasts = casts.Count - previous });
+        var cast = casts.Last().Value;
         if (interval > 0)
         {
             Check(attempts.Count == from, "成形和首个完整间隔内没有提前提交", asset.id);
@@ -173,30 +144,27 @@ try
             await Advance(.33f);
             Check(lateTile.burned_stages == 0, "下一固定时点清除新污染");
         }
-        if (!legacy)
+        var shown = FormVisualScene.Instances.Where(view => view.Resource.Description.Id == entry.Form &&
+            (!clean || view.Layer != null && view.Surface == "purification_pearl")).ToArray();
+        var changed = new HashSet<(int, int)>(attempts.Skip(from).Where(row => row.Effect.Changed)
+            .Select(row => (row.X, row.Y)));
+        var displayed = new HashSet<(int, int)>();
+        foreach (var view in shown)
         {
-            var shown = FormVisualScene.Instances.Where(view => view.Resource.Description.Id == entry.Form &&
-                (!clean || view.Layer != null && view.Surface == "purification_pearl")).ToArray();
-            var changed = new HashSet<(int, int)>(attempts.Skip(from).Where(row => row.Effect.Changed)
-                .Select(row => (row.X, row.Y)));
-            var displayed = new HashSet<(int, int)>();
-            foreach (var view in shown)
+            if (view.Layer is FormLayerFrame layer)
             {
-                if (view.Layer is FormLayerFrame layer)
-                {
-                    for (int y = 0; y < layer.Cells; y++)
-                    for (int x = 0; x < layer.Cells; x++)
-                        if (layer.Depth(x, y) > layer.DryDepth)
-                            displayed.Add(((int)layer.Origin.x + x, (int)layer.Origin.y + y));
-                }
-                else
-                {
-                    displayed.Add((Mathf.FloorToInt(view.Transform.m03), Mathf.FloorToInt(view.Transform.m13)));
-                }
+                for (int y = 0; y < layer.Cells; y++)
+                for (int x = 0; x < layer.Cells; x++)
+                    if (layer.Depth(x, y) > layer.DryDepth)
+                        displayed.Add(((int)layer.Origin.x + x, (int)layer.Origin.y + y));
             }
-            Check(displayed.Count > 0 && displayed.IsSubsetOf(changed),
-                "显示只出现在真实改变的地块", new { asset.id, shown = displayed.Count, changed = changed.Count });
+            else
+            {
+                displayed.Add((Mathf.FloorToInt(view.Transform.m03), Mathf.FloorToInt(view.Transform.m13)));
+            }
         }
+        Check(displayed.Count > 0 && displayed.IsSubsetOf(changed),
+            "显示只出现在真实改变的地块", new { asset.id, shown = displayed.Count, changed = changed.Count });
         if (interval > 0)
         {
             if (clean)
@@ -232,29 +200,23 @@ try
                   drops.Events.Any(e => e.Arguments?.ToString().Contains("rain") == true && e.Result != null),
                 "只生成一朵正式雨云，原寿命与实际雨滴保留", weather);
         }
-        if (legacy)
-            Check(actual[0].Age >= rise + interval - .04f && actual[0].Age <= rise + interval + .15f,
-                "旧执行从成形后的实际间隔开始", new { asset.id, firstAge = actual[0].Age, rise, interval });
-        if (!legacy)
-        {
-            Check(cast.Finished && endings.Any(item => item.Fact.CastId == casts.Last().Key) &&
-                  Math.Abs(cast.Plan.Lifetime - duration - rise - fall) < .001f,
-                "沿用原有效时长及收势", new { asset.id, rise, fall, duration, cast.Age });
-            Check(events.All(row => interval == 0f ? Math.Abs(row.Age - rise) < .002f :
-                  Math.Abs((row.Age - rise) / interval - Mathf.Round((row.Age - rise) / interval)) < .002f &&
-                  row.Age < rise + duration - .0001f), "定时按旧成形起算并在有效段截止",
-                new { asset.id, times = events.Select(row => row.Age).Distinct().ToArray(), rise, interval });
-            var before = baseline["spells"].Single(item => (string)item["id"] == asset.id);
-            Check((double)before["paid"] == spent && Math.Abs((float)before["radius"] - radius) < .001f &&
-                  (growth || JToken.DeepEquals(before["keys"], JArray.FromObject(actual.Select(row => $"{row.X}:{row.Y}")
-                      .OrderBy(value => value, StringComparer.Ordinal).ToArray()))), "原实际范围、费用与确定性结果一致", asset.id);
-        }
+        Check(cast.Finished && endings.Any(item => item.Fact.CastId == casts.Last().Key) &&
+              Math.Abs(cast.Plan.Lifetime - duration - rise - fall) < .001f,
+            "沿用原有效时长及收势", new { asset.id, rise, fall, duration, cast.Age });
+        Check(events.All(row => interval == 0f ? Math.Abs(row.Age - rise) < .002f :
+              Math.Abs((row.Age - rise) / interval - Mathf.Round((row.Age - rise) / interval)) < .002f &&
+              row.Age < rise + duration - .0001f), "定时按旧成形起算并在有效段截止",
+            new { asset.id, times = events.Select(row => row.Age).Distinct().ToArray(), rise, interval });
+        var before = baseline["spells"].Single(item => (string)item["id"] == asset.id);
+        Check((double)before["paid"] == spent && Math.Abs((float)before["radius"] - radius) < .001f &&
+              (growth || JToken.DeepEquals(before["keys"], JArray.FromObject(actual.Select(row => $"{row.X}:{row.Y}")
+                  .OrderBy(value => value, StringComparer.Ordinal).ToArray()))), "原实际范围、费用与确定性结果一致", asset.id);
         outcomes.Add(JObject.FromObject(new { id = asset.id, paid = spent, radius, rise, fall, duration, interval,
             keys = actual.Select(row => $"{row.X}:{row.Y}").OrderBy(value => value, StringComparer.Ordinal).ToArray(),
             times = events.Select(row => row.Age).Distinct().ToArray(), changed = actual.Length }));
         File.WriteAllText(Path.Combine(folder, "observed.json"),
             JsonConvert.SerializeObject(new { spells = outcomes }, Formatting.Indented));
-        if (!legacy && growth)
+        if (growth)
         {
             // 使用同一容器及相同人物，其他来源的并存规则不重跑。
             RestorePatch();
@@ -276,20 +238,16 @@ try
             await Advance(.2f);
         }
         await Advance(.9f);
-        if (!legacy)
-            Check(FormVisualScene.Instances.All(view => view.Resource.Description.Id != entry.Form),
-                "结束后清除临时形体", asset.id);
+        Check(FormVisualScene.Instances.All(view => view.Resource.Description.Id != entry.Form),
+            "结束后清除临时形体", asset.id);
     }
-    return new { passed = true, process, legacy, spells = outcomes, checks };
+    return new { passed = true, process, legacy = false, spells = outcomes, checks };
 }
 finally
 {
     Config.paused = true;
     SimGlobals.m.mana_change = manaChange;
     DebugConfig.setOption(DebugOption.SystemBuildTick, buildTick);
-    foreach (var pair in oldEffects) pair.Key.ApplyTile = pair.Value;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OldBirth;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.WorldContactConfirmed -= WorldContact;
     ConstructedAbilityService.CastEnded -= Ended;

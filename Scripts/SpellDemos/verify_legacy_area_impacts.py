@@ -23,7 +23,7 @@ SPELLS = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('archive', 'legacy', 'cold'), required=True)
+    parser.add_argument('--case', choices=('archive', 'cold'), required=True)
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--baseline', type=Path)
     parser.add_argument('--spell', choices=tuple(SPELLS), action='append')
@@ -42,10 +42,6 @@ def main():
     entries = ',\n'.join(f'    (Asset: SkillEntities.{spell}, Form: "pivot", Count: {value[0]})'
                          for spell, value in SPELLS.items())
     common = common[:start] + 'var catalog = new[]\n{\n' + entries + '\n};\n' + common[end:]
-    common = common.replace('bool cold = caseName == "cold", archive',
-                            'bool cold = caseName is "cold" or "legacy", archive')
-    common = common.replace('    Check(process != (int)expected["process"]',
-                            '    if (caseName == "cold") Check(process != (int)expected["process"]')
     selected = args.spell or SPELLS
     uses = ',\n'.join(f'    (Asset: SkillEntities.{spell}, Index: {SPELLS[spell][1]}, Collision: {str(SPELLS[spell][2]).lower()})'
                       for spell in selected)
