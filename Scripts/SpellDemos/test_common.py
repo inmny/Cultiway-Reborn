@@ -10,6 +10,29 @@ import common
 
 
 class RegisteredConstructionTests(unittest.TestCase):
+    def test_catalog_filters_combine_without_losing_definition_or_unavailable_reason(self):
+        definition = {"Id": "Created.Cleanse", "Creator": 42}
+        created = dict(id=definition["Id"], name="净土", adjustable=False, construction=definition,
+                       labels=dict(source={"created": "自创构造"}, school={"semantic.element.water": "水"},
+                                   scale={"city": "城域"}, effect={"land.cleanse": "净化地块"}))
+        passive = dict(id="Artifact.Passive", name="器物护持", adjustable=False, variants=0,
+                       labels=dict(source={"artifact.passive": "法宝被动"}), unavailable="需要被动触发")
+        args = Namespace(filter="cleanse", scope="all", source="内置构造, created", school="水",
+                         scale="城域", effect="LAND.CLEANSE")
+        selection = common.filter_catalog([created, passive], args)
+        self.assertEqual(selection, [created])
+        self.assertIs(selection[0]["construction"], definition)
+        args.scale = "世界"
+        self.assertFalse(common.filter_catalog([created, passive], args))
+        args.filter = args.school = args.effect = ""
+        args.source, args.scale = "法宝被动", "未标注"
+        selection = common.filter_catalog([created, passive], args)
+        self.assertEqual(selection, [passive])
+        args.cases, args.variants = "base,trajectory", "all"
+        cases, skipped = common.choose_cases(selection, dict(modifiers=[], trajectories=[]), args)
+        self.assertFalse(cases)
+        self.assertEqual([entry["reason"] for entry in skipped], ["需要被动触发"] * 2)
+
     def test_mixed_recording_keeps_the_world_construction_and_reports_missing_scene(self):
         legacy = dict(id="Cultiway.Legacy", name="旧法术", group="基础法术", adjustable=True,
                       variants=1, trajectory="default", trajectories=["default"], modifiers=[])

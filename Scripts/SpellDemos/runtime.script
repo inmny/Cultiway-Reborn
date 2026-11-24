@@ -11,6 +11,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Friflo.Engine.ECS;
 using DebugToolbox.Runtime.Scripting;
+using NeoModLoader.General;
 using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Combat;
@@ -200,61 +201,89 @@ public void Install()
     var modifiers = mod.SkillV3.ModifierLib.list.Where(asset => asset.EditorSelectable && !asset.IsDisabled)
         .ToArray();
     var trajectories = mod.SkillV3.TrajLib.list.Where(asset => asset.EditorSelectable).ToArray();
+    var techniques = KnightTechniqueCatalog.All.ToDictionary(value => value.id + ".Execution",
+        StringComparer.Ordinal);
+    var organSkills = new HashSet<string>(Cultiway.Content.Libraries.Manager.CreatureOrganRankLibrary.list
+        .SelectMany(rank => rank.SkillContainerIds), StringComparer.Ordinal);
     var rows = new List<object>();
     foreach (var asset in mod.SkillV3.SkillLib.list.OrderBy(asset => asset.id, StringComparer.Ordinal))
     {
-        if (asset.Animations.Count == 0 ||
-            asset.id == "Cultiway.raw_anim" || !asset.CanBeLearned && !granted.ContainsKey(asset.id) &&
-            !asset.id.Contains("BalefulWindTribulation")) continue;
+        bool formation = granted.ContainsKey(asset.id), organ = organSkills.Contains(asset.id);
+        bool tribulation = asset.id.Contains("BalefulWindTribulation");
+        if (asset.id == "Cultiway.raw_anim" || !asset.CanBeLearned && !formation &&
+            !tribulation && !organ && !techniques.ContainsKey(asset.id)) continue;
+        bool hasScene = asset.CanBeLearned || formation || tribulation || techniques.ContainsKey(asset.id);
+        string unavailable = asset.Animations.Count == 0 ? "没有演示所需的原法术动画登记" :
+            hasScene ? null : "需要从实际器官来源出手";
+        techniques.TryGetValue(asset.id, out var martial);
+        var labels = LegacyLabels(asset, martial, formation, tribulation, organ);
         string trajectory = SkillBlueprintTrajectory.ResolveDefaultId(asset);
-        SkillBlueprint blueprint = Blueprint(asset, 0, trajectory);
-        var context = SkillEditContext.Create(blueprint);
-        bool adjustable = asset.CanBeLearned && asset.EditorSelectable;
+        var context = unavailable == null ? SkillEditContext.Create(Blueprint(asset, 0, trajectory)) : null;
+        bool adjustable = context != null && asset.CanBeLearned && asset.EditorSelectable;
         rows.Add(new
         {
             id = asset.id, name = Name(asset.id), variants = asset.Animations.Count,
-            group = granted.ContainsKey(asset.id) ? "金丹元婴" :
-                asset.id.Contains("BalefulWindTribulation") ? "天劫" :
-                asset.id.StartsWith("Cultiway.KnightTechnique.") ? "骑士战技" : "基础法术",
+            group = formation ? "金丹元婴" : tribulation ? "天劫" : martial != null ? "骑士战技" :
+                !hasScene ? "器官能力" : "基础法术",
             adjustable, trajectory, relation = asset.UseProfile.TargetRelation.ToString(),
-            trajectories = trajectories.Where(item =>
+            labels, unavailable,
+            trajectories = trajectories.Where(item => context != null &&
                 item.CheckEditorCompatibility(context, false).IsCompatible &&
                 SkillTrajectoryCompatibility.IsCompatible(asset, item)).Select(item => item.id).ToArray(),
-            modifiers = modifiers.Where(item =>
+            modifiers = modifiers.Where(item => context != null &&
                     item.CheckEditorCompatibility(context, item.CreateDefaultSpec()).IsCompatible)
                 .Select(item => item.id).ToArray()
         });
     }
 
-    foreach (var asset in Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.list
-                 .Where(asset => asset.active_use != null).OrderBy(asset => asset.id))
+    foreach (var asset in Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.list.OrderBy(asset => asset.id))
+    {
+        bool active = asset.active_use != null;
+        var labels = new CatalogLabels();
+        labels.Source.Add(active ? "artifact.active" : "artifact.passive", active ? "法宝主动" : "法宝被动");
+        labels.AddSemantics(asset.semantics);
         rows.Add(new
         {
-            id = asset.id, name = Name(asset.id), variants = 1, group = "法宝主动", adjustable = false,
-            trajectory = "专属动作", relation = asset.active_use.target_mode.ToString(),
+            id = asset.id, name = active ? Name(asset.id) : asset.GetName(), variants = active ? 1 : 0,
+            group = active ? "法宝主动" : "法宝被动", adjustable = false,
+            trajectory = "专属动作", relation = asset.active_use?.target_mode.ToString(), labels,
+            unavailable = active ? null : "需要触发法宝自身的被动来源",
             trajectories = Array.Empty<string>(), modifiers = Array.Empty<string>()
         });
+    }
+    var abilityType = typeof(ConstructedAbilityService);
+    var palm = (CompiledAbility)abilityType.GetProperty("PalmExecution", Flags).GetValue(null);
+    var palmLabels = new CatalogLabels();
+    palmLabels.Source.Add("martial", "战技");
+    palmLabels.School.Add("body", "身体战技");
+    palmLabels.AddScale(0f, single: true);
+    palmLabels.AddImpacts(palm);
     rows.Add(new
     {
         id = "Cultiway.PalmStrike", name = Name("Cultiway.PalmStrike"), variants = 1, group = "近身掌击",
         adjustable = false,
-        trajectory = "身体接触", relation = "Hostile", trajectories = Array.Empty<string>(),
+        trajectory = "身体接触", relation = "Hostile", labels = palmLabels, trajectories = Array.Empty<string>(),
         modifiers = Array.Empty<string>()
     });
     // 世界重载会重建构造目录。把这次选择所需的完整资料留在清单里，特别是世界内已创作的构造。
     var identifiers = new HashSet<string>(rows.Select(row => (string)JObject.FromObject(row)["id"]),
         StringComparer.Ordinal);
-    var definitions = (IDictionary)typeof(ConstructedAbilityService).GetField("definitions", Flags).GetValue(null);
+    var definitions = (IDictionary)abilityType.GetField("definitions", Flags).GetValue(null);
+    var planFor = (Func<string, CompiledAbility>)abilityType.GetMethod("PlanFor", Flags)
+        .CreateDelegate(typeof(Func<string, CompiledAbility>));
+    var composition = (Func<string, ElementComposition>)abilityType.GetMethod("Composition", Flags)
+        .CreateDelegate(typeof(Func<string, ElementComposition>));
     foreach (AbilityDefinition definition in definitions.Values.Cast<AbilityDefinition>()
                  .OrderBy(value => value.Id, StringComparer.Ordinal))
     {
         if (!identifiers.Add(definition.Id)) continue;
         rows.Add(new
         {
-            id = definition.Id, name = definition.Name, variants = 1,
+            id = definition.Id, name = definition.Name ?? definition.Id, variants = 1,
             group = definition.Body == null ? "万法阁构造" : "万法阁战技", adjustable = false,
             trajectory = "构造资料", trajectories = Array.Empty<string>(), modifiers = Array.Empty<string>(),
             construction = JObject.FromObject(definition), constructionSource = "当前世界登记",
+            labels = ConstructionLabels(definition, planFor(definition.Id), composition),
             unavailable = ConstructionSceneProblem(definition)
         });
     }
@@ -270,6 +299,187 @@ public void Install()
         trajectories = trajectories.Select(item => new { id = item.id, name = Name(item.id) }).ToArray()
     });
     WriteMigrationInventory(rows);
+}
+
+/// <summary>目录标签的稳定编号和当前语言名称。空集合代表正式资料没有这一项依据。</summary>
+private sealed class CatalogLabels
+{
+    [JsonProperty("source")] public readonly Dictionary<string, string> Source = new(StringComparer.Ordinal);
+    [JsonProperty("school")] public readonly Dictionary<string, string> School = new(StringComparer.Ordinal);
+    [JsonProperty("scale")] public readonly Dictionary<string, string> Scale = new(StringComparer.Ordinal);
+    [JsonProperty("effect")] public readonly Dictionary<string, string> Effect = new(StringComparer.Ordinal);
+    [JsonProperty("range")] public float? Range;
+
+    /// <summary>读取既有正向语义及其上级。用官方元素名称、作用名称和流派语义。</summary>
+    public void AddSemantics(SemanticDescriptor descriptor)
+    {
+        var semantics = new HashSet<SemanticAsset>();
+        descriptor?.CollectExpanded(Cultiway.ModClass.L.SemanticLibrary, semantics);
+        var facets = Cultiway.ModClass.L.SemanticFacetLibrary;
+        foreach (var semantic in semantics.OrderBy(value => value.id, StringComparer.Ordinal))
+        {
+            if (semantic.Facet == facets.Element || semantic == SkillSemantics.Form.Sword ||
+                semantic == SkillSemantics.Delivery.Melee)
+                School[semantic.id] = semantic.GetName();
+            if (semantic.Facet == facets.Role || semantic.Facet == facets.Effect)
+                Effect[semantic.id] = semantic.GetName();
+        }
+    }
+
+    /// <summary>读取现有元素数值，原登记可能同时含有几个元素。</summary>
+    public void AddElements(ElementComposition composition)
+    {
+        var ranked = ElementSemanticProfileService.Build(composition).GetRanked(
+            SemanticQueryPolicy.Default, Cultiway.ModClass.L.SemanticFacetLibrary.Element);
+        foreach (var item in ranked.Where(item => item.semantic != SkillSemantics.Element.Generic))
+            School[item.semantic.id] = item.semantic.GetName();
+    }
+
+    /// <summary>列出可查的规模依据。数字仅用于分档，真实命中由游戏决定。</summary>
+    public void AddScale(float range, bool single = false, bool entireWorld = false)
+    {
+        if (range > 0f) Range = range;
+        if (entireWorld) Scale.Add("world", "世界");
+        else if (range >= 24f) Scale.Add("city", "城域");
+        else if (single) Scale.Add("personal", "个人");
+        else if (range > 0f) Scale.Add("local", "局部战场");
+    }
+
+    /// <summary>取当前计划真正可触发的人物作用及编译器确认的用途。</summary>
+    public void AddImpacts(CompiledAbility plan)
+    {
+        if (plan.ContactDamageScale > 0f || plan.ActorImpacts.Any(impact => impact.AdditionalDamage.Count > 0))
+            Effect[SkillSemantics.Effect.Damage.id] = SkillSemantics.Effect.Damage.GetName();
+        if (plan.ContactControl > 0f) Effect[SkillSemantics.Effect.Control.id] = SkillSemantics.Effect.Control.GetName();
+        if (plan.HasBarrier) Effect["barrier"] = "屏障";
+        if (plan.HasRecovery) Effect["recover-cost"] = "回收施放资源";
+        if (plan.Use.SelfStatus != null || plan.ActorImpacts.Any(impact => impact.Statuses.Count > 0))
+            Effect["status"] = "状态";
+        if (plan.HasWorldEffects) Effect["world-contact"] = "地块作用";
+        if (plan.HasPropagation) Effect["propagation"] = "传播";
+        foreach (var operation in plan.Operations.Where(operation => operation.Effects != ConstructionOperationEffect.None))
+        {
+            var kind = operation.Contract.Kind;
+            string nameKey = "Cultiway.Construction.MotionKind." + kind;
+            Effect["operation." + kind] = LM.Has(nameKey) ? LM.Get(nameKey) : kind.ToString();
+            if (kind is ConstructionOperationKind.MapSpace or ConstructionOperationKind.MapActor or ConstructionOperationKind.MapArtifact)
+                Effect["spatial-passage"] = "空间通行";
+            if (kind == ConstructionOperationKind.SendSignal) Effect["signal"] = "传讯";
+        }
+        foreach (var impact in plan.ActorImpacts)
+        {
+            if (impact.WakanTransfer > 0f) Effect["wakan-transfer"] = "真元转移";
+            if (impact.Signal != null) Effect["signal"] = "传讯";
+            if (impact.Perception != ConstructionPerception.None) Effect["perception"] = "感知";
+            if (impact.Restoration?.HasEffect == true) Effect["restoration"] = "恢复与净化";
+            if (impact.HasAgingEffect) Effect["aging"] = "老化";
+            if (impact.EquipmentRepair != null) Effect["repair"] = "修复";
+        }
+    }
+}
+
+/// <summary>旧术沿用同一项能力的实际来源、元素、效果及作用范围登记。</summary>
+private static CatalogLabels LegacyLabels(SkillEntityAsset asset, KnightTechniqueAsset technique, bool formation,
+    bool tribulation, bool organ)
+{
+    var labels = new CatalogLabels();
+    if (asset.CanBeLearned) labels.Source["learnable"] = "可学习法术";
+    if (formation) labels.Source["formation"] = "修炼专属";
+    if (tribulation) labels.Source["tribulation"] = "天劫";
+    if (organ) labels.Source["organ"] = "器官";
+    if (technique != null)
+    {
+        labels.Source["martial"] = "战技";
+        labels.School[technique.Style.id] = technique.Style.ResolveName();
+    }
+    labels.AddSemantics(asset.Semantics);
+    labels.AddElements(asset.Element);
+    if (asset.DealsBaseDamage) labels.Effect[SkillSemantics.Effect.Damage.id] = SkillSemantics.Effect.Damage.GetName();
+    foreach (var effect in asset.Effects) labels.Effect[effect.Id] = effect.Id.Localize();
+    if (asset.Effects.Any(effect => effect.IsTileEffect)) labels.Effect["world-contact"] = "地块作用";
+    if (asset.ImpactProfile is { } impact)
+    {
+        if (impact.IsBarrier) labels.Effect["barrier"] = "屏障";
+        float range = Mathf.Max(impact.EffectRadius, impact.JumpRadius, impact.BarrierLength * .5f,
+            impact.LinearForward, impact.LinearBackward);
+        labels.AddScale(range, single: range == 0f && !impact.IsAreaImpact && !impact.IsField &&
+            !impact.IsBeam && !impact.IsBarrier);
+    }
+    return labels;
+}
+
+/// <summary>从原资料及同版已编译的能力查范围和规则，保留自创或导入的实际来源。</summary>
+private static CatalogLabels ConstructionLabels(AbilityDefinition definition, CompiledAbility plan,
+    Func<string, ElementComposition> composition)
+{
+    var labels = new CatalogLabels();
+    labels.Source["construction"] = "构造登记";
+    if (definition.ExternalCreator) labels.Source["imported"] = "导入构造";
+    else if (definition.Creator != 0) labels.Source["created"] = "自创构造";
+    else labels.Source["builtin"] = "内置构造";
+    if (plan.Body != null)
+    {
+        labels.Source["martial"] = "战技";
+        labels.School["body"] = "身体战技";
+        if (plan.Body.Part.IsOrgan) labels.Source["organ"] = "器官";
+        if (plan.Body.WeaponForm is string weapon) labels.School["weapon." + weapon] = weapon;
+    }
+    var semantics = Cultiway.ModClass.L.SemanticLibrary;
+    foreach (string matter in plan.Matters.Where(matter => matter != "physical"))
+    {
+        if (semantics.TryResolve(matter, out var element) &&
+            element.Facet == Cultiway.ModClass.L.SemanticFacetLibrary.Element)
+            labels.School[element.id] = element.GetName();
+        else labels.AddElements(composition(matter));
+    }
+    labels.AddImpacts(plan);
+    if (definition.SoulPact != null) labels.Effect["soul-pact"] = "魂契";
+    if (definition.WorldCondition is { } condition)
+    {
+        labels.Effect["world-condition"] = "世界条件";
+        labels.Effect["condition." + condition.Kind] = condition.Kind == ConstructionWorldConditionKind.PreventIgnition
+            ? "防火" : condition.Kind.ToString();
+    }
+
+    var nodes = DemoNodes(definition.Root).ToArray();
+    if (plan.HasWorldEffects)
+    {
+        var actions = plan.ActorImpacts.Append(plan.Impact).SelectMany(impact => impact.WorldEffects)
+            .Select(effect => effect.Action.Id).Concat(nodes.SelectMany(node =>
+                (node.Impact?.WorldEffects ?? Array.Empty<ConstructionWorldEffect>()).Select(effect => effect.Action)));
+        foreach (string action in actions)
+        {
+            string nameKey = "Cultiway.Construction.WorldAction." + action;
+            labels.Effect[action] = LM.Has(nameKey) ? LM.Get(nameKey) : action;
+        }
+    }
+    float range = Mathf.Max(definition.WorldCondition?.EntireWorld == false ? definition.WorldCondition.Radius : 0f,
+        (float)Math.Sqrt(plan.Measure.Area / Math.PI),
+        plan.HasBarrier || plan.ActorImpacts.Count > 0 || plan.HasWorldEffects ? plan.Reach.Extent : 0f);
+    var fronts = nodes.SelectMany(node => node.Operations ?? Array.Empty<ConstructionOperation>())
+        .Concat((definition.Steps ?? Array.Empty<ConstructionStep>()).Select(step => step.Operation))
+        .Select(operation => operation.Propagation).Where(front => front != null);
+    bool entireWorld = definition.WorldCondition?.EntireWorld == true;
+    foreach (var front in fronts)
+    {
+        range = Mathf.Max(range, front.Range);
+        entireWorld |= MapBox.width > 0 && MapBox.height > 0 && front.Angle >= 360f &&
+            front.MaximumCells >= MapBox.width * (long)MapBox.height &&
+            front.Range >= new Vector2(MapBox.width, MapBox.height).magnitude;
+    }
+    labels.AddScale(range, single: !plan.HasWorldEffects && (plan.Use.Target == ActiveAbilityTargetMode.Self ||
+        plan.Body != null && plan.FormCount == 0 && range < 3f), entireWorld: entireWorld);
+    return labels;
+}
+
+/// <summary>遍历同一份已登记构造中的形体和后段，外部操作步骤由调用方合入。</summary>
+private static IEnumerable<ConstructionNode> DemoNodes(ConstructionNode node)
+{
+    if (node == null) yield break;
+    yield return node;
+    foreach (var child in node.Children ?? Array.Empty<ConstructionNode>())
+        foreach (var nested in DemoNodes(child))
+            yield return nested;
 }
 
 /// <summary>列出当前通用夹具缺少的原始输入，避免把无法正式受理的能力录成空片。</summary>
@@ -346,7 +556,8 @@ private static EquipmentAsset DemoWeapon(string form)
 private void WriteMigrationInventory(List<object> demoRows)
 {
     var mod = Cultiway.ModClass.I;
-    var demoIds = new HashSet<string>(demoRows.Select(row => (string)JObject.FromObject(row)["id"]));
+    var demoIds = new HashSet<string>(demoRows.Select(JObject.FromObject)
+        .Where(row => (string)row["unavailable"] == null).Select(row => (string)row["id"]));
     var entries = new List<object>();
     var references = new List<object>();
     var convertedUtility = (ISet<string>)typeof(ConstructedAbilityService).Assembly

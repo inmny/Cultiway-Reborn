@@ -134,6 +134,33 @@ def resolve(entries, name):
     return matches[0]
 
 
+CATALOG_FILTERS = dict(source="来源", school="流派", scale="尺度", effect="作用")
+
+
+def filter_catalog(entries, args):
+    """名称部分匹配。每个维度内任一值命中，多个维度需要同时满足。"""
+    def terms(text):
+        return {value.strip().casefold() for value in text.split(",") if value.strip()}
+
+    names = terms(args.filter)
+    dimensions = {key: terms(getattr(args, key)) for key in CATALOG_FILTERS if getattr(args, key)}
+    matches = []
+    for entry in entries:
+        if args.scope == "base" and not entry["adjustable"]:
+            continue
+        if names and not any(word in entry["id"].casefold() or word in entry["name"].casefold() for word in names):
+            continue
+        labels = entry.get("labels", {})
+        for key, wanted in dimensions.items():
+            values = labels.get(key) or {"unmarked": "未标注"}
+            indexed = {value.casefold() for value in (*values.keys(), *values.values())}
+            if wanted and indexed.isdisjoint(wanted):
+                break
+        else:
+            matches.append(entry)
+    return matches
+
+
 def read_constructions(path):
     """在文件入口读取完整资料；目录按相对路径排序，重复编号直接拒绝。"""
     files = sorted(path.rglob("*.json")) if path.is_dir() else [path]
@@ -183,13 +210,15 @@ def choose_cases(spells, catalog, args):
     modifier_by_id = {entry["id"]: entry for entry in catalog["modifiers"]}
     trajectory_by_id = {entry["id"]: entry for entry in catalog["trajectories"]}
     for spell in spells:
+        unavailable = spell.get("unavailable")
+        if unavailable:
+            skipped.extend(dict(id=spell["id"], case=mode, reason=unavailable) for mode in modes)
+            continue
         if "construction" in spell:
             for mode in modes:
-                reason = spell.get("unavailable")
-                if not reason and mode != "base":
-                    reason = "构造改造需要完整的构造资料，不能附加旧词条或轨迹"
-                if reason:
-                    skipped.append({"id": spell["id"], "case": mode, "reason": reason})
+                if mode != "base":
+                    skipped.append({"id": spell["id"], "case": mode,
+                                    "reason": "构造改造需要完整的构造资料，不能附加旧词条或轨迹"})
                     continue
                 if args.variant != 0:
                     raise ValueError(f"{spell['name']} 的构造原式没有旧动画变体")
@@ -238,6 +267,7 @@ def choose_cases(spells, catalog, args):
                         raise ValueError(f"{spell['name']} 不支持词条 {spec['AssetId']}")
                 key = f"{len(rows) + 1:04d}-{spell['id'].removeprefix('Cultiway.')}-v{variant}-{mode}"
                 rows.append(dict(key=key, id=spell["id"], name=spell["name"], group=spell["group"],
+                                 labels=spell.get("labels", {}),
                                  mode=mode, label=LABELS[mode], variant=variant,
                                  trajectory=actual_trajectory, modifiers=applied,
                                  trajectoryName=trajectory_by_id.get(actual_trajectory, {"name": actual_trajectory})["name"],
@@ -368,6 +398,8 @@ def main(all_spells):
     parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
     parser.add_argument("--scope", choices=["base", "all"], default="all", help="base 为基础法术，all 还含来源专属与天劫实体")
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
+    for key, title in CATALOG_FILTERS.items():
+        parser.add_argument("--" + key, default="", help=f"按登记{title}筛选，支持标签名称或编号，可用逗号分隔")
     parser.add_argument("--cases", default="base,modifiers,trajectory", help="base,modifiers,trajectory,combined")
     parser.add_argument("--modifier", action="append", default=[], help="词条名称:参数=值，可重复指定")
     parser.add_argument("--trajectory", help="指定兼容轨迹名称或编号")
@@ -421,6 +453,8 @@ def main(all_spells):
     try:
         constructions = read_constructions(args.construction) if args.construction else None
         if constructions is not None:
+            if any(getattr(args, key) for key in CATALOG_FILTERS):
+                raise ValueError("四类标签来自游戏登记；本地构造文件可用 --filter 按名称或编号查找")
             if args.resource_probe or args.inventory or args.scene != "single":
                 raise ValueError("构造演示请使用单招场景，不与资源探针或清单导出同时运行")
             if args.modifier or args.trajectory or args.variant or args.variants != "first" or args.cases not in {"base", "base,modifiers,trajectory"}:
@@ -449,15 +483,21 @@ def main(all_spells):
         if args.inventory:
             export_inventory((args.output or CONTROL / "inventory").resolve(), starting_version)
             return
+        available = filter_catalog(catalog["spells"], args)
         if args.list:
-            needles = args.filter.casefold().split(",") if args.filter else ()
-            for entry in catalog["spells"]:
-                if args.scope == "base" and not entry["adjustable"]:
-                    continue
-                if needles and not any(needle in (entry["id"] + entry["name"]).casefold() for needle in needles):
-                    continue
+            if args.output:
+                args.output.mkdir(parents=True, exist_ok=True)
+                write_json(args.output / "catalog.json", dict(catalog, spells=available))
+            if not available:
+                print("没有匹配的能力")
+            for entry in available:
                 status = f"暂不可录：{entry['unavailable']}" if entry.get("unavailable") else f"{entry['variants']} 个变体"
-                print(f"{entry['name']}\t{entry['id']}\t{entry['group']}\t{status}")
+                labels = entry.get("labels", {})
+                fields = [title + "=" + ("、".join(labels.get(key, {}).values()) or "未标注")
+                          for key, title in CATALOG_FILTERS.items()]
+                print("\t".join([entry["name"], entry["id"], entry["group"], status, *fields]))
+            if args.filter or any(getattr(args, key) for key in CATALOG_FILTERS):
+                return
             for category in ["modifiers", "trajectories"]:
                 print("\n" + ("词条" if category == "modifiers" else "轨迹"))
                 for entry in catalog[category]:
@@ -468,16 +508,11 @@ def main(all_spells):
         elif args.resource_probe:
             spells = [dict(id="Cultiway.ResourceProbe", name="形体资源接入验证", group="开发资源验证")]
         elif all_spells:
-            spells = catalog["spells"]
-            if args.scope == "base":
-                spells = [entry for entry in spells if entry["adjustable"]]
-            if args.filter:
-                needles = args.filter.casefold().split(",")
-                spells = [entry for entry in spells if any(needle in (entry["id"] + entry["name"]).casefold() for needle in needles)]
+            spells = available
         else:
             if not args.spell:
                 parser.error("请指定法术名称，或使用 --list")
-            spells = [resolve(catalog["spells"], args.spell)]
+            spells = [resolve(available, args.spell)]
         if not spells:
             parser.error("筛选后没有法术")
         if constructions is not None:
