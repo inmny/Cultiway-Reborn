@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -104,6 +105,47 @@ internal static partial class ArtifactSpatialAttackExecution
         if (motion.spatial_model) UpdateBlade(execution, body, in motion, position.value, rotation);
         else UpdateAfterimage(execution, motion.current_speed);
         return true;
+    }
+
+    /// <summary>结算共同扫掠已经确认的实际刃面接触，驱动随后穿出或回手。</summary>
+    /// <param name="execution">仍借用原件的这一次飞行。</param>
+    /// <param name="target">真正与刃面相交的人物或建筑。</param>
+    internal static void ConfirmContact(Entity execution, BaseSimObject target)
+    {
+        if (execution.IsNull || !execution.GetComponent<ColliderConfig>().Enabled) return;
+        ref SkillContext context = ref execution.GetComponent<SkillContext>();
+        if (!TryResolveOwnerAndBody(ref context, execution, out Actor owner, out _)) return;
+        ref ArtifactSpatialAttackMotion motion = ref execution.GetComponent<ArtifactSpatialAttackMotion>();
+        if (!ArtifactSpatialTargeting.IsValidTarget(
+                owner, target, motion.control_range, context.ResolveAttackKingdom()))
+            return;
+
+        long targetKey = ArtifactSpatialTargeting.GetTargetKey(target);
+        if (!motion.hit_target_keys.Add(targetKey)) return;
+
+        bool completesStrike = motion.mode == ArtifactSpatialAttackMode.ContinuousHunt ||
+                               context.TargetObj != null &&
+                               ArtifactSpatialTargeting.GetTargetKey(context.TargetObj) == targetKey;
+        SkillHitResolver.HitTarget(ArtifactSkillExecutions.FlyingSword, ref context, default, execution, target,
+            playImpact: true);
+        if (motion.impact_force > 0f && target.isActor())
+        {
+            CombatForceEffects.ApplyRadialForce(
+                owner,
+                target.a,
+                owner.current_position,
+                motion.impact_force,
+                pull: false);
+        }
+        if (!completesStrike) return;
+
+        motion.last_target_key = targetKey;
+        motion.has_last_target = true;
+        motion.repeat_ready_at = (float)World.world.getCurWorldTime() + motion.repeat_cooldown;
+        motion.pierce_remaining = Mathf.Max(
+            motion.pierce_remaining,
+            motion.pierce_distance + target.stats[S.size]);
+        motion.phase = ArtifactSpatialAttackPhase.Piercing;
     }
 
     private static void UpdatePursuing(

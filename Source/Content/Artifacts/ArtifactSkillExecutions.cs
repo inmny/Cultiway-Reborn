@@ -6,7 +6,6 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
-using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -56,7 +55,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             new Position(),
             new Rotation(),
             new AliveTimer(),
-            Tags.Get<TagPrefab>());
+            Tags.Get<TagPrefab, TagSkillAnimationNoCollision>());
         FlyingSword
             .SetupColliderSphere(1f, new ColliderConfig
             {
@@ -64,8 +63,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
                 Actor = true,
                 Building = true,
                 Enemy = true,
-            })
-            .OnObjCollision = ResolveFlyingSwordHit;
+            });
 
         SwordArray.Element = ElementComposition.Static.Iron;
         SwordArray.PrefabEntity = SwordArray.World.CreateEntity(
@@ -125,48 +123,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             blade,
             target,
             playImpact: true);
-        return true;
-    }
-
-    private static bool ResolveFlyingSwordHit(
-        ref SkillContext context,
-        Entity skillContainer,
-        Entity execution,
-        BaseSimObject target)
-    {
-        if (context.SourceObj == null || !context.SourceObj.isActor() || context.SourceObj.isRekt()) return true;
-
-        Actor owner = context.SourceObj.a;
-        ref ArtifactSpatialAttackMotion motion = ref execution.GetComponent<ArtifactSpatialAttackMotion>();
-        if (!ArtifactSpatialTargeting.IsValidTarget(
-                owner, target, motion.control_range, context.ResolveAttackKingdom()))
-            return true;
-
-        long targetKey = ArtifactSpatialTargeting.GetTargetKey(target);
-        if (!motion.hit_target_keys.Add(targetKey)) return true;
-
-        bool completesStrike = motion.mode == ArtifactSpatialAttackMode.ContinuousHunt ||
-                               context.TargetObj != null &&
-                               ArtifactSpatialTargeting.GetTargetKey(context.TargetObj) == targetKey;
-        SkillHitResolver.HitTarget(FlyingSword, ref context, skillContainer, execution, target, playImpact: true);
-        if (motion.impact_force > 0f && target.isActor())
-        {
-            CombatForceEffects.ApplyRadialForce(
-                owner,
-                target.a,
-                owner.current_position,
-                motion.impact_force,
-                pull: false);
-        }
-        if (!completesStrike) return true;
-
-        motion.last_target_key = targetKey;
-        motion.has_last_target = true;
-        motion.repeat_ready_at = (float)World.world.getCurWorldTime() + motion.repeat_cooldown;
-        motion.pierce_remaining = Mathf.Max(
-            motion.pierce_remaining,
-            motion.pierce_distance + target.stats[S.size]);
-        motion.phase = ArtifactSpatialAttackPhase.Piercing;
         return true;
     }
 }

@@ -171,7 +171,8 @@ try
         Vector3.Distance((Vector3)Field(parked, "Scale"), (Vector3)Field(launched, "Scale")) < .003f && !Use(),
         "从随身原位接手，运行期间拒绝再次借用", new
         { parked = Point(parked).ToString(), launched = Point(launched).ToString(), artifact = artifact.Id });
-    Check(!execution.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>(), "原件飞行脱离旧轨迹");
+    Check(!execution.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>() &&
+        execution.Tags.Has<TagSkillAnimationNoCollision>(), "原件飞行及接触不进入旧轨迹或旧碰撞查询");
     VerifyBlade(execution, launched);
     await Advance(.1f);
     await Game.NextFrame();
