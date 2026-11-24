@@ -20,21 +20,53 @@ async Task<object> DeliverFurnace()
 {
     if (recordView.Length != 0)
     {
-        await SetCamera(7.75f);
+        await SetCamera(cityFilm ? 13f : 7.75f);
+        City city = cityFilm ? CreateFilmCity(64) : null;
         await Advance(.13f);
         await Pay(definition);
         var cast = Live(definition.Id);
         bool lifted = false, tilted = false, cooled = false, broke = false, hot = false;
+        float initialRim = float.NaN, raisedRim = float.NegativeInfinity;
         float firstCrust = -1, firstBreak = -1, extinguished = -1;
+        double peakInside = 0d, peakOutside = 0d;
+        void MeasureMelt()
+        {
+            double inside = 0d, outside = 0d;
+            for (int node = 1; node <= 3; node++)
+            {
+                if (!Flowing(cast, node)) continue;
+                var layer = FlowAt(cast, node);
+                var depths = (Vector3[])Field(layer, "Water");
+                int cells = (int)Field(Field(layer, "Settings"), "Cells");
+                float cell = (float)Field(layer, "Cell");
+                var origin = (Vector2)Field(layer, "Origin");
+                for (int i = 0; i < depths.Length; i++)
+                {
+                    if (depths[i].x <= .015f) continue;
+                    var point = origin + new Vector2(i % cells + .5f, i / cells + .5f) * cell;
+                    double melt = depths[i].x * cell * cell;
+                    if (IsInFilmCity(city, point)) inside += melt;
+                    else outside += melt;
+                }
+            }
+            peakInside = Math.Max(inside, peakInside);
+            peakOutside = Math.Max(outside, peakOutside);
+        }
         var times = await Film(7f, () =>
         {
             if (cast.Age < 3.5f)
             {
                 var mouth = Outlet(Furnace(cast), "mouth");
-                lifted |= cast.Age < 1f && mouth.MultiplyPoint3x4(Vector3.zero).z > 7f && cast.NodeAge(1) < 0;
+                if (cast.Age is >= .16f and < 1f && cast.NodeAge(1) < 0)
+                {
+                    if (float.IsNaN(initialRim)) initialRim = mouth.m23;
+                    raisedRim = Mathf.Max(raisedRim, mouth.m23);
+                    lifted |= raisedRim > initialRim + .18f;
+                }
                 tilted |= cast.NodeAge(1) >= 0 && mouth.MultiplyVector(Vector3.forward).z < -.3f;
             }
             if (!Flowing(cast, 1)) return;
+            if (cityFilm) MeasureMelt();
             var phase = Phase(cast, 1);
             if (phase.Crust > .015 && firstCrust < 0) firstCrust = cast.Age;
             if (phase.Broken > .004 && firstBreak < 0) firstBreak = cast.Age;
@@ -53,8 +85,17 @@ async Task<object> DeliverFurnace()
               firstCrust > 0 && firstBreak > firstCrust && extinguished > firstBreak &&
               endings.Count == 1 && !endings[0].Fact.Cancelled && Live(definition.Id) == null && !VisibleFurnace(),
             "录像内实际抬升、倾倒、三次触地、结壳、破裂、熄灭并自然结束",
-            new { lifted, tilted, groundContacts, firstCrust, firstBreak, extinguished, endings = endings.Count });
-        return new { passed = true, times, duration = 7, previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.7)),
+            new { lifted, tilted, initialRim, raisedRim, groundContacts, firstCrust, firstBreak, extinguished, endings = endings.Count });
+        var cityMelt = cityFilm ? new
+        {
+            peakInside, peakOutside,
+            contacts = groundContacts.Select(hit => new { hit.Node, hit.Age, hit.X, hit.Y,
+                inCity = IsInFilmCity(city, new Vector2(hit.X, hit.Y)) }).ToArray()
+        } : null;
+        if (cityFilm) Check(peakInside > .1d && peakOutside > .1d &&
+                       cityMelt.contacts.Any(hit => hit.inCity) && cityMelt.contacts.Any(hit => !hit.inCity),
+            "实际熔流分别在城区内外触地并积聚", cityMelt);
+        return new { passed = true, times, duration = 7, cityMelt, previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.7)),
             phases = new { firstCrust, firstBreak, extinguished }, view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost };
     }
 

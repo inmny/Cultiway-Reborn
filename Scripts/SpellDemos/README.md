@@ -3426,3 +3426,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 `record_city_attack.py --case metal` 或 `--case earth` 在同一原版城域场地运行。按真实尺寸编辑、正式定价和另创入口建立独立成品，由同一场景中一名化神支付施放。落盘原构造、派生后的完整构造、城内外作用和侧边对照位置，以及常速原片。
 
 `verify_sky_whale.py --section native --city` 在天鲸原版录像中启用复用城区，读取原术实际分流的水量、越界坐标和人物接触。其余天鲸入口继续使用原场地。
+
+`verify_sky_furnace.py --section native --city` 和 `verify_hanging_tree.py --section native --city` 共用原版城区。前者记录熔流的实际触地与城区两侧峰值熔料，后者记录实际根尖触地以及城区内外两名原对练对象的抓持与解除。

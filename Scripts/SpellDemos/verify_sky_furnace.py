@@ -13,7 +13,11 @@ from common import PROJECT, encode, write_json
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('launch', 'upright', 'visual', 'cooling', 'cutoff', 'damage', 'save', 'native', 'worldfall', 'all'), default='all')
-    section = parser.parse_args().section
+    parser.add_argument('--city', action='store_true', help='在原版场地加城区并记录边界两侧的熔料')
+    args = parser.parse_args()
+    section = args.section
+    if args.city and section != 'native':
+        parser.error('--city 只用于原版主术录像')
     view = section if section in ('native', 'worldfall') else ''
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
@@ -38,9 +42,10 @@ def main():
     thermal = (scripts / 'verify_sky_furnace_cooling.script').read_text()
     camera = 'object cameraSettings' + (scripts / 'verify_wind_combat.script').read_text().split('object cameraSettings', 1)[1]
     camera = camera[:camera.index('void ReleaseChecks()')] + camera[camera.index('async Task SetCamera('):]
-    camera = camera.replace('67.7f, 72f', '69.5f, 72.6f')
+    camera = camera.replace('67.7f, 72f', '71f, 73f' if args.city else '69.5f, 72.6f')
     delivery = (scripts / 'verify_sky_furnace_delivery.script').read_text()
-    code = f'const string recordView = {json.dumps(view)};\n' + thermal + camera + delivery
+    code = (f'const string recordView = {json.dumps(view)};\nbool cityFilm = {str(args.city).lower()};\n'
+            + thermal + camera + (scripts / 'city_film_scene.script').read_text() + delivery)
     script.write_text('using Cultiway.Const;\n' + helpers + f'\nconst string section = {json.dumps(section)};\n' +
                       body.replace('// 实机入口。', code))
     try:
@@ -52,7 +57,7 @@ def main():
     if not result.get('passed'):
         raise RuntimeError(f'天炉倾海 {section} 未通过：{folder}')
     if view:
-        encode(folder.parent, dict(key=folder.name, name='天炉倾海：出炉、分流、凝壳与破口', label='原速',
+        encode(folder.parent, dict(key=folder.name, name='天炉倾海：出炉、分流、凝壳与破口', label='城区实录' if args.city else '原速',
                                    variant=0, trajectory='', modifiers=[], caption='余焰随熔料的热量熄灭'), keep_frames=True)
     print(json.dumps(dict(output=str(folder), result=result), ensure_ascii=False))
 

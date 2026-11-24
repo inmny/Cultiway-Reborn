@@ -10,6 +10,7 @@ if (section is "short" or "ungrounded")
 var source = Make(64.5f);
 var target = Make(73.5f, "wolf");
 var owner = source.GetExtend();
+City city = null;
 Actor flank = gripping ? Make(75f, "wolf") : null;
 var landings = new List<ConstructedWorldContact>();
 var shapes = new List<AbilityCapsule>();
@@ -47,8 +48,9 @@ async Task Stage()
     ControllableUnit.clear(false);
     await Advance(.20f);
     Ready(source);
-    if (section is "growth" or "grip" or "native" or "worldfall") await SetCamera(section == "native" ? 14f : 12.5f);
+    if (section is "growth" or "grip" or "native" or "worldfall") await SetCamera(cityFilm ? 16f : section == "native" ? 14f : 12.5f);
     if (section == "worldfall") await WaitForWorldfallDraw();
+    if (cityFilm) city = CreateFilmCity(64);
     Place(source, 64.5f, 72.5f); Place(target, 73.5f, 72.5f);
     if (gripping)
     {

@@ -1,10 +1,10 @@
 
 Type WorldfallType() => AppDomain.CurrentDomain.GetAssemblies()
-    .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).First(type => type != null);
+    .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(type => type != null);
 
 async Task WaitForWorldfallDraw()
 {
-    var type = WorldfallType();
+    var type = WorldfallType() ?? throw new InvalidOperationException("三维录像需要加载 Worldfall");
     var mod = type.GetProperty("Instance", F).GetValue(null);
     Check((bool)type.GetProperty("GpuWanted", F).GetValue(mod), "当前 Worldfall 已启用法术模型使用的正常绘制路径");
     var frames = type.GetField("_godGpuApplied", F);
@@ -37,17 +37,17 @@ async Task<object> Deliver(AbilityCast first)
             var published = new HashSet<string>();
             var local = new List<FormVisualInstance>();
             var viewType = WorldfallType();
-            var viewMod = viewType.GetProperty("Instance", F).GetValue(null);
-            var godShown = viewType.GetProperty("GodShown", F);
-            var firstPerson = viewType.GetProperty("IsFirstPerson", F);
-            var gpuShown = viewType.GetField("_gpuShown", F);
+            var viewMod = viewType?.GetProperty("Instance", F)?.GetValue(null);
+            var godShown = viewType?.GetProperty("GodShown", F);
+            var firstPerson = viewType?.GetProperty("IsFirstPerson", F);
+            var gpuShown = viewType?.GetField("_gpuShown", F);
             var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
                 .GetProperty("LastDrawCount", F);
             bool stableView = true, drewForms = recordView == "native";
             const float duration = 5.56f;
             var times = await Film(duration, () =>
             {
-                stableView &= !(bool)firstPerson.GetValue(viewMod) &&
+                if (viewMod != null) stableView &= !(bool)firstPerson.GetValue(viewMod) &&
                               (bool)godShown.GetValue(viewMod) == (recordView == "worldfall") &&
                               (recordView != "worldfall" || (bool)gpuShown.GetValue(viewMod));
                 float age = first.Age;
@@ -56,7 +56,7 @@ async Task<object> Deliver(AbilityCast first)
                 local.Clear(); first.AppendVisuals(local);
                 string[] visible = FormVisualScene.Instances.Select(form => form.Resource.Description.Id)
                     .Where(id => id.StartsWith("hanging_", StringComparison.Ordinal)).Distinct().ToArray();
-                drewForms |= visible.Contains("hanging_grip") && (int)lastDraw.GetValue(null) > 0;
+                if (recordView == "worldfall") drewForms |= visible.Contains("hanging_grip") && (int)lastDraw.GetValue(null) > 0;
                 foreach (string id in visible) published.Add(id);
                 crown |= age < .54f && visible.Contains("hanging_tree");
                 growing |= age < 1.5f && visible.Contains("hanging_root");
@@ -76,7 +76,19 @@ async Task<object> Deliver(AbilityCast first)
                   !FormVisualScene.Instances.Any(form => form.Resource.Description.Id.StartsWith("hanging_")),
                 "同段原速施放经过倒悬、生长、钉地、双侧抓持、实际抬起收回和清场",
                 new { stableView, drewForms, crown, growing, grasped, released, planted, lifted, published, frames = times.Count });
-            return new { passed = true, times, duration, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.9)),
+            var cityRoots = cityFilm ? new
+            {
+                inner = new { target.id, location = "(70.85, 74.22)", inCity = IsInFilmCity(city, new Vector2(70.85f, 74.22f)) },
+                outer = new { flank.id, location = "(76.44, 70.59)", inCity = IsInFilmCity(city, new Vector2(76.44f, 70.59f)) },
+                pinned = landings.Select(hit => new { hit.Node, hit.X, hit.Y, hit.Age,
+                    inCity = IsInFilmCity(city, new Vector2(hit.X, hit.Y)) }).ToArray(),
+                targets = grips.Where(hit => hit.ReleaseReason == null).Select(hit => hit.TargetId).Distinct().ToArray()
+            } : null;
+            if (cityFilm) Check(cityRoots.inner.inCity && !cityRoots.outer.inCity &&
+                cityRoots.targets.Contains(target.id) && cityRoots.targets.Contains(flank.id) &&
+                cityRoots.pinned.Any(hit => hit.inCity) && cityRoots.pinned.Any(hit => !hit.inCity),
+                "根群分别在城内外实际触地并抓住两边对练对象", cityRoots);
+            return new { passed = true, times, duration, cityRoots, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.9)),
                 view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost };
         }
 
