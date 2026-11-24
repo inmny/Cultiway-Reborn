@@ -1,4 +1,5 @@
 var attack = Spell("散相解构"); var guard = Spell("解构验证联盾");
+float shift = cityFilm ? 15f : 0f;
 File.WriteAllText(Path.Combine(folder, "attack.json"), JsonConvert.SerializeObject(attack, Formatting.Indented));
 File.WriteAllText(Path.Combine(folder, "guard.json"), JsonConvert.SerializeObject(guard, Formatting.Indented));
 CombatStatusEffects.ApplyStatus(victim, mana, 10000, victim);
@@ -7,7 +8,7 @@ void Meet(ConstructedClash fact) { if (seen.ContainsKey(fact.LeftCast) && seen.C
 ConstructedAbilityService.ClashConfirmed += Meet;
 async Task<AbilityCast> Cast(AbilityDefinition definition, Actor from, Actor to)
 {
-    Ready(from); Place(source, 64); Place(victim, 72); from.setMana(64);
+    Ready(from); Place(source, 64, 72+shift); Place(victim, 72, 72+shift); from.setMana(64);
     await Fire(definition, from, to);
     from.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
     CombatStatusEffects.ApplyStatus(from, hold, 10000, from); from.updateStats(); ControllableUnit.clear(false);
@@ -23,7 +24,15 @@ int[] Pieces(AbilityCast value, int node) => Enumerable.Range(0, Nodes(value).Le
 List<AbilityCapsule> Shapes(AbilityCast value) { var shapes = new List<AbilityCapsule>(); value.AppendContacts(shapes); return shapes; }
 try
 {
-    if (recordView.Length > 0) await SetCamera(7.4f);
+    if (recordView.Length > 0) await SetCamera(cityFilm ? 13f : 7.4f);
+    City city = cityFilm ? CreateFilmCity(72, north: 72) : null;
+    if (cityFilm)
+        for (int y = 83; y <= 93; y++)
+        for (int x = 61; x <= 76; x++)
+        {
+            var tile = World.world.GetTileSimple(x, y);
+            if (tile.Type.liquid) tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        }
     await Advance(.18f);
     var ward = await Cast(guard, victim, source); long wardId = seen.Keys.Last();
     var cast = await Cast(attack, source, victim); long castId = seen.Keys.Last();
@@ -54,7 +63,7 @@ try
         }
         foreach (var part in Forms(ward).Where(v => v.PartCount == 1))
         {
-            string key = part.Resource.Description.Id + (part.Transform.m13 > 73.5f ? "high" : "middle");
+            string key = part.Resource.Description.Id + (part.Transform.m13 > 73.5f + shift ? "high" : "middle");
             float z = part.Transform.m23;
             if (!falls.TryGetValue(key, out float prior)) falls[key] = z;
             else if (z < prior - .035f) dropped = true;
@@ -89,7 +98,20 @@ try
     var again = await Cast(attack, source, victim);
     await Advance(4.1f);
     Check(again.Finished && Forms(again).Length == 0, "离场后原招仍可正常再次施放并结束");
-    return new { passed = true, points, times, duration, carriedForce, funded, received,
+    var cityEntropy = cityFilm ? new
+    {
+        points = clashes.Where(hit => hit.LeftCast == wardId || hit.RightCast == wardId)
+            .Select(hit => new { point = hit.Position.ToString(), hit.Absorbed,
+                inCity = IsInFilmCity(city, hit.Position) }).ToArray(),
+        carriedForce, funded, received
+    } : null;
+    if (cityFilm)
+    {
+        File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(attack, Formatting.Indented));
+        Check(cityEntropy.points.Any(hit => hit.inCity) && cityEntropy.points.Any(hit => !hit.inCity),
+            "同一联盾分别在城区内外与真实解构面交锋", cityEntropy);
+    }
+    return new { passed = true, cityEntropy, points, times, duration, carriedForce, funded, received,
         view = recordView, scene = "construction", resource = attack.Resource, paid = attack.Cost };
 }
 finally { ConstructedAbilityService.ClashConfirmed -= Meet; ReleaseChecks(); }

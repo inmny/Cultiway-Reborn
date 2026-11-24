@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('solar', 'life', 'life-world'), required=True)
     parser.add_argument('--record', choices=('native', 'worldfall'))
+    parser.add_argument('--city', action='store_true', help='录制同一能力在原版城区边界的实际结算')
     args = parser.parse_args()
+    if args.city and (args.section != 'life' or args.record != 'native'):
+        parser.error('--city 只用于原版主术录像')
     section, view = args.section, args.record
     if section == "life-world" and view:
         parser.error("换世界检查不录制")
@@ -38,6 +41,13 @@ def main():
     shared = shared.replace('const string recordView = "";', 'const string recordView = ' + json.dumps(view or '') + ';')
     # 两项复用同一施放、取景和录像入口，避免再建测试世界。
     shared = shared.replace('Cultiway.Verify.Wind.Mana', 'Cultiway.Verify.SunLife.Mana')
+    if args.city:
+        shared = shared.replace('67.7f, 72f', '72f, 73f')
+    shared = shared.replace('var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SunLife.Mana")',
+                            'var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SunLife.Mana") ?? '
+                            'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SunLife.Mana")')
+    shared += f'\nbool cityFilm = {str(args.city).lower()};\n'
+    shared += Path(__file__).with_name('city_film_scene.script').read_text()
     script = output / 'input.script'
     learned = Path(__file__).with_name('verify_sun_life_learned.script').read_text()
     script.write_text(learned.split('var owner', 1)[0] + helpers + '\n' + shared + '\nvar owner' + learned.split('var owner', 1)[1] + '\n' + body)
@@ -51,7 +61,7 @@ def main():
         raise RuntimeError('阳与生命复验失败，请查看 ' + str(output / 'checks.json'))
     if view:
         name = '日轮照甲：贯通、拦截与破层' if section == 'solar' else '护生修复：组织合拢与木芯抽芽'
-        encode(output.parent, dict(key=output.name, name=name, label='原速', variant=0,
+        encode(output.parent, dict(key=output.name, name=name, label='城区实录' if args.city else '原速', variant=0,
                                    trajectory='', modifiers=[]), keep_frames=True)
     print(json.dumps(dict(section=section, output=str(output), result=result), ensure_ascii=False))
 

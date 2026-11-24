@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('balance', 'editor', 'legacy'), required=True)
     parser.add_argument('--record', choices=('native', 'worldfall'))
+    parser.add_argument('--city', action='store_true', help='录制同一能力在原版城区边界的实际结算')
     args = parser.parse_args()
+    if args.city and (args.section != 'balance' or args.record != 'native'):
+        parser.error('--city 只用于原版主术录像')
     section, view = args.section, args.record
     if view and section != 'balance':
         parser.error('只录制完整双端渡气')
@@ -27,11 +30,19 @@ def main():
     helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(output))
     helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")',
                               json.dumps(str(PROJECT / 'Scripts/WorldSaveTests/Fixtures/world-format-1')))
+    helpers = helpers.replace('var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild',
+                              'var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.SourceLoss.Hold") ?? '
+                              'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild')
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     shared = (scripts / 'verify_wind_combat.script').read_text().replace('const string inputRoot = "";',
         'const string inputRoot = ' + json.dumps(str(PROJECT / 'Doc/技能系统全面重构/构造输入')) + ';')
     shared = shared.replace('const string recordView = "";', 'const string recordView = ' + json.dumps(view or '') + ';')
     shared = shared.replace('Cultiway.Verify.Wind.Mana', 'Cultiway.Verify.Polarity.Mana')
+    if args.city:
+        shared = shared.replace('67.7f, 72f', '71f, 73f')
+    shared = shared.replace('var mana = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Polarity.Mana")',
+                            'var mana = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.Verify.Polarity.Mana") ?? '
+                            'Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Polarity.Mana")')
     imports = 'using UnityEngine.UI;\nusing Cultiway.UI;\nusing Cultiway.UI.Prefab;\n'
     if section == 'editor':
         ui = (scripts / 'verify_contact_creation_ui.script').read_text()
@@ -45,6 +56,8 @@ def main():
         body = legacy[:start] + '    return new { passed = true, transferred = added, removed, hits = hitCount };\n}\n' + legacy[legacy.index('finally\n{'):]
     else:
         body = (scripts / 'verify_polarity_balance.script').read_text()
+    shared += f'\nbool cityFilm = {str(args.city).lower()};\n'
+    shared += Path(__file__).with_name('city_film_scene.script').read_text()
     script = output / 'input.script'
     script.write_text(imports + helpers + '\n' + shared + '\n' + body)
     try:
@@ -56,7 +69,7 @@ def main():
     if not result.get('passed'):
         raise RuntimeError('两仪复验失败，请查看 ' + str(output / 'checks.json'))
     if view:
-        encode(output.parent, dict(key=output.name, name='两仪渡气：送出、承接、反转与止息', label='原速',
+        encode(output.parent, dict(key=output.name, name='两仪渡气：送出、承接、反转与止息', label='城区实录' if args.city else '原速',
                                    variant=0, trajectory='', modifiers=[]), keep_frames=True)
     print(json.dumps(dict(section=section, output=str(output), result=result), ensure_ascii=False))
 

@@ -1,5 +1,6 @@
 var definition = Spell("两仪渡气");
 File.WriteAllText(Path.Combine(folder,"active-definition.json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+float shift = cityFilm ? 3f : 0f;
 var bystander = Make(70);
 foreach (var actor in new[] { source, victim, bystander })
 {
@@ -35,7 +36,7 @@ bool AllGone() => Part("polarity_sender") == null && Part("polarity_receiver") =
 int Hits(long id) => contacts.Count(c => c.CastId == id && c.TargetId == victim.id);
 async Task<(long Id, AbilityCast Cast)> Cast()
 {
-    Ready(source); Place(source,64); Place(victim,70); Place(bystander,70.25f,72.08f);
+    Ready(source); Place(source,64+shift); Place(victim,70+shift); Place(bystander,70.25f+shift,72.08f);
     source.setMana(64);
     await Fire(definition,source,victim,aggro:false);
     source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
@@ -54,11 +55,13 @@ void Layout(bool forward, List<float> positions)
 WakanResourceService.RegisterMutationCommitted(Observe);
 try
 {
-    if (recordView.Length > 0) await SetCamera(6.6f);
+    if (recordView.Length > 0) await SetCamera(cityFilm ? 11f : 6.6f);
+    City city = cityFilm ? CreateFilmCity(64) : null;
     Check(Maximum(source)>20f && Maximum(victim)>20f && Mathf.Abs(Maximum(source)-Maximum(victim))>.1f,
         "复用两位上限不同的修士及一位邻近友军",new { sourceMax=Maximum(source), targetMax=Maximum(victim) });
     Set(source,Maximum(source)*.84f); Set(victim,Maximum(victim)*.35f); Set(bystander,Maximum(bystander)*.04f);
     var first = await Cast();
+    Vector2 left = source.current_position, right = victim.current_position;
     Check(AllGone() && pairs.Count==0,"实际接触以前没有实体渡流");
     double start=World.world.getCurWorldTime(), mark=-1;
     const float duration=4.19f;
@@ -106,7 +109,7 @@ try
             float lastAge=contacts.Last(c=>c.CastId==first.Id).Age;
             Check(lastAge+definition.Root.Contact.Interval < definition.Root.ActiveUntil && exitContacts<definition.Root.Contact.MaximumPerTarget,
                 "离开后原接触印还有一次作用机会，停止不是到期造成的",new { lastAge, activeUntil=definition.Root.ActiveUntil });
-            Place(victim,70,77);
+            Place(victim,70+shift,77);
             Set(victim,Maximum(victim)*.82f);
             stage++;
         }
@@ -120,7 +123,20 @@ try
     for (int i=0;i<17 && Hits(again.Id)==0;i++) await Advance(.06f);
     Check(again.Id!=first.Id && Hits(again.Id)>0 && pairs.Count>nearCount && pairs.Last().Sender==victim.id,
         "结束后能正式重新施放并按当时余量渡气");
-    return new { passed=true, scene="construction", resource="mana", paid=definition.Cost, duration, times, view=recordView,
+    var cityBalance = cityFilm ? new
+    {
+        left = left.ToString(), leftInCity = IsInFilmCity(city, left),
+        right = right.ToString(), rightInCity = IsInFilmCity(city, right),
+        turns = pairs.Take(nearCount).Select(value => new { value.Sender, value.Receiver, value.Moved }).ToArray()
+    } : null;
+    if (cityFilm)
+    {
+        File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        Check(cityBalance.leftInCity && !cityBalance.rightInCity &&
+            cityBalance.turns.Select(value => value.Sender).Distinct().Count() == 2,
+            "城区两端实际互相扣收，过界的同一流程随压差反转", cityBalance);
+    }
+    return new { passed=true, cityBalance, scene="construction", resource="mana", paid=definition.Cost, duration, times, view=recordView,
         forward=forwardCount, reverse=reverseCount, nearEqual=pairs[nearCount-1].Moved, stoppedAt=exitContacts,
         previewFrame=times.FindIndex(t=>t>=mark) };
 }

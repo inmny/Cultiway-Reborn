@@ -1,16 +1,18 @@
 var definition = Spell("护生修复");
+int shift = cityFilm ? 3 : 0;
 var action = new List<ConstructedWorldContact>();
 void WorldHit(ConstructedWorldContact fact) { if (fact.Action == "nature.repair") action.Add(fact); }
 ConstructedAbilityService.WorldContactConfirmed += WorldHit;
 try
 {
-    if (recordView.Length > 0) await SetCamera(6.5f);
+    if (recordView.Length > 0) await SetCamera(cityFilm ? 12f : 6.5f);
+    City city = cityFilm ? CreateFilmCity(64) : null;
     victim.setKingdom(source.kingdom);
     var healthyActor = Make(68); healthyActor.setKingdom(source.kingdom);
-    Place(healthyActor,68,72.5f); healthyActor.data.health = healthyActor.getMaxHealth();
+    Place(healthyActor,68+shift,72.5f); healthyActor.data.health = healthyActor.getMaxHealth();
     Building Create(string id, int x, int y)
     {
-        WorldTile tile = World.world.GetTileSimple(x,y);
+        WorldTile tile = World.world.GetTileSimple(x+shift,y);
         tile.building?.removeBuildingFinal();
         return World.world.buildings.addBuilding(id,tile);
     }
@@ -30,8 +32,8 @@ try
     // 使用真实选定的友军和地面，受伤数据与生命上限仍由原版人物提供。
     victim.data.health = victim.getMaxHealth()-470;
     int actorBefore = victim.getHealth();
-    Ready(source); Place(source,64); Place(victim,68.15f,70.43f); source.setMana(64);
-    await Fire(definition, source, victim, aim: new Vector3(69.3f,72.4f,0), aggro: false);
+    Ready(source); Place(source,64+shift); Place(victim,68.15f+shift,70.43f); source.setMana(64);
+    await Fire(definition, source, victim, aim: new Vector3(69.3f+shift,72.4f,0), aggro: false);
     source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
     CombatStatusEffects.ApplyStatus(source,hold,10000,source); source.updateStats(); ControllableUnit.clear(false);
     long id = LastCast(); var cast = seen[id];
@@ -51,7 +53,7 @@ try
         treeAtStop = tree.getHealth(); actorAtStop = victim.getHealth(); eventsAtStop = action.Count;
         Check(tissue && wood && healedByCast > 31 && actorAtStop > actorBefore && tree.id == originalId && treeAtStop > treeBefore && action.Count>=2,
             "组织和活木有独立画面，均来自同一受损对象分段增益", new { tissue,wood,healedByCast,treeBefore,treeAtStop,actorBefore,actorAtStop,eventsAtStop });
-        Check(action.All(f => f.X==70 && f.Y==72 && (f.Result.Flags & SkillEffectOutcomeFlags.LivingPlantRepaired)!=0) &&
+        Check(action.All(f => f.X==70+shift && f.Y==72 && (f.Result.Flags & SkillEffectOutcomeFlags.LivingPlantRepaired)!=0) &&
             Math.Abs(action.Sum(f=>f.Result.Magnitude)-(treeAtStop-treeBefore))<.01f &&
             healthyActor.getHealth() == healthyActor.getMaxHealth() && full.getHealth()==full.getMaxHealth() &&
             house.getHealth()==houseBefore && (chopped.isRekt() || !chopped.isAlive() || chopped.getHealth()<=choppedBefore),
@@ -64,7 +66,19 @@ try
     Check(stage == 1 && cast.Finished && tree.id==originalId && tree.getHealth()==treeAtStop && victim.getHealth()>=actorAtStop &&
         eventsAtStop==action.Count && !Shows("life_tissue_join") && !Shows("life_wood_graft"),
         "中断后停止下一段，保留原对象的已恢复生命并退场");
-    return new { passed=true, scene="construction", resource="mana", paid=definition.Cost, duration, times, view=recordView, stages=eventsAtStop, healedByCast, treeRestored=treeAtStop-treeBefore, previewFrame=times.FindIndex(t=>t>=mark) };
+    var cityLife = cityFilm ? new
+    {
+        patient = victim.current_position.ToString(), inCity = IsInFilmCity(city, victim.current_position),
+        treeX = 70 + shift, treeY = 72, treeInCity = IsInFilmCity(city, new Vector2(70 + shift, 72)),
+        healed = healedByCast, repaired = treeAtStop-treeBefore
+    } : null;
+    if (cityFilm)
+    {
+        File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        Check(cityLife.inCity && !cityLife.treeInCity && cityLife.healed > 0 && cityLife.repaired > 0,
+            "同一次恢复分别作用于城区伤者和城外原活木", cityLife);
+    }
+    return new { passed=true, cityLife, scene="construction", resource="mana", paid=definition.Cost, duration, times, view=recordView, stages=eventsAtStop, healedByCast, treeRestored=treeAtStop-treeBefore, previewFrame=times.FindIndex(t=>t>=mark) };
 }
 finally
 {
