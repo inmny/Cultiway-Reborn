@@ -1,17 +1,42 @@
     World.world.console.Hide();
     await Game.NextFrame(); await Game.NextFrame();
+    City city = cityFilm ? CreateFilmCity(64) : null;
     Place(source, 64); Place(arrival, 75, 73.9f);
-    int hp = arrival.data.health;
+    int hp = arrival.data.health, gapHP = gap.data.health;
+    float beforeMana = source.getMana();
+    float beforeWakan = owner.GetCultisys<Xian>().wakan;
     source.addAggro(arrival); arrival.addAggro(source);
     await Fire(definition, source, arrival, aggro:false);
     owner.E.RemoveComponent<ConstructedKnowledge>();
+    float paid = definition.Resource == "mana" ? beforeMana - source.getMana() : beforeWakan - owner.GetCultisys<Xian>().wakan;
+    Check(Mathf.Abs(paid - definition.Cost) < .01f, "跨城区原术按实际账户扣费");
     bool hasView = false, afterClose = false;
+    Vector3[] tops = Array.Empty<Vector3>();
+    Vector3? arrived = null;
+    var handle = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(entry => (AbilityCast)Field(entry, "Cast")).Single(value => value.Plan.Id == definition.Id);
     const float duration = 2.45f;
     var times = await Film(duration, () =>
     {
-        if (Views().Length == 2) hasView = true;
+        var gates = Views();
+        if (gates.Length == 2)
+        {
+            hasView = true;
+            if (tops.Length == 0) tops = gates.Select(gate => (Vector3)gate.Transform.GetColumn(3)).ToArray();
+        }
+        if (!arrived.HasValue && handle.TryGetOutput("cross", "transferred", out var result)) arrived = result.Position;
         if (hasView && Views().Length == 0) afterClose = true;
     });
     Check(hasView && afterClose && arrival.data.health < hp, "同一连续片显示真实取景与穿门命中，再收去门景",
         new { hasView, afterClose, hp, after = arrival.data.health });
-    return new { passed = true, view, times, duration, scene = "construction", resource = definition.Resource, paid = definition.Cost, previewFrame = times.FindIndex(time => time >= .45) };
+    var cityGate = cityFilm ? new
+    {
+        ends = tops.Select(point => new { position = point.ToString(), inCity = IsInFilmCity(city, point) }).ToArray(),
+        span = Vector2.Distance(tops[0], tops[1]),
+        landed = arrived?.ToString(),
+        atOutside = arrived.HasValue && !IsInFilmCity(city, arrived.Value),
+        lost = hp - arrival.data.health, gapLost = gapHP - gap.data.health
+    } : null;
+    if (cityFilm) Check(cityGate.ends[0].inCity && !cityGate.ends[1].inCity && cityGate.atOutside && cityGate.gapLost == 0,
+        "飞剑经实际双门跨城区，出口才命中且门间对照无伤", cityGate);
+    return new { passed = true, cityGate, view, times, duration, scene = "construction", resource = definition.Resource, paid, previewFrame = times.FindIndex(time => time >= .45) };

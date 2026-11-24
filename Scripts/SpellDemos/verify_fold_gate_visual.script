@@ -1,13 +1,14 @@
 // 截图阶段复用同一构造和真实地图；让两扇门在镜头里都能看到正面。
 definition.Root.Children[1].Rotation[2] = 12f;
-Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
-object mod = external.GetProperty("Instance", F).GetValue(null);
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F)?.GetValue(null);
 object Get(string key) => external.GetProperty(key, F)?.GetValue(mod) ?? external.GetField(key, F)?.GetValue(mod);
 void Set(string key, object value) => external.GetField(key, F).SetValue(mod, value);
-object settings = Get("Settings");
-var timeMode = settings.GetType().GetField("TimeMode", F);
-object previousTimeMode = timeMode.GetValue(settings);
+object settings = mod == null ? null : Get("Settings");
+var timeMode = settings?.GetType().GetField("TimeMode", F);
+object previousTimeMode = timeMode?.GetValue(settings);
 bool threeD = view == "worldfall";
+if (threeD && mod == null) throw new InvalidOperationException("三维录像需要加载 Worldfall");
 try
 {
     ControllableUnit.clear(false);
@@ -32,9 +33,12 @@ try
     var centre = new Vector2(69.5f, 73f);
     World.world.camera.transform.position = new Vector3(centre.x, centre.y, 0f);
     MoveCamera.instance.forceZoom(6.5f);
-    timeMode.SetValue(settings, 1);
-    external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
-    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { threeD });
+    if (mod != null)
+    {
+        timeMode.SetValue(settings, 1);
+        external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        external.GetMethod("SetGodView", F).Invoke(mod, new object[] { threeD });
+    }
     if (threeD)
     {
         await Game.WaitUntil(() => (bool)Get("GodShown") && (float)Get("GodAlpha") >= .999f, 3600);
@@ -45,13 +49,16 @@ try
     }
     else
     {
-        await Game.WaitUntil(() => !(bool)Get("IsFirstPerson") && !(bool)Get("GodShown") && (bool)Get("DiveDone") && !(bool)Get("Flying"), 3600);
+        if (mod != null) await Game.WaitUntil(() => !(bool)Get("IsFirstPerson") && !(bool)Get("GodShown") && (bool)Get("DiveDone") && !(bool)Get("Flying"), 3600);
         World.world.camera.transform.position = new Vector3(centre.x, centre.y, 0f);
         MoveCamera.instance.forceZoom(6.5f);
     }
-    var sampler = Get("_sampler");
-    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
-    sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    if (mod != null)
+    {
+        var sampler = Get("_sampler");
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
     typeof(WorldTilemap).GetMethod("redrawTiles", F).Invoke(World.world.tilemap, new object[] { true });
     Place(source, 64);
     await Fire(definition, source, arrival, aggro: false);
@@ -66,8 +73,8 @@ try
 }
 finally
 {
-    timeMode.SetValue(settings, previousTimeMode);
-    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+    timeMode?.SetValue(settings, previousTimeMode);
+    if (mod != null) external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
     ConstructedAbilityService.CastEnded -= Ended;
     Config.paused = true;
     ControllableUnit.clear(false);

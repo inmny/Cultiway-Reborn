@@ -3436,3 +3436,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 城区阴系入口为 `verify_yin_combat.py --section intake --record native --city`，影系入口为 `verify_shadow_burial.py --section film --view native --city`。前者核对城内外真元账目，后者记录同一活体的跨界拖拽和自然松抱。
 
 城区护生、渡气、解构可在独立游戏分别录制 `verify_sun_life.py --section life --record native --city`、`verify_polarity.py --section balance --record native --city` 和 `verify_entropy.py --section clash --record native --city`。
+
+双门、魂契和传讯使用 `record_relations_926.py --case gate --view native --city`，把 `gate` 换成 `pact` 或 `signal` 可分别录制另两段。时序使用 `record_process_time.py --imprint-film --city --state "$PROCESS_TIME_SAVED"`，状态目录需有 C2 实机学会并重存的 `result.json` 和 `completed-save/map.wbox`。四段复用实际城区。录像同时写出越界位置、原结算、费用以及退场结果；时序另留原帧对照。

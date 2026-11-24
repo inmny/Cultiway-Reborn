@@ -11,6 +11,7 @@ File.WriteAllText(Path.Combine(folder, "scene-definitions.json"),
     JsonConvert.SerializeObject(new { leftWood, rightWood, learned }, Formatting.Indented));
 var windows = learned.Steps.Single(value => value.Operation.Kind == ConstructionOperationKind.RetimeErosion).Operation.TimeWindows;
 await ClearFilmSet();
+City city = cityFilm ? CreateFilmCity(64) : null;
 Actor caster = Make(63);
 var owner = caster.GetExtend();
 owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
@@ -57,9 +58,10 @@ object Detail()
     return new { left, right, imprints = Imprints().Length, leftVolume = Volume(a), rightVolume = Volume(b), leftClock = Elapsed(a),
         rightClock = Elapsed(b), selectedSchedule = Schedule(a), leftProgress = Progress(a), rightProgress = Progress(b) };
 }
+float casterX = cityFilm ? 76f : 63f;
 async Task<float> CastAt(AbilityDefinition definition, float x)
 {
-    Place(caster, 63);
+    Place(caster, casterX);
     owner.GetCultisys<Xian>().wakan = caster.stats[BaseStatses.MaxWakan.id] * .8f;
     float paid = owner.GetCultisys<Xian>().wakan;
     await Fire(definition, caster, null, aim: new Vector3(x, 72, 2), aggro: false);
@@ -116,7 +118,19 @@ try
     Check(Progress(finished.Left) == 1 && Progress(finished.Right) == 1 &&
         Math.Abs(Volume(finished.Left) - 1) < .001 && Math.Abs(Volume(finished.Right) - 1) < .001,
         "两个原过程都实际结束，分别保留真实余量", Detail());
-    return new { passed = true, view, process = System.Diagnostics.Process.GetCurrentProcess().Id, left, right, paid };
+    Vector2 At(JToken material) => new Vector2((float)material["Transform"][12], (float)material["Transform"][13]);
+    var cityTime = cityFilm ? new
+    {
+        origin = caster.current_position.ToString(), sourceInCity = IsInFilmCity(city, caster.current_position),
+        adjusted = At(finished.Left).ToString(), adjustedInCity = IsInFilmCity(city, At(finished.Left)),
+        comparison = At(finished.Right).ToString(),
+        comparisonInCity = IsInFilmCity(city, At(finished.Right)),
+        actualSchedule = applied.ToArray(), left, right,
+        leftProgress = Progress(finished.Left), rightProgress = Progress(finished.Right)
+    } : null;
+    if (cityFilm) Check(!cityTime.sourceInCity && cityTime.adjustedInCity && !cityTime.comparisonInCity,
+        "城区外施术者只调节城区内原材料，对照按原时钟完成", cityTime);
+    return new { passed = true, cityTime, view, process = System.Diagnostics.Process.GetCurrentProcess().Id, left, right, paid };
 }
 finally
 {

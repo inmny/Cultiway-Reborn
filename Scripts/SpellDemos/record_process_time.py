@@ -17,7 +17,7 @@ SCRIPTS = Path(__file__).parent
 CASE = 'two-processes'
 
 
-def record(folder, worldfall, state, imprint_check=False, imprint_film=False):
+def record(folder, worldfall, state, imprint_check=False, imprint_film=False, city=False):
     import baseline_scenarios as baseline
 
     connection = baseline.connect(False, validate_runtime=False)
@@ -66,7 +66,9 @@ string view =""", 1)
     body = (SCRIPTS / 'record_process_time.script').read_text()
     if imprint_check:
         body = body.replace('const bool imprintCheck = false;', 'const bool imprintCheck = true;')
-    script.write_text(helpers + '\n' + film + '\n' + body)
+    flags = f'\nbool cityFilm = {str(city).lower()};\n'
+    city_scene = (SCRIPTS / 'city_film_scene.script').read_text()
+    script.write_text(helpers + flags + city_scene + '\n' + film + '\n' + body)
     try:
         result = baseline.call('run', str(script), '300000')
     except RuntimeError as error:
@@ -106,7 +108,10 @@ def main():
     parser.add_argument('--imprint-film', action='store_true', help='录制带时序印片的 9.26 演示，可在已加载 Worldfall 时切回原版')
     parser.add_argument('--worldfall', action='store_true')
     parser.add_argument('--encode-only', type=Path, help='从已有视角目录重新编码')
+    parser.add_argument('--city', action='store_true', help='录制来自城区外的调时及城区内木料')
     args = parser.parse_args()
+    if args.city and (not args.imprint_film or args.imprint_check or args.worldfall or args.encode_only):
+        parser.error('--city 只用于原版 --imprint-film')
     mode = 'worldfall' if args.worldfall else 'native'
     if not args.encode_only and (not args.state or not os.environ.get('CULTIWAY_DEV_ACTIVE')):
         parser.error('请通过 dev.py exec 录制，并提供 C2 实机通过的 --state')
@@ -122,18 +127,26 @@ def main():
         return
     output = args.encode_only or Path(os.environ['CULTIWAY_DEV_OUTPUT']) / (
         'time-imprint-films-926' if args.imprint_film else 'process-time-films') / mode
+    if args.city:
+        output.mkdir(parents=True, exist_ok=True)
+        output = Path(tempfile.mkdtemp(prefix='city-', dir=output))
     folder = output / CASE
     if not args.encode_only:
-        record(folder, args.worldfall, args.state, imprint_film=args.imprint_film)
+        record(folder, args.worldfall, args.state, imprint_film=args.imprint_film, city=args.city)
     result = json.loads((folder / 'result.json').read_text())
     if not result.get('passed') or result.get('view') != mode:
         raise RuntimeError(f'未经通过的实机录像：{folder}')
     verify_frames(folder, args.imprint_film)
     evidence = encode(CASE, folder, output, not args.worldfall, '借时催枯：两块木料各自计时' if args.imprint_film else '同场两块木料，各自计时',
-                      '9.26' if args.imprint_film else '5.16',
+                      '16.04 城区实录' if args.city else '9.26' if args.imprint_film else '5.16',
                       worldfall_crop='crop=iw*2/3:ih*2/3:iw*0.15:ih*0.10')
     if len(evidence['stages']) < 5 or evidence['maxWorldGap'] > .17:
         raise RuntimeError(f'录像缺少真实阶段或连续世界时间：{folder}')
+    if args.city:
+        shutil.copy2(evidence["movie"], folder / "demo.mp4")
+        result["duration"] = evidence["duration"]
+        write_json(folder / 'result.json', result)
+        print(json.dumps(dict(output=str(folder)), ensure_ascii=False))
 
 
 if __name__ == '__main__':

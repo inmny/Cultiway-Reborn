@@ -20,9 +20,9 @@ CAPTIONS = {
 }
 
 
-def encode_take(output, case):
+def encode_take(output, case, city=False):
     suffix, caption = CAPTIONS[case]
-    encode(output.parent, dict(key=output.name, name=f'{CASES[case]}：{suffix}', label='原速', variant=0,
+    encode(output.parent, dict(key=output.name, name=f'{CASES[case]}：{suffix}', label='城区实录' if city else '原速', variant=0,
                                trajectory='', modifiers=[], caption=caption), keep_frames=True)
 
 
@@ -30,7 +30,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=CASES, required=True)
     parser.add_argument('--view', choices=('native', 'worldfall'), required=True)
+    parser.add_argument('--city', action='store_true', help='在原版城区边界录制两端实际作用')
     args = parser.parse_args()
+    if args.city and args.view != 'native':
+        parser.error('--city 用于原版录像')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过 dev.py exec 运行')
     baseline.connect(False, validate_runtime=False)
@@ -56,6 +59,8 @@ def main():
         setup = f'const string view = "{args.view}";\n' + setup
         scenery = (scripts / 'verify_fold_gate_visual.script').read_text()
         scenery = scenery[scenery.index('Type external'):]
+        if args.city:
+            scenery = scenery.replace('forceZoom(6.5f)', 'forceZoom(12f)')
         start = scenery.index('    Place(source, 64);')
         end = scenery.index('\n}\nfinally', start)
         body = setup + scenery[:start] + (scripts / 'record_relations_926_gate.script').read_text() + scenery[end:]
@@ -63,9 +68,13 @@ def main():
         camera = 'const string recordView = ' + json.dumps(args.view) + ';\n' + wind[wind.index('object cameraSettings'):]
         cut = camera.index('void ReleaseChecks()'); tail = camera.index('async Task SetCamera(')
         camera = camera[:cut] + camera[tail:]
+        if args.city:
+            camera = camera.replace('67.7f, 72f', '69.7f, 74f')
         body = f'const string sceneCase = "{args.case}";\n' + (scripts / 'record_relations_926_pact_signal.script').read_text()
     script = output / 'input.script'
-    script.write_text('using Cultiway.Const;\n' + helper + '\n' + camera + '\n' + body)
+    flags = f'\nbool cityFilm = {str(args.city).lower()};\n'
+    city = (scripts / 'city_film_scene.script').read_text()
+    script.write_text('using Cultiway.Const;\n' + helper + flags + city + '\n' + camera + '\n' + body)
     try:
         result = baseline.call('run', str(script), '140000')
     except RuntimeError as error:
@@ -74,7 +83,7 @@ def main():
     write_json(output / 'result.json', result)
     if not result.get('passed') or not result.get('times'):
         raise RuntimeError(f'常速录像未覆盖真实结果：{output}')
-    encode_take(output, args.case)
+    encode_take(output, args.case, args.city)
     print(json.dumps(dict(output=str(output), video=str(output / 'demo.mp4'), view=args.view), ensure_ascii=False))
 
 

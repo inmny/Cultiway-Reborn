@@ -30,8 +30,9 @@ void Strike(Actor from, Actor to, float damage)
 
 try
 {
-    await SetCamera(5.2f);
-    Place(source, 64); Place(peer, 71);
+    await SetCamera(cityFilm ? 12f : 5.2f);
+    City city = cityFilm ? CreateFilmCity(64) : null;
+    Place(source, 64); Place(peer, cityFilm ? 73f : 71f);
     bool seen = false, after = false, action = false;
     float duration = sceneCase == "pact" ? 2.85f : 3.5f;
     string observedForm = sceneCase == "pact" ? "soul_pact_seal" : "signal_sight_tablet";
@@ -60,7 +61,24 @@ try
         ? shares.Count == 1 && shares[0].Covered > 0f && peer.data.health < before
         : receipts.Count == 1 && receipts[0].Observation.Value.Position.x < 69f;
     Check(confirmed && seen && after, "同一常速原片覆盖真实结果和撤去画面", new { confirmed, seen, after });
-    return new { passed = true, view = recordView, times, duration, scene = "construction", resource = definition.Resource, paid = definition.Cost };
+    var cityLink = cityFilm ? new
+    {
+        from = source.current_position.ToString(), sourceInCity = IsInFilmCity(city, source.current_position),
+        to = peer.current_position.ToString(), peerInCity = IsInFilmCity(city, peer.current_position),
+        covered = sceneCase == "pact" ? shares[0].Covered : 0f,
+        bearerLoss = sceneCase == "pact" ? shares[0].BearerSettlement.HealthLost : 0,
+        peerLoss = before - peer.data.health,
+        reported = sceneCase == "signal" ? receipts[0].Observation.Value.Position.ToString() : null,
+        reportedInCity = sceneCase == "signal" && IsInFilmCity(city, receipts[0].Observation.Value.Position),
+        enemy = enemy.current_position.ToString(),
+        senderId = sceneCase == "signal" ? receipts[0].SenderId : shares[0].BearerId,
+        peerId = sceneCase == "signal" ? receipts[0].RecipientId : shares[0].ProtectedId
+    } : null;
+    if (cityFilm) Check(cityLink.sourceInCity && !cityLink.peerInCity &&
+        cityLink.senderId == source.id && cityLink.peerId == peer.id &&
+        (sceneCase == "pact" ? cityLink.bearerLoss > 0 && cityLink.peerLoss > 0 : cityLink.reportedInCity),
+        "原版城区内外两端分别实际担当、送达，临时标记随术结束", cityLink);
+    return new { passed = true, cityLink, view = recordView, times, duration, scene = "construction", resource = definition.Resource, paid = definition.Cost };
 }
 finally
 {
