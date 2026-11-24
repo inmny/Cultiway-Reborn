@@ -49,7 +49,7 @@ foreach (var old in Resources.FindObjectsOfTypeAll<MonoBehaviour>()
 var host = new GameObject("Cultiway.SpellDemo.Tool");
 UnityEngine.Object.DontDestroyOnLoad(host);
 var runner = host.AddComponent<CultiwaySpellDemoRunner>();
-runner.Install();
+runner.Install(/* TEST_PROFILE */ null);
 return new { installed = true, catalog = runner.Root + "/catalog.json" };
 
     /// <summary>单次安装后轮询本地请求，逐招录制；不为每招重复编译调试程序集。</summary>
@@ -125,6 +125,12 @@ private Entity observed;
 /// <summary>录制前的界面状态。</summary>
 private bool previousHidden;
 
+/// <summary>本游戏实际使用指定的测试存档目录时，才接收录像请求。</summary>
+private bool recordingAllowed;
+
+/// <summary>本轮已进入测试夹具，结束或失败后需要重新加载。</summary>
+private bool fixtureLoaded;
+
 /// <summary>只在录制期间隐藏画布，结束时恢复原状态。</summary>
 private readonly Dictionary<Canvas, bool> canvases = new();
 
@@ -186,10 +192,18 @@ private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic 
                                    BindingFlags.Instance;
 
 /// <summary>导出游戏中当前实际注册的技能与兼容项目。</summary>
-public void Install()
+public void Install(string testProfile)
 {
     Root = Environment.GetEnvironmentVariable("CULTIWAY_DEMO_CONTROL") ??
         Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/spell_demo");
+    string dataPath = Path.GetFullPath(Application.persistentDataPath);
+    string config = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+    if (!string.IsNullOrEmpty(testProfile) && !string.IsNullOrEmpty(config))
+    {
+        string profile = Path.GetFullPath(testProfile);
+        recordingAllowed = Path.GetFullPath(config) == profile &&
+            dataPath.StartsWith(profile + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
     Directory.CreateDirectory(Root);
     string selection = Path.Combine(Root, "request.json");
     handled = File.Exists(selection) ? (string)JObject.Parse(File.ReadAllText(selection))["id"] : null;
@@ -307,7 +321,7 @@ public void Install()
         processStarted =
             (System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime() -
              new DateTime(1970, 1, 1)).TotalSeconds,
-        modPath = mod.GetDeclaration().FolderPath,
+        modPath = mod.GetDeclaration().FolderPath, dataPath, recordingAllowed,
         runtime = CultiwayDemoRuntime.Loaded(),
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(), spells = rows,
         modifiers = modifiers.Select(item => new
@@ -885,7 +899,7 @@ private static string[] InventoryCallbacks(object value) => value == null
 /// <summary>接收新的本地运行请求。</summary>
 private void Update()
 {
-    if (busy || Time.realtimeSinceStartup < nextPoll) return;
+    if (!recordingAllowed || busy || Time.realtimeSinceStartup < nextPoll) return;
     nextPoll = Time.realtimeSinceStartup + .3f;
     string path = Path.Combine(Root, "request.json");
     if (!File.Exists(path)) return;
@@ -895,6 +909,7 @@ private void Update()
     handled = (string)selected["id"];
     output = (string)selected["output"];
     busy = true;
+    fixtureLoaded = false;
     previousHidden = Config.ui_main_hidden;
     Application.logMessageReceived += OnLog;
     Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OnSpawn;
@@ -941,18 +956,16 @@ private IEnumerator Guarded(IEnumerator steps)
         yield return steps.Current;
     }
 
-    Config.paused = true;
-    CleanExecutions();
-    ReleaseBodyCloseCamera();
-    heldSwordDemo = false;
-    RestoreTerrainFirstPersonLook();
-    ControllableUnit.clear(false);
-    bool sceneRestored = false;
-    if ((bool?)request["continueOnFailure"] == true || (string)request["action"] == "construction" ||
-        (string)request["scene"] == "battle" || request["requiredSource"] != null ||
-        ((JArray)request["cases"]).Any(item => item["construction"] is JObject))
+    bool sceneRestored = !fixtureLoaded;
+    if (fixtureLoaded)
     {
-        // 每批结束及失败都回到同一个现成夹具，清除临时已学、材料和未结束动作。
+        Config.paused = true;
+        CleanExecutions();
+        ReleaseBodyCloseCamera();
+        heldSwordDemo = false;
+        RestoreTerrainFirstPersonLook();
+        ControllableUnit.clear(false);
+        // 每批结束、失败或取消都回到现成夹具。
         var restoring = LoadFixture();
         while (true)
         {
@@ -974,8 +987,9 @@ private IEnumerator Guarded(IEnumerator steps)
             }
             yield return restoring.Current;
         }
+        Config.paused = true;
+        FormVisualScene.Clear();
     }
-    Config.paused = true;
     Config.ui_main_hidden = previousHidden;
     foreach (var canvas in canvases)
         if (canvas.Key != null)
@@ -1000,9 +1014,8 @@ private IEnumerator Guarded(IEnumerator steps)
     ConstructedAbilityService.QueuedDamageConfirmed -= OnQueuedDamage;
     ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
     ConstructedAbilityService.ReflectionConfirmed -= OnConstructedReflection;
-    FormVisualScene.Clear();
     Write(Path.Combine(output, "status.json"),
-        new { done = true, current = currentCase, error = failure, sceneRestored, errors,
+        new { done = true, current = currentCase, error = failure, sceneRestored, fixtureLoaded, errors,
             requestId = handled, runtime = CultiwayDemoRuntime.Loaded() });
     busy = false;
 }
@@ -1042,6 +1055,7 @@ private IEnumerator ProbeFormResources()
     Config.paused = false;
     while (World.world.getCurWorldTime() - start < duration)
     {
+        if (File.Exists(Path.Combine(Root, "cancel"))) throw new OperationCanceledException("已取消演示");
         double elapsed = World.world.getCurWorldTime() - start;
         var instances = new FormVisualInstance[resources.Length];
         for (int index = 0; index < instances.Length; index++)
@@ -2020,6 +2034,10 @@ private static void RequireDemoContact(string form)
 private IEnumerator LoadFixture()
 {
     if (SmoothLoader.isLoading()) throw new InvalidOperationException("游戏仍在加载，请稍后运行");
+    string fixture = (string)request["fixture"];
+    if (fixture == null || !File.Exists(Path.Combine(fixture, "map.wbox")))
+        throw new InvalidOperationException("缺少演示测试存档：" + fixture);
+    fixtureLoaded = true;
     Config.paused = true;
     Time.timeScale = 1;
     ControllableUnit.clear(false);
@@ -2034,9 +2052,6 @@ private IEnumerator LoadFixture()
         external.GetMethod("ViewForTest", Flags).Invoke(view, new object[] { false });
     }
 
-    string fixture = (string)request["fixture"];
-    if (fixture == null || !File.Exists(Path.Combine(fixture, "map.wbox")))
-        throw new InvalidOperationException("缺少演示测试存档：" + fixture);
     World.world.save_manager.loadWorld(fixture);
     yield return null;
     while (SmoothLoader.isLoading()) yield return null;

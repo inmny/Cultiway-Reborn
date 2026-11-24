@@ -23,7 +23,7 @@ def main():
 
     def connect(_launch):
         baseline.call('hello')
-        return common.install_recorder(baseline.call)
+        return common.install_recorder(baseline.call, baseline.PROFILE)
 
     def run(name, arguments, all_spells=True, fails=False):
         output = folder / name

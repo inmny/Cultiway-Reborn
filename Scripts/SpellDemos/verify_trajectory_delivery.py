@@ -97,7 +97,7 @@ def videos(baseline, base, selected):
         started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
         if any(path.stat().st_mtime > started for path in (PROJECT / 'Source').rglob('*.cs')):
             raise RuntimeError('当前游戏未加载本轮代码，请先正常退出再录制')
-        return common.install_recorder(baseline.call)
+        return common.install_recorder(baseline.call, baseline.PROFILE)
 
     plans = [
         ('principles', ['--scope', 'base', '--filter', 'FlyingSword,FallingTimber,GroundSpike,PoisonMist,HealingLight,SpiritBeam,ChainLightning', '--cases', 'base'], 'native', 3),

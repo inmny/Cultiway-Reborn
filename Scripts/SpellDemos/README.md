@@ -13,11 +13,11 @@
 
 ## 使用前
 
-- 本机需要 Python 3.10 以上、ffmpeg，以及 WorldBox/NML 和已启用的 DebugToolbox。
+- 本机需要 Python 3.11 以上、ffmpeg，以及 WorldBox/NML 和已启用的 DebugToolbox。
 - 客户端缺失时，在 `Mods/DebugToolbox` 执行 `dotnet build Client/DebugToolbox.Client.csproj -c Debug`。
-- 演示会读取仓库中的独立测试世界，替换当前内存中的世界；请在测试游戏中运行。不会保存或覆盖玩家存档，也不会修改测试夹具。
-- 默认连接已经启动的游戏。Linux 下可加 `--launch`，在游戏未运行时使用 `artifacts/spell_demo/profile` 独立配置启动。第一次启动仍需让 NML 正常加载 Cultiway 和 DebugToolbox。
-- 一次运行一个入口；`Ctrl+C` 会请求结束录制、暂停游戏并恢复界面。运行时不必开着额外的调试脚本。
+- 录像只在核对过实际存档目录的独立游戏中执行。用 `dev.py exec` 连接已有测试环境，或在 Linux 下用 `--launch` 通过 `artifacts/spell_demo/profile` 独立配置启动。普通游戏仍可用 `--list` 或 `--inventory` 查目录。
+- 演示读取仓库中的测试世界。正常结束、失败或按 `Ctrl+C` 取消后，回到同一测试世界，暂停游戏并恢复界面。可在 `status.json` 查看 `sceneRestored`。测试夹具和已有存档保持原样。
+- 一次运行一个入口。用 `dev.py exec --timeout 180 -- python3 Scripts/SpellDemos/verify_demo_isolation.py --output <新目录>` 复验录制、失败、取消和配置隔离。
 
 以下命令在项目根目录执行，两个入口也支持从其他工作目录调用。
 

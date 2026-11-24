@@ -216,8 +216,12 @@ def run_with_runtime(call, script):
         return call("run", str(program), "60000")
 
 
-def install_recorder(call):
-    run_with_runtime(call, Path(__file__).with_name("runtime.script").read_text(encoding="utf-8"))
+def install_recorder(call, profile=None):
+    if profile is None:
+        profile = Path(os.environ["CULTIWAY_DEV_PROFILE"]) if os.environ.get("CULTIWAY_DEV_ACTIVE") else CONTROL / "profile"
+    script = Path(__file__).with_name("runtime.script").read_text(encoding="utf-8")
+    script = script.replace("/* TEST_PROFILE */ null", json.dumps(str(profile.resolve())))
+    run_with_runtime(call, script)
     return json.loads((CONTROL / "catalog.json").read_text(encoding="utf-8"))
 
 
@@ -676,6 +680,8 @@ def main(all_spells):
                 for entry in catalog[category]:
                     print(entry["name"], entry["id"], entry.get("parameters", ""))
             return
+        if not catalog.get("recordingAllowed"):
+            raise ValueError("当前游戏的存档目录不是本工具的独立测试配置。请通过 dev.py exec 或 --launch 连接测试游戏")
         if constructions is not None:
             spells = constructions
         elif args.resource_probe:
@@ -853,6 +859,8 @@ def main(all_spells):
         verify_loaded_inputs(catalog, version)
         if status.get("requestId") != request["id"] or status.get("runtime") != runtime or recording_tools() != tools:
             raise ValueError("录制期间实际游戏或工具版本发生了变化")
+        if not status.get("sceneRestored"):
+            raise RuntimeError("演示结束后未恢复测试世界，请查看 status.json")
         recording_requested = False
         for key, checked in clips.items():
             if clip_facts(output, key, batch) != checked:
