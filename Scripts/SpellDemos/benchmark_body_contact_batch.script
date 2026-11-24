@@ -1,0 +1,209 @@
+// 同一组实际兵器和兽足输入，以顺序和工作池分别计算姿态及连续接触。
+var wolf = Make(66f, "wolf");
+Place(source, 64.35f);
+Place(target, 64.98f);
+Equip(source, "hammer_iron");
+Equip(target, "cultiway_iron_shield");
+service.GetMethod("CaptureTerrain", F).Invoke(service.GetField("simulation", F).GetValue(null),
+    new object[] { Rect.MinMaxRect(62f, 70f, 68f, 74f), true });
+
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var tryBind = bindingType.GetMethod("TryCreate", F);
+var readFrame = bindingType.GetMethod("Frame", F, null, new[] { typeof(Actor) }, null);
+var append = bindingType.GetMethod("AppendContactShapes", F);
+var assembly = typeof(AbilityCast).Assembly;
+var stepType = assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+var stepConstructor = stepType.GetConstructors(F).Single();
+var batch = assembly.GetType("Cultiway.Core.Skills.AbilityBatch");
+var advance = batch.GetMethod("Advance", F);
+var runIndependent = (Action<int, int, Action<int>>)batch.GetMethod("RunIndependent", F)
+    .CreateDelegate(typeof(Action<int, int, Action<int>>));
+var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var find = (FindBodySweep)assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find", F)
+    .CreateDelegate(typeof(FindBodySweep));
+var poolType = assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
+var pool = poolType.GetProperty("Instance", F).GetValue(null);
+var activity = (Func<(long Operations, long Asynchronous, long Items, long Wall, long Busy, long Wait, long Slots, long Capacity)>)
+    poolType.GetMethod("ReadActivity", F).CreateDelegate(
+        typeof(Func<(long, long, long, long, long, long, long, long)>), pool);
+var samples = new[]
+{
+    (Part: "hammer", Actor: source, Direction: Vector3.right, Aim: target,
+        Definition: ConstructionEditing.Access.Read("Cultiway.Body.HeavyHammerDrop")),
+    (Part: "shield", Actor: target, Direction: Vector3.left, Aim: source,
+        Definition: ConstructionEditing.Access.Read(BodyActionCatalog.ShieldGuardId)),
+    (Part: "wolf-foot", Actor: wolf, Direction: Vector3.left, Aim: target, Definition: wolfMove),
+};
+var frozen = new List<(string Part, CompiledAbility Plan, object Binding, BodyFrame Frame, AbilityInputs Inputs)>();
+foreach (var sample in samples)
+{
+    var plan = AbilityCompiler.Compile(sample.Definition, false);
+    Vector3 aim = sample.Aim.GetSimPos();
+    object binding = tryBind.Invoke(null, new object[] { sample.Actor, plan.Body, sample.Direction, aim, 0f });
+    Check(binding != null, sample.Part + "绑定实际角色及原器形");
+    var frame = (BodyFrame)readFrame.Invoke(binding, new object[] { sample.Actor });
+    Check(sample.Part != "wolf-foot" || frame.Joint != null && (bool)Field(frame.Joint, "Supported"),
+        sample.Part + "绑定实际承托");
+    frozen.Add((sample.Part, plan, binding, frame, new AbilityInputs(frame.Foot, aim, frame.Forward, frame.Height)));
+}
+
+const float stepSeconds = 1f / 60f;
+const int repeats = 7;
+var report = new List<object>();
+var clock = System.Diagnostics.Stopwatch.Frequency;
+var prism = typeof(AbilityCapsule).GetField("Prism", F);
+var projection = prism.FieldType.GetField("transform", F);
+var outline = prism.FieldType.GetField("outline", F);
+var sweepPose = typeof(AbilityCapsule).GetField("SweepPose", F);
+double Median(List<double> values) => values.OrderBy(value => value).ElementAt(values.Count / 2);
+long Now() => System.Diagnostics.Stopwatch.GetTimestamp();
+double Elapsed(long started) => (Now() - started) * 1000d / clock;
+
+try
+{
+    foreach (int count in new[] { 18, 72 })
+    {
+        var casts = new AbilityCast[count];
+        var steps = Array.CreateInstance(stepType, count);
+        var parts = new string[count];
+        var bindings = new object[count];
+        for (int i = 0; i < count; i++)
+        {
+            var input = frozen[i % frozen.Count];
+            parts[i] = input.Part;
+            bindings[i] = input.Binding;
+            var cast = new AbilityCast(input.Plan, Matrix4x4.Translate(input.Frame.Foot), input.Frame, input.Inputs);
+            float from = input.Plan.Body.ActiveFrom;
+            float span = input.Plan.Body.ActiveUntil - from - stepSeconds * 2;
+            cast.Advance(from + span * (.15f + (i / frozen.Count % 6) * .12f), input.Inputs.Target);
+            casts[i] = cast;
+            save(cast);
+            steps.SetValue(stepConstructor.Invoke(new object[] { cast, input.Inputs, input.Frame,
+                input.Inputs.Target, stepSeconds, false }), i);
+        }
+
+        List<AbilityCapsule>[] Collect()
+        {
+            var rows = new List<AbilityCapsule>[count];
+            for (int i = 0; i < count; i++)
+            {
+                rows[i] = new List<AbilityCapsule>();
+                append.Invoke(bindings[i], new object[] { casts[i].BodyPose.Value, rows[i], true });
+            }
+            return rows;
+        }
+        var before = Collect();
+        double AdvanceBatch(bool workers)
+        {
+            foreach (var cast in casts) restore(cast);
+            long start = Now();
+            advance.Invoke(null, new object[] { steps, workers });
+            return Elapsed(start);
+        }
+        (float, Vector3, Vector3, Vector3, Vector3, Vector3, Quaternion, Vector3)[] Poses() =>
+            casts.Select(cast =>
+            {
+                var pose = cast.BodyPose.Value;
+                return (cast.Age, pose.Foot, pose.Shoulder, pose.Elbow, pose.Hand, pose.Torso,
+                    pose.Rotation, pose.Joint?.Point ?? Vector3.zero);
+            }).ToArray();
+
+        AdvanceBatch(false);
+        var expectedPoses = Poses();
+        var expectedShapes = Collect();
+        var beforeWorkers = activity();
+        AdvanceBatch(true);
+        var afterWorkers = activity();
+        var actualShapes = Collect();
+        bool Same(AbilityCapsule left, AbilityCapsule right)
+        {
+            if (!left.A.Equals(right.A) || !left.B.Equals(right.B) || left.Radius != right.Radius ||
+                left.Node != right.Node || left.Shape != right.Shape || left.Revision != right.Revision ||
+                left.Matter != right.Matter || !ReferenceEquals(left.Material, right.Material) ||
+                !left.HalfExtents.Equals(right.HalfExtents) || left.Until != right.Until ||
+                !Equals(sweepPose.GetValue(left), sweepPose.GetValue(right))) return false;
+            object a = prism.GetValue(left), b = prism.GetValue(right);
+            return a == null ? b == null : b != null &&
+                Equals(projection.GetValue(a), projection.GetValue(b)) &&
+                ReferenceEquals(outline.GetValue(a), outline.GetValue(b));
+        }
+        Check(expectedPoses.SequenceEqual(Poses()) && actualShapes.Zip(expectedShapes, (actual, expected) =>
+            actual.Count == expected.Count && actual.Zip(expected, Same).All(value => value)).All(value => value),
+            "顺序与工作池得到相同身体姿态及实际作用范围", new { count, workerBatches = afterWorkers.Operations - beforeWorkers.Operations });
+        Check(afterWorkers.Slots > beforeWorkers.Slots && before.Zip(expectedShapes, (a, b) =>
+            a.Count > 0 && a.Count == b.Count).All(value => value), "真实形体都有前后态，工作池分配了参与线程", count);
+
+        var pairs = new List<(AbilityCapsule A0, AbilityCapsule A1, AbilityCapsule B0, AbilityCapsule B1)>();
+        for (int i = 0; i < count; i++)
+        for (int j = i + 1; j < count; j++)
+        for (int a = 0; a < before[i].Count; a++)
+        for (int b = 0; b < before[j].Count; b++)
+            pairs.Add((before[i][a], expectedShapes[i][a], before[j][b], expectedShapes[j][b]));
+        var exact = new (bool Found, float At, Vector3 Point, Vector3 Normal)[pairs.Count];
+        var parallel = new (bool Found, float At, Vector3 Point, Vector3 Normal)[pairs.Count];
+
+        double Contacts(bool workers, (bool, float, Vector3, Vector3)[] result)
+        {
+            long start = Now();
+            if (!workers)
+            {
+                for (int i = 0; i < pairs.Count; i++) Evaluate(i);
+            }
+            else for (int offset = 0; offset < pairs.Count; offset += 128)
+            {
+                int first = offset, size = Math.Min(128, pairs.Count - first);
+                runIndependent(size, size * 4, i => Evaluate(first + i));
+            }
+            return Elapsed(start);
+
+            void Evaluate(int i)
+            {
+                var (a0, a1, b0, b1) = pairs[i];
+                bool hit = find(in a0, in a1, in b0, in b1, out float at, out var point, out var normal);
+                result[i] = (hit, at, point, normal);
+            }
+        }
+
+        Contacts(false, exact);
+        beforeWorkers = activity();
+        Contacts(true, parallel);
+        afterWorkers = activity();
+        int hits = exact.Count(value => value.Found);
+        Check(exact.SequenceEqual(parallel) && hits > 0 && hits < pairs.Count && afterWorkers.Slots > beforeWorkers.Slots,
+            "依原候选次序核对接触、落空、时点、位置和朝向", new { count, candidates = pairs.Count, hits });
+        var serialAdvance = new List<double>();
+        var parallelAdvance = new List<double>();
+        var serialContacts = new List<double>();
+        var parallelContacts = new List<double>();
+        for (int repeat = 0; repeat < repeats; repeat++)
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                bool workers = (repeat + side) % 2 == 1;
+                (workers ? parallelAdvance : serialAdvance).Add(AdvanceBatch(workers));
+                (workers ? parallelContacts : serialContacts).Add(Contacts(workers, workers ? parallel : exact));
+            }
+            Check(exact.SequenceEqual(parallel), "重复测量时实际求交输出及顺序不变", repeat);
+            await Game.NextFrame();
+        }
+        report.Add(new
+        {
+            count, shapes = parts.Select((part, i) => new { part, shapes = before[i].Count }).GroupBy(value => value.part)
+                .ToDictionary(group => group.Key, group => group.Sum(value => value.shapes)), candidates = pairs.Count, hits,
+            advanceSerialMs = Median(serialAdvance), advanceParallelMs = Median(parallelAdvance),
+            contactsSerialMs = Median(serialContacts), contactsParallelMs = Median(parallelContacts),
+            serialAdvance, parallelAdvance, serialContacts, parallelContacts
+        });
+    }
+    return new { passed = true, repeats, report, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
+
+delegate bool FindBodySweep(in AbilityCapsule a0, in AbilityCapsule a1, in AbilityCapsule b0, in AbilityCapsule b1,
+    out float at, out Vector3 point, out Vector3 normal);

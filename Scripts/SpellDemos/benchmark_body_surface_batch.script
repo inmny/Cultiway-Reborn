@@ -1,0 +1,54 @@
+// 同一组已验证的正向穿过、反向边接触和有限面间隙，保留实际三角形抓点。
+const int relationCount = 384, relationRepeats = 7;
+var relationInputs = Enumerable.Range(0, relationCount).Select(index => (index % 3) switch
+{
+    0 => (Target: TriangleSurface(large, tri), Before: TriangleSurface(tiny, tri, -1), After: TriangleSurface(tiny, tri, 1)),
+    1 => (Target: TriangleSurface(tiny, tri), Before: TriangleSurface(large, tri, -1), After: TriangleSurface(large, tri, 1)),
+    _ => (Target: TriangleSurface(tiny, tri), Before: TriangleSurface(separated, new[] { 0, 1, 2, 3, 4, 5 }, -1),
+        After: TriangleSurface(separated, new[] { 0, 1, 2, 3, 4, 5 }, 1))
+}).ToArray();
+var relationBatch = service.Assembly.GetType("Cultiway.Core.Skills.AbilityBatch");
+var relationWorkers = (Action<int, int, Action<int>>)relationBatch.GetMethod("RunIndependent", F)
+    .CreateDelegate(typeof(Action<int, int, Action<int>>));
+var mainThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
+int offMain = 0;
+var seqResult = new (bool Found, float At, object Anchor, Vector3 Normal)[relationCount];
+var parResult = new (bool Found, float At, object Anchor, Vector3 Normal)[relationCount];
+double MeasureRelation(bool parallel, bool confirmWorker = false)
+{
+    var result = parallel ? parResult : seqResult;
+    long start = System.Diagnostics.Stopwatch.GetTimestamp();
+    if (parallel) relationWorkers(relationCount, relationCount * 4, Evaluate);
+    else for (int i = 0; i < relationCount; i++) Evaluate(i);
+    return (System.Diagnostics.Stopwatch.GetTimestamp() - start) * 1000d / System.Diagnostics.Stopwatch.Frequency;
+
+    void Evaluate(int i)
+    {
+        var input = relationInputs[i];
+        object[] args = { input.Target, input.Target, input.Before, input.After, "surface", 0f, null, Vector3.zero };
+        bool found = (bool)exactFind.Invoke(null, args);
+        result[i] = (found, (float)args[5], args[6], (Vector3)args[7]);
+        if (confirmWorker && System.Threading.Thread.CurrentThread.ManagedThreadId != mainThread)
+            System.Threading.Interlocked.Increment(ref offMain);
+    }
+}
+MeasureRelation(false);
+MeasureRelation(true, confirmWorker: true);
+Check(offMain > 0 && seqResult.SequenceEqual(parResult) &&
+      seqResult.Select((value, index) => value.Found == (index % 3 != 2)).All(value => value),
+    "两种执行方式保留实际正反面抓点、时点、朝向及空隙", new { relationCount, offMain });
+var seqRelations = new List<double>();
+var parRelations = new List<double>();
+for (int i = 0; i < relationRepeats; i++)
+for (int side = 0; side < 2; side++)
+{
+    bool parallel = (i + side) % 2 != 0;
+    (parallel ? parRelations : seqRelations).Add(MeasureRelation(parallel));
+}
+Check(seqResult.SequenceEqual(parResult), "关系有限面批量计算保持原报告次序");
+File.WriteAllText(Path.Combine(folder, "relation-batch.json"), JsonConvert.SerializeObject(new
+{
+    relationCount, offMain, hits = seqResult.Count(value => value.Found), seqRelations, parRelations,
+    serialMedianMs = seqRelations.OrderBy(value => value).ElementAt(relationRepeats / 2),
+    parallelMedianMs = parRelations.OrderBy(value => value).ElementAt(relationRepeats / 2)
+}, Formatting.Indented));

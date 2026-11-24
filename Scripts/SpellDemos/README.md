@@ -3339,3 +3339,14 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 95 -- \
 ```
 
 短轮可用 `--seconds 16 --cycles 1` 检查入口。长期判定使用默认时长及四轮切换的结果。长跑已完整保存时，可追加 `--transitions-from "$RUN_OUTPUT"` 补测后段，程序核对模组和两份世界的内容后复用原战场。
+
+### 身体接触批量实测（13.18）
+
+```sh
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 115 -- \
+  python3 Scripts/SpellDemos/benchmark_body_contact_batch.py --archive "$HAMMER_SHIELD_ARCHIVE"
+python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
+  python3 Scripts/SpellDemos/benchmark_body_contact_batch.py --relations
+```
+
+对练档目录需要原 `archive/map.wbox` 和 `expected.json`。第一段用同一批锤、盾、狼足数值样本核对身体、兵器及求交结果，分开报告推进和求交中位耗时。第二段用已有狼足夹具比较有限面抓点与空隙，再验证真实抓持、拒绝及归还。报告、输入和失败细节存到各次独立运行的输出目录。
