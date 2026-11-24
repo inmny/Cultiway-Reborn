@@ -10,14 +10,12 @@ using Friflo.Engine.ECS;
 namespace Cultiway.Core.SkillLibV3;
 
 public delegate void InitDefaultTrajectory(Entity prefab_entity);
-public delegate void UpdateTrajectory(ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt);
 public class TrajectoryAsset : Asset
 {
     /// <summary>轨迹实际表达的运动语义。</summary>
     public SemanticDescriptor Semantics { get; set; } = new();
 
     public InitDefaultTrajectory OnInit;
-    public UpdateTrajectory Action;
     public bool CanBeSelectedByModifier = true;
     public string EditorDescriptionKey;
     public int EditorSortOrder;

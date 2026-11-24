@@ -348,10 +348,6 @@ public class SkillEntityAsset : Asset
         {
             PrefabEntity.AddComponent(SkillHitMemory.Create());
         }
-        if (profile.CanResolveAtPosition)
-        {
-            PrefabEntity.AddComponent(new SkillPositionImpactState());
-        }
         PrefabEntity.GetComponent<AliveTimeLimit>().value = profile.Lifetime;
         return this;
     }
