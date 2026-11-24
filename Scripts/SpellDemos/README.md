@@ -3396,3 +3396,15 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 ```
 
 对练档目录需要原 `archive/map.wbox` 和 `expected.json`。第一段用同一批锤、盾、狼足数值样本核对身体、兵器及求交结果，分开报告推进和求交中位耗时。第二段用已有狼足夹具比较有限面抓点与空隙，再验证真实抓持、拒绝及归还。报告、输入和失败细节存到各次独立运行的输出目录。
+
+### 战技演示与关闭装饰
+
+以下命令均在已启动的独立测试游戏内通过 `dev.py exec --timeout 300 --` 运行。指定 `--view native` 录原版俯视，或在安装了 Worldfall 的独立游戏中指定 `--view worldfall`。
+
+- **正式生成的战技**用 `verify_martial_study.py prepare` 准备成品，从其输出的 `pending-expected.json` 取 `learned` 对象保存为独立 JSON。该铁剑样本使用 `demo_spell.py --construction 剑技.json --target-offset 1.22 0 --zoom 5`。其他招式按实际接触距离调整目标位置。
+- **部位及步法改造**用 `verify_martial_binding.py` 和 `verify_martial_footwork.py` 得到编辑界面保存的 `edited.json`。原铁剑样本使用 `demo_spell.py --construction edited.json --target-offset 1.07 0 --zoom 5`。 Worldfall 持剑近景用 `--zoom 2.2`。给构造单招追加 `--hide-decorations` 可隐藏粒子、拖尾及线条，保留人物、兵器、材质和实际结算。结果同时记录本段有无隐藏装饰、身体姿态、脚步位移、控制归还，以及同次施放的接触和扣血。省略该项即可正常录制。
+- **抓投**使用 `verify_grappling_actions.py --case throw --archive 正式步法或抓投对练档目录 --view native`。记录抓持、转动、离手、撞伤和起身。换为 `--case press` 可看按地。
+- **正面架挡**使用 `verify_defense.py --case film --move front --archive 正式重兵或防御对练档目录 --view native`。记录迎面接触、盾面吸收和回弹。换为 `--move overflow` 可看破防。
+- **非人身体**使用 `verify_nonhuman_actions.py --case tail --view native`。换为 `--case pair` 观察同一狐形的尾扫和翼切。
+
+通用单招从指定的 `--output` 打开 `index.html`，专项在命令输出的目录打开 `result.json` 和影片。档案参数指向同时包含 `archive/map.wbox` 和 `expected.json` 的目录。

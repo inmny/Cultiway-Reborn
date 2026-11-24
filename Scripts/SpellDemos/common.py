@@ -222,7 +222,8 @@ def install_recorder(call, profile=None):
         profile = Path(os.environ["CULTIWAY_DEV_PROFILE"]) if os.environ.get("CULTIWAY_DEV_ACTIVE") else CONTROL / "profile"
     script = Path(__file__).with_name("runtime.script").read_text(encoding="utf-8")
     script = script.replace("/* TEST_PROFILE */ null", json.dumps(str(profile.resolve())))
-    run_with_runtime(call, script)
+    decorations = Path(__file__).with_name("capture_decorations.script").read_text(encoding="utf-8")
+    run_with_runtime(call, script + "\n" + decorations)
     return json.loads((CONTROL / "catalog.json").read_text(encoding="utf-8"))
 
 
@@ -535,6 +536,7 @@ def main(all_spells):
                         help="要求双方自主施放有实际相撞、格挡、破盾、反射或水火反应")
     parser.add_argument("--battle-seed", type=int, help="固定自主交战的原版随机种子")
     parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
+    parser.add_argument("--hide-decorations", action="store_true", help="构造单招只在录制中隐藏粒子、拖尾及线条")
     parser.add_argument("--motion-trace", action="store_true", help="随单招原帧记录真实外形、方向、身体姿态和阻挡")
     parser.add_argument("--diagnostics", action="store_true", help="记录大块黄色精灵及粒子的材质来源")
     parser.add_argument("--view", choices=["native", "worldfall", "firstperson"], default="native", help="原版俯视、Worldfall 三维观察或实际附身第一人称")
@@ -575,6 +577,8 @@ def main(all_spells):
         parser.error("--target-offset 只用于单招或迎击场景")
     if args.caster_position and (args.scene != "single" or any(not math.isfinite(v) for v in args.caster_position)):
         parser.error("--caster-position 只用于单招，坐标须为有限数")
+    if args.hide_decorations and (args.scene != "single" or args.inventory or args.resource_probe or args.list):
+        parser.error("--hide-decorations 只用于构造单招录像")
     if args.caster_species and args.scene != "single":
         parser.error("--caster-species 只用于单招场景")
     if args.require_source and (args.scene != "single" or args.construction or args.resource_probe or args.inventory):
@@ -671,6 +675,8 @@ def main(all_spells):
                 group="开发资源验证", label="模型与材质", variant=0, modifiers=[], trajectory="共同姿态")], []
         else:
             cases, skipped = choose_cases(spells, catalog, args)
+        if args.hide_decorations and any("construction" not in case for case in cases):
+            raise ValueError("--hide-decorations 只用于构造单招录像")
         if args.caster_species and any("construction" not in case for case in cases):
             raise ValueError("--caster-species 需要选择依赖真实关节的构造")
         if args.require_source and any("construction" in case for case in cases):
@@ -702,6 +708,8 @@ def main(all_spells):
             manifest.update(battleEvent=args.battle_event, battleSeed=args.battle_seed)
         if any(case["mode"] in CONSTRUCTION_ONLY for case in cases if "construction" in case):
             manifest["editOptions"] = dict(form=args.edit_form, matter=args.edit_matter, child=args.edit_child)
+        if args.hide_decorations:
+            manifest["hideDecorations"] = True
         if args.shield_break:
             manifest["shieldBreak"] = True
         if args.caster_position:

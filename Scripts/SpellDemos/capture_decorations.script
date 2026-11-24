@@ -1,0 +1,34 @@
+// 单招和表面反馈录像共用。只临时关闭绘制，不停用粒子、物体或作用。
+internal sealed class CultiwayDemoDecorations
+{
+    private readonly System.Collections.Generic.HashSet<UnityEngine.Renderer> hidden = new();
+
+    public int Hide()
+    {
+        int count = 0;
+        foreach (var renderer in UnityEngine.Object.FindObjectsOfType<UnityEngine.Renderer>())
+        {
+            if (!IsDecoration(renderer)) continue;
+            if (renderer.enabled)
+            {
+                hidden.Add(renderer);
+                renderer.enabled = false;
+            }
+
+            if (hidden.Contains(renderer)) count++;
+        }
+
+        return count;
+    }
+
+    public void Restore()
+    {
+        foreach (var renderer in hidden)
+            if (renderer != null) renderer.enabled = true;
+        hidden.Clear();
+    }
+
+    public static bool IsDecoration(UnityEngine.Renderer renderer) =>
+        renderer is UnityEngine.ParticleSystemRenderer || renderer is UnityEngine.TrailRenderer ||
+        renderer is UnityEngine.LineRenderer;
+}

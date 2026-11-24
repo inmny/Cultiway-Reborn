@@ -68,10 +68,10 @@ def main():
             if args.surface_feedback:
                 raw = Path(__file__).with_name("record_surface_feedback.script").read_text()
                 film = raw + "\n" + film
-                film = film.replace("        filmCapturing = true;", "        SuppressDecorations();\n        filmCapturing = true;", 1)
-                film = film.replace("    RenderTexture previous = RenderTexture.active;", "    SuppressDecorations();\n    RenderTexture previous = RenderTexture.active;", 1)
+                film = film.replace("        filmCapturing = true;", "        decorations.Hide();\n        filmCapturing = true;", 1)
+                film = film.replace("    RenderTexture previous = RenderTexture.active;", "    decorations.Hide();\n    RenderTexture previous = RenderTexture.active;", 1)
                 film = film.replace("        sourceControl = BodyControlState.IsBusy(filmSource.id),", "        feedback = FeedbackFacts(filmSource.id),\n        sourceControl = BodyControlState.IsBusy(filmSource.id),", 1)
-                film = film.replace("        if (filmRead != null) UnityEngine.Object.Destroy(filmRead);", "        RestoreDecorations();\n        if (filmRead != null) UnityEngine.Object.Destroy(filmRead);", 1)
+                film = film.replace("        if (filmRead != null) UnityEngine.Object.Destroy(filmRead);", "        decorations.Restore();\n        if (filmRead != null) UnityEngine.Object.Destroy(filmRead);", 1)
             helpers = helpers.replace("async Task Fire(", "/// <summary>保留实际空间点的三个坐标。</summary>\n/// <param name=\"p\">实际空间点。</param>\nfloat[] P(Vector3 p) => new[] { p.x, p.y, p.z };\n" + film + "\nasync Task Fire(", 1)
             helpers = helpers.replace("    if (aggro)\n", "    await StartRelationFilm(d, a, target);\n    if (aggro)\n", 1)
             shared = Path(__file__).with_name("verify_weapon_connections.script").read_text().split("\ntry\n{", 1)[0]
@@ -82,7 +82,10 @@ def main():
                 # 无伤触碰保留实际姿态、接触和结果，避免原版伤害图遮住待观察表面。
                 fragment = fragment.replace("        await Fire(definition, source, target);", "        definition.Body.Impact ??= new ConstructionImpact(); definition.Body.Impact.DamageScale = 0f;\n        await Fire(definition, source, target);", 1)
                 fragment = fragment.replace("        Position(source, target, guard, attack);", "        attack.Body.Impact.DamageScale = 0f;\n        Position(source, target, guard, attack);", 1)
-            script.write_text(helpers + shared + fragment)
+            program = helpers + shared + fragment
+            if args.surface_feedback:
+                program += "\n" + Path(__file__).with_name("capture_decorations.script").read_text()
+            script.write_text(program)
             write_json(folder / "metadata.json", dict(version=version, connection=connected, case=case, surfaceFeedback=args.surface_feedback))
             try:
                 result = baseline.call("run", str(script), "180000")

@@ -133,6 +133,7 @@ private bool fixtureLoaded;
 
 /// <summary>只在录制期间隐藏画布，结束时恢复原状态。</summary>
 private readonly Dictionary<Canvas, bool> canvases = new();
+private readonly CultiwayDemoDecorations decorations = new();
 
 /// <summary>本招正在使用的真实法宝。</summary>
 private Entity artifact;
@@ -956,6 +957,7 @@ private IEnumerator Guarded(IEnumerator steps)
         yield return steps.Current;
     }
 
+    decorations.Restore();
     bool sceneRestored = !fixtureLoaded;
     if (fixtureLoaded)
     {
@@ -1494,7 +1496,10 @@ private IEnumerator RecordConstruction(JObject item)
     double start = World.world.getCurWorldTime(), next = 0, lastWalk = 0;
     double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
     int peak = 0;
-    int organPoseFrames = 0, jointPoseFrames = 0;
+    bool hideDecorations = (bool?)request["hideDecorations"] == true;
+    int peakHiddenDecorations = 0;
+    int bodyPoseFrames = 0, organPoseFrames = 0, jointPoseFrames = 0;
+    float footTravel = 0f;
     float jointTravel = 0f;
     float targetPeakHeight = 0f;
     var materialFrames = new List<object>();
@@ -1528,8 +1533,10 @@ private IEnumerator RecordConstruction(JObject item)
         targetPeakHeight = Mathf.Max(targetPeakHeight, target.position_height);
         if (elapsed >= next)
         {
-            if ((organScene || jointScene) && ConstructedAbilityService.TryGetBodyPose(sourceId, out var bodyPose))
+            if (definition.Body != null && ConstructedAbilityService.TryGetBodyPose(sourceId, out var bodyPose))
             {
+                bodyPoseFrames++;
+                footTravel = Mathf.Max(footTravel, Vector2.Distance(casterStart, (Vector2)bodyPose.Foot));
                 if (organScene && bodyPose.Organ.HasValue) organPoseFrames++;
                 if (jointScene && bodyPose.Joint != null)
                 {
@@ -1537,6 +1544,7 @@ private IEnumerator RecordConstruction(JObject item)
                     jointTravel = Mathf.Max(jointTravel, Vector2.Distance(casterStart, (Vector2)bodyPose.Foot));
                 }
             }
+            if (hideDecorations) peakHiddenDecorations = Math.Max(peakHiddenDecorations, decorations.Hide());
             times.Add(elapsed);
             new ScreenFacade().Capture(Path.Combine(folder, "frames",
                 (times.Count - 1).ToString("00000") + ".png"));
@@ -1570,6 +1578,7 @@ private IEnumerator RecordConstruction(JObject item)
     caster.setPossessedMovement(false);
     Config.paused = true;
     yield return null;
+    decorations.Restore();
     JObject[] scriptCasts = executionLog.Select(JObject.FromObject).Where(value =>
         (string)value["framework"] == "construction" && (string)value["id"] == definition.Id &&
         (long?)value["source"] == sourceId && (string)value["origin"] == "Script").ToArray();
@@ -1689,9 +1698,12 @@ private IEnumerator RecordConstruction(JObject item)
         ((extinguished || ownHeating.Length > 0) && actualContacts == 0 ? Health(target) == health :
             plan.ContactDamageScale > 0f ? lost > 0 :
             Health(target) == health && movementVerified && controlVerified);
-    bool presentationReady = (organScene || jointScene
-        ? organPoseFrames + jointPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId)
-        : peak > 0) && (walk == 0f || Vector2.Distance(casterStart, caster.current_position) > .25f);
+    int relevantPoseFrames = organScene ? organPoseFrames : jointScene ? jointPoseFrames : bodyPoseFrames;
+    bool bodyReleased = !BodyControlState.IsBusy(sourceId);
+    bool presented = peak > 0;
+    if (definition.Body != null)
+        presented = relevantPoseFrames > 0 && naturalEnd && bodyReleased;
+    bool presentationReady = presented && (walk == 0f || Vector2.Distance(casterStart, caster.current_position) > .25f);
     string validationError = !executed ? "未确认一次正式施放" :
         requiresDelivery && deliveredSignals.Length == 0 ? "已实际出手，未确认向所选对象送达" :
         !effectConfirmed ? "已实际出手，未确认本段要求的作用" :
@@ -1733,6 +1745,8 @@ private IEnumerator RecordConstruction(JObject item)
         finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day", lightingState = LightingState(),
         scriptCasts = scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials,
+        decorationCapture = new { hidden = hideDecorations, peakHiddenDecorations },
+        body = definition.Body == null ? null : new { poseFrames = bodyPoseFrames, footTravel, released = bodyReleased },
         organ = organScene ? new { species = caster.asset.id, part = effector, rank = organ.Rank,
             poseFrames = organPoseFrames, released = !BodyControlState.IsBusy(sourceId) } : null,
         joint = jointScene ? new { species = caster.asset.id, part = effector, poseFrames = jointPoseFrames,
@@ -3686,6 +3700,7 @@ private static void Write(string path, object value)
 /// <summary>卸载临时工具时解除订阅。</summary>
 private void OnDestroy()
 {
+    decorations.Restore();
     Application.logMessageReceived -= OnLog;
     Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnSpawn;
     SkillHitResolver.ContactResolved -= OnContact;
