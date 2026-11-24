@@ -161,10 +161,8 @@ private long palmCast;
 
 /// <summary>从实际执行收到的结束事实。</summary>
 private ConstructedCastEnded? palmEnd;
-private readonly List<object> areasLog = new();
 
 /// <summary>本段实际屏障接触和空间数据，供核对长轴、厚度与半径。</summary>
-private readonly List<object> barrierLog = new();
 
 private readonly Dictionary<int, object> footprints = new();
 
@@ -231,7 +229,7 @@ public void Install(string testProfile)
     {
         bool formation = granted.ContainsKey(asset.id), organ = organSkills.Contains(asset.id);
         bool tribulation = asset.id.Contains("BalefulWindTribulation");
-        if (asset.id == "Cultiway.raw_anim" || !asset.CanBeLearned && !formation &&
+        if (!asset.CanBeLearned && !formation &&
             !tribulation && !organ && !techniques.ContainsKey(asset.id)) continue;
         bool hasScene = asset.CanBeLearned || formation || tribulation || techniques.ContainsKey(asset.id);
         string unavailable = asset.Animations.Count == 0 ? "没有演示所需的原法术动画登记" :
@@ -909,10 +907,7 @@ private void Update()
     fixtureLoaded = false;
     previousHidden = Config.ui_main_hidden;
     Application.logMessageReceived += OnLog;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OnSpawn;
     SkillHitResolver.ContactResolved += OnContact;
-    SkillHitResolver.AreaResolved += OnArea;
-    SkillHitResolver.BarrierContactResolved += OnBarrier;
     ConstructedAbilityService.CastStarted += OnConstructedStart;
     ConstructedAbilityService.WorldContactConfirmed += OnWorldContact;
     ConstructedAbilityService.SignalReceived += OnSignal;
@@ -994,10 +989,7 @@ private IEnumerator Guarded(IEnumerator steps)
             canvas.Key.enabled = canvas.Value;
     canvases.Clear();
     Application.logMessageReceived -= OnLog;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnSpawn;
     SkillHitResolver.ContactResolved -= OnContact;
-    SkillHitResolver.AreaResolved -= OnArea;
-    SkillHitResolver.BarrierContactResolved -= OnBarrier;
     ConstructedAbilityService.CastStarted -= OnConstructedStart;
     ConstructedAbilityService.WorldContactConfirmed -= OnWorldContact;
     ConstructedAbilityService.SignalReceived -= OnSignal;
@@ -2354,9 +2346,7 @@ private void Prepare(JObject item)
     palmCast = 0;
     palmEnd = null;
     clashesLog.Clear();
-    areasLog.Clear();
     yellowObjects.Clear();
-    barrierLog.Clear();
     footprints.Clear();
     probeUsed = breakProbeUsed = false;
     barrierBefore = barrierLowest = 0;
@@ -2863,8 +2853,8 @@ private IEnumerator Record(JObject item, string folder)
         view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog,
-        worldContactsLog, areasLog, queuedDamageLog, committedPayments,
-        barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
+        worldContactsLog, queuedDamageLog, committedPayments,
+        clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
         shield = new { probeUsed, breakProbeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
         validation = palm ? "验证正式施放、实际掌面扣血和自然收势；画面另行查看" :
@@ -3014,22 +3004,6 @@ private void CleanExecutions()
 
     typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Visuals.BattleSpellVisualRuntime", true)
         .GetMethod("Clear", Flags).Invoke(null, null);
-}
-
-/// <summary>只统计当前演示容器实际建立的执行体。</summary>
-/// <param name="entity">实际执行体。</param>
-private void OnSpawn(Entity entity)
-{
-    var skill = entity.GetComponent<SkillEntity>();
-    if (skill.SkillContainer == observed) spawned++;
-    if (skill.Asset?.ImpactProfile == null) return;
-    var context = entity.GetComponent<SkillContext>();
-    executionLog.Add(new
-    {
-        time = World.world.getCurWorldTime(), id = skill.Asset.id, source = context.SourceObj?.getID(),
-        collisionRadius = SkillEffectRadius.Collision(entity), effectRadius = SkillEffectRadius.Effect(entity),
-        scale = entity.GetComponent<EffectRadiusScale>().Value
-    });
 }
 
 /// <summary>记录共用构造实际受理的施放及自主来源，不把脚本播放记成自主交战。</summary>
@@ -3235,77 +3209,39 @@ private void InspectFootprints()
         var skill = entity.GetComponent<SkillEntity>();
         // 法宝还会建立纯展示动画，它们没有作用配置，不属于范围核对对象。
         if (skill.Asset?.ImpactProfile == null) continue;
-        if (entity.TryGetComponent(out SkillPersistentState state) && state.Kind != SkillPersistentKind.Field)
-            footprints[entity.Id] = new
-            {
-                id = skill.Asset.id, kind = state.Kind.ToString(),
-                position = entity.GetComponent<Position>().value.ToString(),
-                direction = entity.GetComponent<Rotation>().value.ToString(),
-                length = state.Length, width = state.Width,
-                radius = state.Kind == SkillPersistentKind.Shield ? state.Length * .5f + state.Width : 0,
-                durability = state.Durability
-            };
-        else
-            footprints[entity.Id] = new
-            {
-                id = skill.Asset.id, kind = skill.Asset.ImpactProfile.Kind.ToString(),
-                position = entity.GetComponent<Position>().value.ToString(),
-                effectRadius = SkillEffectRadius.Effect(entity),
-                collisionRadius = SkillEffectRadius.Collision(entity),
-                explicitTargetOnly = entity.TryGetComponent(out ColliderConfig config) &&
-                                     config.ExplicitTargetOnly,
-                start = entity.TryGetComponent(out LinearTrajectoryState line) && line.Initialized
-                    ? line.Start.ToString()
-                    : null,
-                end = entity.TryGetComponent(out LinearTrajectoryState endLine) && endLine.Initialized
-                    ? endLine.End.ToString()
-                    : null
-            };
+        footprints[entity.Id] = new
+        {
+            id = skill.Asset.id, kind = skill.Asset.ImpactProfile.Kind.ToString(),
+            position = entity.GetComponent<Position>().value.ToString(),
+            effectRadius = SkillEffectRadius.Effect(entity),
+            collisionRadius = SkillEffectRadius.Collision(entity),
+            explicitTargetOnly = entity.TryGetComponent(out ColliderConfig config) && config.ExplicitTargetOnly,
+        };
     }
 }
-
-/// <summary>真实拦截位置与吸收量。</summary>
-private void OnBarrier(Entity entity, Vector2 point, float damage) => barrierLog.Add(new
-{
-    time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id,
-    point = point.ToString(), damage
-});
 
 /// <summary>记录真实接触对象；不以画面覆盖推测命中。</summary>
 private void OnContact(Entity entity, BaseSimObject target)
 {
     if (contactsLog.Count >= 512) return;
+    bool artifactContact = entity.TryGetComponent(out SkillEntity skill);
     contactsLog.Add(new
     {
-        time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id,
-        source = entity.GetComponent<SkillContext>().SourceObj?.getID(), framework = "legacy",
+        time = World.world.getCurWorldTime(),
+        id = artifactContact ? skill.Asset.id : Cultiway.Content.WeaponControl.WeaponControlSkills.WeaponControl.id,
+        source = entity.GetComponent<SkillContext>().SourceObj?.getID(),
+        framework = artifactContact ? "artifact" : "weapon",
         target = target.getID(), position = target.GetSimPos().ToString()
-    });
-}
-
-/// <summary>记录已经发生的范围结算及其最终半径。</summary>
-private void OnArea(Entity entity, Vector3 position, float radius)
-{
-    if (areasLog.Count >= 512) return;
-    areasLog.Add(new
-    {
-        time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id,
-        position = position.ToString(), radius
     });
 }
 
 /// <summary>从外部实际发射石弹，让护盾耐久变化证明拦截；不直接扣护盾。</summary>
 private void ProbeShield(double elapsed)
 {
-    if (observedBarriers.Count == 0)
+    if (observedBarriers.Count == 0 && !artifact.IsNull && artifact.TryGetComponent(out ArtifactAbilityRuntime runtime))
     {
-        var barriers = Cultiway.ModClass.I.W.Query<SkillEntity, SkillPersistentState>().Entities
-            .Where(entity => !entity.Tags.Has<TagPrefab>() && !entity.Tags.Has<TagRecycle>() &&
-                             entity.GetComponent<SkillEntity>().SkillContainer == observed).ToArray();
-        float current = barriers.Length > 0 ? barriers[0].GetComponent<SkillPersistentState>().Durability : 0;
-        if (!artifact.IsNull && artifact.TryGetComponent(out ArtifactAbilityRuntime runtime))
-            current = runtime.abilities.First(entry => entry.instance_id == ability.EntryId)
-                .GetNumber("shield_current");
+        float current = runtime.abilities.First(entry => entry.instance_id == ability.EntryId)
+            .GetNumber("shield_current");
         if (barrierBefore == 0 && current > 0) barrierBefore = barrierLowest = current;
         if (probeUsed && elapsed < 2.5) barrierLowest = Mathf.Min(barrierLowest, current);
     }
@@ -3385,8 +3321,6 @@ private IEnumerator RecordBattle(JObject item, string folder)
     queuedDamageLog.Clear();
     clashesLog.Clear();
     reflectionsLog.Clear();
-    areasLog.Clear();
-    barrierLog.Clear();
     footprints.Clear();
     int ownerHealth = Health(caster), rivalHealth = Health(enemy);
     var viewState = ConfirmViewState();
@@ -3476,7 +3410,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
         view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = "battle", executionLog, committedPayments, contactsLog,
-        queuedDamageLog, areasLog, barrierLog,
+        queuedDamageLog,
         deliveredSignals = signals.Where(value => leftIds.Contains(value.CastId) || rightIds.Contains(value.CastId))
             .Select(SignalFact).ToArray(),
         participants = new[] { new { id = caster.id, before = ownerHealth, after = Health(caster) },
@@ -3696,10 +3630,7 @@ private void OnDestroy()
 {
     decorations.Restore();
     Application.logMessageReceived -= OnLog;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnSpawn;
     SkillHitResolver.ContactResolved -= OnContact;
-    SkillHitResolver.AreaResolved -= OnArea;
-    SkillHitResolver.BarrierContactResolved -= OnBarrier;
 }
 
 /// <summary>按来源条件建立结婴显化，主动护持读取真实形成状态。</summary>
