@@ -544,7 +544,12 @@ def main(all_spells):
             if not available:
                 print("没有匹配的能力")
             for entry in available:
-                status = f"暂不可录：{entry['unavailable']}" if entry.get("unavailable") else f"{entry['variants']} 个变体"
+                if entry.get("triggerScene"):
+                    status = f"专用录像 record_artifact_passives.py --case {entry['triggerScene']}"
+                elif entry.get("unavailable"):
+                    status = f"暂不可录：{entry['unavailable']}"
+                else:
+                    status = f"{entry['variants']} 个变体"
                 labels = entry.get("labels", {})
                 fields = [title + "=" + ("、".join(labels.get(key, {}).values()) or "未标注")
                           for key, title in CATALOG_FILTERS.items()]

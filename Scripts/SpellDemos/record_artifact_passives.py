@@ -93,7 +93,19 @@ async Task AdvanceWorld(float seconds)''')
             'using Cultiway.Core.SkillLibV3.Utils; using Cultiway.Utils;\n'
             + IMPORTS + helpers + flight_scene + (SCRIPTS / 'verify_artifact_views.script').read_text()
             + settings + Path(__file__).with_suffix('.script').read_text()
-            + '\ntry {\n' + body + '\n} finally { RestoreFilmCamera(); }\n')
+            + '\ntry {\n' + body + '''
+} finally {
+    RestoreFilmCamera();
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    File.WriteAllText(Path.Combine(folder, "restore.json"), JsonConvert.SerializeObject(new { sceneRestored = true }));
+}
+''')
 
 
 def main():
@@ -120,10 +132,12 @@ def main():
         try:
             result = baseline.call('run', str(program), '190000')
         except RuntimeError as error:
-            write_json(folder / 'result.json', dict(passed=False, error=str(error)))
+            write_json(folder / 'result.json', dict(passed=False, error=str(error),
+                        sceneRestored=(folder / 'restore.json').is_file()))
             raise RuntimeError(f'实录未完成，见 {folder}') from error
+        result['sceneRestored'] = (folder / 'restore.json').is_file()
         write_json(folder / 'result.json', result)
-        if not result['passed']:
+        if not result['passed'] or not result['sceneRestored']:
             raise RuntimeError(f'实录验证未通过，见 {folder}')
         name = CASES[case][0]
         encode(case, folder, output, args.view == 'native', label=name, milestone='10.06 法宝被动能力',

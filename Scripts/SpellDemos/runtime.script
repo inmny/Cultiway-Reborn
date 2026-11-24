@@ -236,6 +236,13 @@ public void Install()
         });
     }
 
+    var artifactScenes = new Dictionary<string, string>
+    {
+        [ArtifactAbilities.DamageDiversion.id] = "redirection",
+        [ArtifactAbilities.DingAlchemyAssist.id] = "alchemy",
+        [ArtifactAbilities.ArtifactSpiritAwakening.id] = "spirit",
+        [ArtifactAbilities.SectGuardianTreasure.id] = "sect"
+    };
     foreach (var asset in Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.list.OrderBy(asset => asset.id))
     {
         bool active = asset.active_use != null;
@@ -248,6 +255,7 @@ public void Install()
             group = active ? "法宝主动" : "法宝被动", adjustable = false,
             trajectory = "专属动作", relation = asset.active_use?.target_mode.ToString(), labels,
             unavailable = active ? null : "需要触发法宝自身的被动来源",
+            triggerScene = artifactScenes.TryGetValue(asset.id, out string scene) ? scene : null,
             trajectories = Array.Empty<string>(), modifiers = Array.Empty<string>()
         });
     }

@@ -2908,6 +2908,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 用 `dev.py exec --timeout 205 -- python3 Scripts/SpellDemos/record_artifact_passives.py --view native --case shield --output <录像目录>` 录制指定场景。将视角改为 `worldfall` 可录另一套。六个场景为 `shield`、`redirection`、`alchemy`、`spirit`、`riding` 和 `sect`。可重复指定 `--case`，同一视角收齐六段后自动生成 `all.mp4` 和索引。
 
+用 `demo_all.py --list --source artifact.passive` 查登记资料及已接通的专用录像场景。每场录像结束后重载测试世界，结果中的 `sceneRestored` 记录是否恢复完成。
+
 ### 器口与镜面（10.07）
 
 用独立游戏入口 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/verify_gourd_swallowing.py` 核对真实器口、吞摄范围和回收。`verify_gourd_outpouring.py` 检查驾驭者移位后从原器口向目标倾泻的实际范围。`verify_mirror_effects.py --section truth` 检查真实镜面、净化范围与缺省位置。三个入口均可用 `--skip-views` 只检查实际行为。
