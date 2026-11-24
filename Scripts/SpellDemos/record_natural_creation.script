@@ -1,0 +1,262 @@
+bool cold = previousRecording.Length > 0;
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var access = ConstructionEditing.Access;
+var clips = new List<object>();
+Actor caster, enemy;
+AbilityDefinition definition;
+ConstructedCreationState accepted;
+void SaveJson(string name, object data) =>
+    File.WriteAllText(Path.Combine(folder, name), JsonConvert.SerializeObject(data, Formatting.Indented));
+
+void Camera()
+{
+    World.world.camera.transform.position = new Vector3(66.2f, 72f, 0);
+    MoveCamera.instance.forceZoom(8);
+    HideCameraOverlays();
+}
+
+async Task Still(string key, string title, float duration)
+{
+    string frames = Path.Combine(folder, key, "frames");
+    Directory.CreateDirectory(frames);
+    await Game.NextFrame();
+    await Game.NextFrame();
+    Screen.Capture(Path.Combine(frames, "00000.png"));
+    await Game.NextFrame();
+    clips.Add(new { key, title, times = new[] { 0d }, duration, still = true });
+}
+
+if (!cold)
+{
+    caster = Make(64);
+    enemy = Make(69, "wolf");
+    var practitioner = caster.GetExtend();
+    practitioner.AddComponent(new Xian { level = 2, wakan = 100 });
+    await Advance(.3f);
+    Camera();
+    Place(caster, 64);
+
+    // 预览只选一个可拍摄的自然机会，实际受理仍由真实修炼分派决定。
+    int sequence = 0;
+    int bestScore = 0;
+    var prospects = new List<object>();
+    for (int candidate = 1; candidate < 6000 && prospects.Count < 48; candidate++)
+    {
+        var random = new System.Random(unchecked((int)caster.id * 73856093 ^ candidate * 19349663));
+        if (random.NextDouble() >= .015d) continue;
+        int seed = random.Next();
+        try
+        {
+            var sample = ConstructedAbilityService.Generate(practitioner, seed);
+            var flight = sample.Root?.Operations?.FirstOrDefault(op => op.Kind == ConstructionOperationKind.Fly);
+            var mode = sample.Use?.Target;
+            int score = sample.Binding?.Anchor == AbilityAnchor.Target
+                ? (sample.Binding.Height <= 1f ? 4 : 3)
+                : flight != null && !flight.WorldVelocity ? (flight.TurnRate > 0 ? 2 : 1) : 0;
+            if (sample.Body != null || sample.Root == null || sample.Power <= 0 || sample.Cost <= 0 ||
+                sample.Cost > 300 || sample.Resource != "wakan" ||
+                mode is ActiveAbilityTargetMode.Self or ActiveAbilityTargetMode.None or ActiveAbilityTargetMode.Area)
+                score = 0;
+            prospects.Add(new { candidate, seed, sample.Name, sample.Resource, sample.Cost,
+                body = sample.Body != null, mode, anchor = sample.Binding?.Anchor, score });
+            if (score <= bestScore) continue;
+            sequence = candidate;
+            bestScore = score;
+            if (score == 4) break;
+        }
+        catch (Exception error) when (error is InvalidDataException or ArgumentException)
+        { prospects.Add(new { candidate, seed, error = error.Message }); }
+    }
+    SaveJson("opportunities.json", prospects);
+    Check(sequence > 0 && access.List(practitioner).Count == 0, "选定可重复的自然机会，人物尚未学术", new { sequence, caster.id });
+    practitioner.AddComponent(new ConstructedCreationState { Sequence = sequence - 1 });
+    var context = new CultivationTriggerContext(practitioner, CultivationTriggerKind.ActiveTick,
+        CultivationActivityKind.Meditation, 1f);
+    bool practiced = CultivateMethods.TryDispatch(in context);
+    accepted = practitioner.GetComponent<ConstructedCreationState>();
+    Check(practiced && accepted.Pending && accepted.Sequence == sequence &&
+          accepted.Origin == ConstructionCreationOrigin.Cultivation && access.List(practitioner).Count == 0,
+        "打坐修炼自然受理，尚未学习", new { practiced, accepted.Sequence, accepted.Seed, accepted.Origin });
+    SaveJson("accepted-input.json", new { caster = caster.id, enemy = enemy.id, activity = "Meditation", elapsedSeconds = 1f, accepted });
+    await Still("01-practice", "打坐修炼触发自然创法\n实际受理已入队 · 固定本次自然机会 · 此时尚未学会", 1.7f);
+
+    await Advance(.3f);
+    var completed = practitioner.GetComponent<ConstructedCreationState>();
+    Check(!completed.Pending && completed.LastFailure == null && access.List(practitioner).Count == 1 &&
+          completed.LastAbility != null, "正常推进自动生成并授予一次", completed);
+    definition = access.Read(completed.LastAbility);
+    var reproduced = ConstructedAbilityService.Generate(practitioner, accepted.Seed, accepted.Inspiration,
+        accepted.Source, accepted.Resources);
+    reproduced.Id = definition.Id;
+    Check(JToken.DeepEquals(JObject.FromObject(reproduced), JObject.FromObject(definition)),
+        "冻结参数复现完整结构与费用");
+}
+else
+{
+    var expected = JObject.Parse(File.ReadAllText(Path.Combine(previousRecording, "result.json")));
+    Check(process != (int)expected["process"], "新游戏进程读取原版正式档");
+    caster = World.world.units.get((long)expected["caster"]);
+    enemy = World.world.units.get((long)expected["enemy"]);
+    Check(caster != null && enemy != null, "同一修士及对练目标已恢复");
+    var original = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(previousRecording, "definition.json")));
+    string id = original.Id;
+    var practitioner = caster.GetExtend();
+    accepted = practitioner.GetComponent<ConstructedCreationState>();
+    definition = access.Read(id);
+    bool sameDefinition = JToken.DeepEquals(JObject.FromObject(original), JObject.FromObject(definition));
+    var known = access.List(practitioner).Select(entry => entry.Id).ToArray();
+    Check(sameDefinition && known.SequenceEqual(new[] { id }) &&
+          accepted.LastAbility == id && accepted.Seed == (int)expected["seed"] &&
+          accepted.Sequence == (int)expected["sequence"] && accepted.Origin == ConstructionCreationOrigin.Cultivation &&
+          !accepted.Pending && accepted.LastFailure == null, "完整构造与学习关系原样恢复，创作没有重抽",
+        new { sameDefinition, known, accepted.LastAbility, accepted.Seed, accepted.Sequence, accepted.Origin, accepted.LastFailure });
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(report.Skipped.Count == 0 && report.BackupError == null, "正式载入没有跳过区段",
+        new { report.Skipped, report.BackupError });
+    Camera();
+}
+
+SaveJson("definition.json", definition);
+WindowWanfaConstructionEditor.Open(definition.Id, caster);
+await Game.WaitUntil(() => UnityEngine.Object.FindObjectsOfType<WindowWanfaConstructionEditor>().Length != 0, 1800);
+await Still(cold ? "05-restored" : "02-learned",
+    (cold ? "重启读档 · 恢复原修士与同一完整构造" : "世界正常推进 · 修士自动学会") +
+    "\n" + definition.Name + " · 万法阁读取实际构造", 2.4f);
+var editor = UnityEngine.Object.FindObjectsOfType<WindowWanfaConstructionEditor>().Single();
+typeof(WindowWanfaConstructionEditor).GetMethod("RequestClose", F).Invoke(editor, null);
+await Game.NextFrame();
+HideCameraOverlays();
+
+var owner = caster.GetExtend();
+var started = new List<ConstructedCastStarted>();
+var contactsInCast = new List<ConstructedContact>();
+var ended = new List<ConstructedCastEnded>();
+var payments = new List<(double Quote, double Paid)>();
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId == caster.id && fact.AbilityId == definition.Id) started.Add(fact);
+}
+void HitTarget(ConstructedContact fact)
+{
+    if (fact.SourceId == caster.id && fact.AbilityId == definition.Id && fact.TargetId == enemy.id)
+        contactsInCast.Add(fact);
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.SourceId == caster.id && fact.AbilityId == definition.Id) ended.Add(fact);
+}
+
+var resource = SkillCastResources.Wakan;
+var spend = resource.SpendAmount;
+resource.SpendAmount = (payer, amount) =>
+{
+    double before = resource.ReadAmount(payer);
+    spend(payer, amount);
+    if (payer == owner) payments.Add((amount, before - resource.ReadAmount(payer)));
+};
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += HitTarget;
+ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    CombatStatusEffects.RemoveStatus(caster, hold);
+    caster.setStatsDirty();
+    caster.updateStats();
+    await Game.NextFrame();
+    // 读回时已核对原人物及原术。下一场从健康状态重新开始，照常让战斗逻辑选招。
+    if (cold) caster.data.health = caster.getMaxHealth();
+    var xian = owner.GetComponent<Xian>();
+    xian.wakan = Mathf.Max(100, caster.stats[BaseStatses.MaxWakan.id]);
+    owner.AddComponent(xian);
+    Place(caster, 64);
+    Place(enemy, 68);
+    caster.addAggro(enemy);
+    enemy.addAggro(caster);
+    caster.setAttackTarget(enemy);
+    caster.attack_timer = 0;
+
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, definition.Id);
+    var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos(), attackKingdom: caster.kingdom);
+    var setup = new
+    {
+        frozen = caster.hasTag("frozen_ai"), canSeek = caster.isAllowedToLookForEnemies(),
+        water = caster.isInWaterAndCantAttack(), caster._beh_skip, caster._has_status_strange_urge,
+        ready = ActiveAbilityService.ResolveControlState(owner, handle),
+        canPrepare = ActiveAbilityService.CanPrepare(owner, handle, enemy),
+        canUse = ActiveAbilityService.CanUse(owner, handle, target), wakan = xian.wakan,
+        sourceHealth = caster.data.health, sourceMaxHealth = caster.getMaxHealth(), health = enemy.data.health
+    };
+    Check(!setup.frozen && setup.canSeek && setup.canUse, "对练人物已解除场地冻结并满足施放条件", setup);
+
+    string key = cold ? "06-cast-after-load" : "03-cast-before-save";
+    string frames = Path.Combine(folder, key, "frames");
+    Directory.CreateDirectory(frames);
+    var times = new List<double>();
+    var health = new List<int>();
+    double from = World.world.getCurWorldTime(), next = 0;
+    Config.paused = false;
+    while (World.world.getCurWorldTime() - from < definition.Lifetime + 2 &&
+           (ended.Count == 0 || World.world.getCurWorldTime() < ended[0].WorldTime + .25))
+    {
+        double at = World.world.getCurWorldTime() - from;
+        if (at >= next)
+        {
+            Screen.Capture(Path.Combine(frames, times.Count.ToString("00000") + ".png"));
+            health.Add(enemy.data.health);
+            times.Add(at);
+            next = at + .035;
+        }
+        if (started.Count > 0) caster.attack_timer = 999;
+        await Game.NextFrame();
+    }
+    double duration = World.world.getCurWorldTime() - from;
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+
+    var first = started.FirstOrDefault();
+    var dealt = contactsInCast.Where(hit => hit.CastId == first.CastId && hit.Damage.HealthLost > 0).ToArray();
+    var record = new
+    {
+        started, contacts = contactsInCast.Select(hit => new
+        {
+            hit.CastId, hit.TargetId, hit.WorldTime, hit.Damage, hit.TargetHealthBefore, hit.TargetHealthAfter
+        }),
+        ended, payments = payments.Select(p => new { quote = p.Quote, paid = p.Paid }),
+        startWorldTime = from, duration, health
+    };
+    SaveJson("battle.json", record);
+    Check(started.Count == 1 && first.Origin == ActiveAbilityUseOrigin.Autonomous &&
+          payments.Count == 1 && payments[0].Paid > 0 && Math.Abs(payments[0].Paid - payments[0].Quote) < .001 &&
+          dealt.Length > 0 && ended.Count == 1 && ended[0].CastId == first.CastId && !ended[0].Cancelled,
+        "自主施放真实付费、扣血并自然结束", record);
+    int previewFrame = Math.Max(0, times.FindLastIndex(at => at + from <= dealt[0].WorldTime));
+    clips.Add(new
+    {
+        key, times, duration, previewFrame,
+        title = (cold ? "读档后再次自主施放" : "首次自主施放") + " · " + definition.Name +
+            "\n真实扣除真元 " + payments[0].Paid.ToString("0.##") +
+            " · 本招扣血 " + dealt.Sum(hit => hit.Damage.HealthLost) + " · 自然结束"
+    });
+}
+finally
+{
+    resource.SpendAmount = spend;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= HitTarget;
+    ConstructedAbilityService.CastEnded -= Finished;
+    Config.paused = true;
+}
+
+if (!cold)
+{
+    SaveManager.saveWorldToDirectory(Path.Combine(folder, "archive"));
+    Check(File.Exists(Path.Combine(folder, "archive/map.wbox")), "原版成功写入正式世界");
+    await Still("04-saved", "正式存档已写入\n随后退出原进程并重启 · 此处切镜", 1.4f);
+}
+
+return new
+{
+    passed = true, process, caster = caster.id, enemy = enemy.id, ability = definition.Id,
+    name = definition.Name, seed = accepted.Seed, sequence = accepted.Sequence, clips
+};

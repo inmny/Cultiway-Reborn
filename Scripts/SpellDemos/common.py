@@ -449,7 +449,7 @@ def encode(output, case, keep_frames):
         title = f"形体资源接入验证 · {view}\n独立部件、表面坐标、材质和连续姿态；不代表战斗或美术验收"
     else:
         title = title.replace(" · " + case['label'], " · " + view + " · " + case['label'], 1)
-    (folder / "title.txt").write_text(title, encoding="utf-8")
+    (folder / "title.txt").write_text(case.get("title", title), encoding="utf-8")
     font_arg = f":fontfile='{caption_font()}'"
     video_filter = f"scale=1280:-2,pad=iw:ih+84:0:84:color=0x111820,drawtext=textfile='{folder / 'title.txt'}'{font_arg}:fontsize=22:fontcolor=white:x=18:y=12:line_spacing=8"
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(folder / "frames.ffconcat"),

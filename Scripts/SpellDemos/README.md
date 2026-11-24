@@ -3412,3 +3412,9 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 - **非人身体**使用 `verify_nonhuman_actions.py --case tail --view native`。换为 `--case pair` 观察同一狐形的尾扫和翼切。
 
 通用单招从指定的 `--output` 打开 `index.html`，专项在命令输出的目录打开 `result.json` 和影片。档案参数指向同时包含 `archive/map.wbox` 和 `expected.json` 的目录。
+
+### 自然创法到冷启动的连续记录（16.03）
+
+在独立原版游戏使用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/record_natural_creation.py --stage prepare`。复用既有小世界，固定一次真正命中自然概率的打坐修炼。正常推进世界，由正式队列生成并授予，随后让同一修士在对练中自主施放。保留正式存档、完整构造、受理参数及实际战斗记录。
+
+保存成功并确认旧进程退出后，重启同一独立游戏，再用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/record_natural_creation.py --stage cold --archive <prepare 输出目录>`。读取原始正式档，核对同一人物、构造及学习关系，并实录第二次自主施放。两段均核对实际支付、对手掉血和自然结束。说明画面是定格，战斗画面按真实世界时间编码。
