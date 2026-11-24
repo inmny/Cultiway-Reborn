@@ -6,7 +6,7 @@ const scene=new T.Scene();scene.background=new T.Color('#101923');
 const camera=new T.PerspectiveCamera(36,innerWidth/innerHeight,.01,100);camera.position.set(3.3,3,5.2);
 const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,1,0);controls.update();
 const floor=new T.Mesh(new T.PlaneGeometry(70,70),new T.MeshBasicMaterial({color:'#17232e'}));floor.rotation.x=-Math.PI/2;floor.position.y=-.06;scene.add(floor);
-const models=[['flame','火体','暗焰与热芯',0xff6420],['wave','厚浪','水体、卷唇与泡沫',0x3287cf],['peak','岩峰','断层、侧脊与受光面',0xc79b66],['cloud','云团','体积与疏密',0x91a9bb],['dragon','盘龙','连续躯干、角须与四肢',0x61c9a0],['avatar','真身','面部、肩甲与裙甲',0xe9bb6e]];
+const models=[['flame','火体','暗焰与热芯',0xff6420],['wave','厚浪','水体、卷唇与泡沫',0x3287cf],['cloud','云团','体积与疏密',0x91a9bb],['dragon','盘龙','连续躯干、角须与四肢',0x61c9a0],['avatar','真身','面部、肩甲与裙甲',0xe9bb6e]];
 const roots=[],labels=[];
 const vertex=`varying vec3 p;varying vec3 n;varying vec3 eye;varying vec3 paint;void main(){p=position;n=normalize(normalMatrix*normal);vec4 v=modelViewMatrix*vec4(position,1.0);eye=-v.xyz;paint=color;gl_Position=projectionMatrix*v;}`;
 const fragment=`uniform float time;uniform float kind;uniform vec3 tint;uniform vec3 minimum;uniform vec3 extent;varying vec3 p;varying vec3 n;varying vec3 eye;varying vec3 paint;

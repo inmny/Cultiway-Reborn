@@ -2,10 +2,11 @@
 import * as T from 'three';
 import {mergeGeometries,mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
 import {writeFileSync,mkdirSync} from 'node:fs';
-import {fileURLToPath} from 'node:url';
 
-const output=fileURLToPath(new URL('../../Content/CombatModels/',import.meta.url));
+const output=new URL('../../Content/CombatModels/',import.meta.url);
+const previews=new URL('../../artifacts/combat-model-studio/',import.meta.url);
 mkdirSync(output,{recursive:true});
+mkdirSync(previews,{recursive:true});
 const V=(x,y,z)=>new T.Vector3(x,y,z),white=0xffffff;
 function paint(g,color=white){
   const c=new T.Color(color),a=new Float32Array(g.attributes.position.count*3);
@@ -27,14 +28,14 @@ function mesh(positions,triangles,color=white){
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setIndex(triangles);g.computeVertexNormals();return paint(g,color);
 }
 function face(points,color=white){return mesh(points.flat(),[0,1,2,...(points.length===4?[0,2,3]:[])],color);}
-function exportModel(name,parts,surface){
+function exportModel(name,parts,surface,destination=output){
   const g=mergeVertices(mergeGeometries(parts.map(p=>p.index?p.toNonIndexed():p),false),1e-6),pos=Array.from(g.attributes.position.array),norm=Array.from(g.attributes.normal.array),color=g.attributes.color.array,triangles=Array.from(g.index.array);
   if(pos.some(x=>!Number.isFinite(x))||norm.some(x=>!Number.isFinite(x)))throw Error(name+' 包含无效坐标');
   const colors=[];
   for(let i=0;i<triangles.length;i+=3){const a=triangles[i]*3,b=triangles[i+1]*3,c=triangles[i+2]*3,r=Math.round((color[a]+color[b]+color[c])/3*255),blue=Math.round((color[a+2]+color[b+2]+color[c+2])/3*255),green=Math.round((color[a+1]+color[b+1]+color[c+1])/3*255);colors.push((r|(green<<8)|(blue<<16)|0xff000000)>>>0);}
   const round=v=>Math.round(v*1e6)/1e6;
   const data={name,surface,positions:pos.map(round),normals:norm.map(round),triangles,colors};
-  writeFileSync(output+name+'.json',JSON.stringify(data));
+  writeFileSync(new URL(name+'.json',destination),JSON.stringify(data));
   g.computeBoundingBox();console.log(name,colors.length+' 个三角形',g.boundingBox.min.toArray(),g.boundingBox.max.toArray());
 }
 
@@ -67,7 +68,7 @@ function exportModel(name,parts,surface){
   }
   for(let j=0;j<levels.length-1;j++)for(let i=0;i<sides;i++){const a=j*sides+i,b=j*sides+(i+1)%sides,c=(j+1)*sides+(i+1)%sides,d=(j+1)*sides+i;tri.push(a,b,c,a,c,d);}
   const g=mesh(pos,tri).toNonIndexed();g.computeVertexNormals();
-  exportModel('peak',[g],3);
+  exportModel('peak',[g],3,previews);
 }
 
 // 同一封闭云团有大小不同的隆起，雾气材质进一步控制疏密和软边。

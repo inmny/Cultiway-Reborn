@@ -15,8 +15,6 @@ internal static class SpatialEnergyGeometry
     internal static readonly SpatialVisualMesh Stream = BuildStream();
     /// <summary>带薄刃、剑脊和剑格的长剑。</summary>
     internal static readonly SpatialVisualMesh Sword = BuildSword();
-    /// <summary>多层断面与不对称岩峰。</summary>
-    internal static readonly SpatialVisualMesh Peak = SpatialModelLoader.Load("peak",SpatialSurface.Stone);
     /// <summary>有六面晶脊的冰晶。</summary>
     internal static readonly SpatialVisualMesh Crystal = BuildCrystal();
     /// <summary>卷起并收尖的宽面浪脊。</summary>
