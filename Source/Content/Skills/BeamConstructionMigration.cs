@@ -32,13 +32,13 @@ internal static class BeamConstructionMigration
     {
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            !IsBeam(skill.GetComponent<SkillContainer>().Asset))
-            return SkillEmissionResult.Unhandled;
+            !Supports(skill.GetComponent<SkillContainer>().Asset))
+            return SkillEmissionResult.Rejected;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         var target = new ActiveAbilityTarget(emission.Target, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,
@@ -149,5 +149,5 @@ internal static class BeamConstructionMigration
 
     /// <summary>只接管本批已经保留全部实际作用的两个原光束。</summary>
     /// <param name="asset">原来源资产。</param>
-    private static bool IsBeam(SkillEntityAsset asset) => asset == SkillEntities.SpiritBeam || asset == SkillEntities.SolarBeam;
+    internal static bool Supports(SkillEntityAsset asset) => asset == SkillEntities.SpiritBeam || asset == SkillEntities.SolarBeam;
 }

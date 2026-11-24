@@ -63,22 +63,24 @@ internal static partial class ProjectileConstructionMigration
         asset == SkillEntities.TidalWave ? ("tidal_wave_0", "water", "liquid") :
         asset == SkillEntities.SpiritVine ? ("creeping_vine_0", "wood", "solid") : default;
 
+    internal static bool Supports(SkillEntityAsset asset) => SourceForm(asset).Form != null;
+
     /// <summary>检查完整能力后只接管一次；真实受理失败不再落回旧发射。</summary>
     /// <param name="emission">原来源已经确定并到达时点的逐发步骤。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            SourceForm(skill.GetComponent<SkillContainer>().Asset).Form == null)
-            return SkillEmissionResult.Unhandled;
+            !Supports(skill.GetComponent<SkillContainer>().Asset))
+            return SkillEmissionResult.Rejected;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         Vector3 targetPosition = emission.TargetPos;
         if (emission.SourceIsWorld && emission.Target is Actor actor)
             emission.TargetPos = ConstructedAbilityService.BodyFoot(actor);
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage, out Vector3 forward);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
             targetPosition, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);

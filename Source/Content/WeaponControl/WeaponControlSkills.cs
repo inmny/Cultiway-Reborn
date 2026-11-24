@@ -95,10 +95,10 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
 
     /// <summary>按御器序列逐次发射原版箭或启动原兵器出击。</summary>
     /// <param name="emission">正式发射已经确认的来源及目标。</param>
-    internal static SkillEmissionResult Emit(in SkillEmission emission)
+    internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         if (emission.SkillContainer.GetComponent<SkillContainer>().Asset != WeaponControl)
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         return WeaponControlRuntimeService.TryGet(emission.RuntimeData.CorrelationId, out WeaponControlCastSession session) &&
                session.Emit(emission) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }

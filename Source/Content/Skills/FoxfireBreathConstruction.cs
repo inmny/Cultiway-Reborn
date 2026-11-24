@@ -34,7 +34,7 @@ internal static class FoxfireBreathConstruction
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         if (emission.SkillContainer.GetComponent<SkillContainer>().Asset != SkillEntities.FoxfireBreath)
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         if (emission.Sourceless || emission.Source?.isActor() != true || emission.Source != emission.SpatialSource ||
             emission.Source.isRekt()) return SkillEmissionResult.Rejected;
         ActorExtend caster = emission.Source.a.GetExtend();

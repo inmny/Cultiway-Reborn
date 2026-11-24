@@ -28,19 +28,21 @@ internal static class BarrierConstructionMigration
         typeof(ProficiencyModifier), typeof(BurstCount), typeof(SalvoCount), typeof(ComboModifier), typeof(VolleyModifier)
     };
 
+    internal static bool Supports(SkillEntityAsset asset) => Form(asset) != null;
+
     /// <summary>仅接管完整可表达的实际发射，保留原逐发支付及受理失败的撤销。</summary>
     /// <param name="emission">已到达真实发射时点的原步骤。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            Form(skill.GetComponent<SkillContainer>().Asset) == null)
-            return SkillEmissionResult.Unhandled;
+            !Supports(skill.GetComponent<SkillContainer>().Asset))
+            return SkillEmissionResult.Rejected;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         var target = new ActiveAbilityTarget(null, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,

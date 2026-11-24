@@ -10,6 +10,8 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Content.Skills;
 
 /// <summary>范围法相分别沿用原本的结算规则。</summary>
@@ -49,24 +51,28 @@ internal readonly struct FormationAreaContact
 /// <summary>修炼范围能力从原技能发射进入同一套立体接触。</summary>
 internal static class FormationAreaConstruction
 {
+    internal static bool Supports(Entity skill) => ShapeFor(skill).Family != null;
+
+    private static (string Family, FormationAreaKind kind, string matter) ShapeFor(Entity skill) => skill switch
+    {
+        var entry when entry == CoreFormationSkills.DragonAspectBurst =>
+            (CoreFormationEffectFamilies.Dragon, FormationAreaKind.Dragon, "earth"),
+        var entry when entry == CoreFormationSkills.DragonMight || entry == CoreFormationSkills.DragonAspectMight =>
+            (CoreFormationEffectFamilies.Dragon, FormationAreaKind.DragonMight, "earth"),
+        var entry when entry == CoreFormationSkills.PureYangDomain =>
+            (CoreFormationEffectFamilies.Yang, FormationAreaKind.Yang, "yang"),
+        var entry when entry == CoreFormationSkills.MysteriousYinDomain =>
+            (CoreFormationEffectFamilies.Yin, FormationAreaKind.Yin, "yin"),
+        _ => default
+    };
+
     /// <summary>根据原圆面半径和持续时间生成实际落点，继承该次施展的付款和所属人物。</summary>
     /// <param name="emission">原入口已受理的单次发射。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         var skill = emission.SkillContainer;
-        (string family, FormationAreaKind kind, string matter) = skill switch
-        {
-            var entry when entry == CoreFormationSkills.DragonAspectBurst =>
-                (CoreFormationEffectFamilies.Dragon, FormationAreaKind.Dragon, "earth"),
-            var entry when entry == CoreFormationSkills.DragonMight || entry == CoreFormationSkills.DragonAspectMight =>
-                (CoreFormationEffectFamilies.Dragon, FormationAreaKind.DragonMight, "earth"),
-            var entry when entry == CoreFormationSkills.PureYangDomain =>
-                (CoreFormationEffectFamilies.Yang, FormationAreaKind.Yang, "yang"),
-            var entry when entry == CoreFormationSkills.MysteriousYinDomain =>
-                (CoreFormationEffectFamilies.Yin, FormationAreaKind.Yin, "yin"),
-            _ => default
-        };
-        if (family == null) return SkillEmissionResult.Unhandled;
+        (string family, FormationAreaKind kind, string matter) = ShapeFor(skill);
+        if (family == null) return SkillEmissionResult.Rejected;
         if (emission.Sourceless || emission.Source.isRekt() || !emission.Source.isActor() ||
             !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         var caster = emission.Source.a.GetExtend();

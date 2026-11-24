@@ -36,7 +36,7 @@ internal static class SealRelayConstruction
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         var skill = emission.SkillContainer;
-        if (skill.GetComponent<SkillContainer>().Asset != SkillEntities.SealRelay) return SkillEmissionResult.Unhandled;
+        if (skill.GetComponent<SkillContainer>().Asset != SkillEntities.SealRelay) return SkillEmissionResult.Rejected;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
             emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         foreach (Type type in skill.GetComponentTypes())

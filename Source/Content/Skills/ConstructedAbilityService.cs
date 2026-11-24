@@ -77,25 +77,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public static void Initialize()
     {
         SkillModifiers.RegisterConstructionWorldEffects();
-        Core.SkillLibV3.Manager.ConstructionEmission = emission =>
-        {
-            SkillEmissionResult result = WeaponControlSkills.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FoxfireBreathConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = SealRelayConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = UtilityConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = ProjectileConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = GroundSpikeConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = RiftConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FieldConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = BarrierConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = SupportConstructionMigration.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FormationSelfConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FormationAreaConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FormationCueConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = FormationTargetConstruction.Emit(emission);
-            if (result == SkillEmissionResult.Unhandled) result = BeamConstructionMigration.Emit(emission);
-            return result == SkillEmissionResult.Unhandled ? ChainConstructionMigration.Emit(emission) : result;
-        };
+        Core.SkillLibV3.Manager.ConstructionEmission = BindOriginalEmissions();
         ConstructedInventoryInputs.Initialize();
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();

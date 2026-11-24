@@ -43,17 +43,19 @@ internal static class UtilityConstructionMigration
     /// <summary>保留同次落地的地块结果处理窗口。</summary>
     private const float TerrainPulseWindow = .004f;
 
+    internal static bool Supports(SkillEntityAsset asset) => templates.Contains(asset.id);
+
     /// <summary>只接管能够完整转换的功能步骤；没有新旧两个执行体，也不重复收费。</summary>
     /// <param name="emission">到达实际发射时点的步骤，若有费用仍由原入口负责。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
-        if (!templates.Contains(skill.GetComponent<SkillContainer>().SkillEntityAssetID) ||
-            !emission.Sourceless && emission.Source?.isActor() != true) return SkillEmissionResult.Unhandled;
+        if (!Supports(skill.GetComponent<SkillContainer>().Asset) ||
+            !emission.Sourceless && emission.Source?.isActor() != true) return SkillEmissionResult.Rejected;
         if (!emission.Sourceless && emission.Source.isRekt()) return SkillEmissionResult.Rejected;
         var caster = emission.Sourceless ? null : emission.Source.a.GetExtend();
         AbilityDefinition definition = Convert(emission, caster, out LegacyAreaImpact landing, out LegacyUtilityGravity gravity);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         Func<Vector3> trackTarget = null;
         Vector3 point = emission.TargetPos;
         if (definition.Binding.Follow && emission.Target != null && !emission.Target.isRekt())

@@ -10,57 +10,63 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Content.Skills;
 
 /// <summary>修炼反应在原事件点名的人物身边显形，由共用接触结算状态和伤害。</summary>
 internal static class FormationTargetConstruction
 {
+    internal static bool Supports(Entity skill) => ShapeFor(skill).Family != null;
+
+    private static (string Family, string form, string matter, FormationTargetEffect contact) ShapeFor(Entity skill) => skill switch
+    {
+        var entry when entry == CoreFormationSkills.FivePhaseStrike =>
+            (CoreFormationEffectFamilies.FivePhase, "earth_burst", "earth", FormationTargetEffect.None),
+        var entry when entry == CoreFormationSkills.ChaosEcho =>
+            (CoreFormationEffectFamilies.Chaos, "chaos_orb_impact", "entropy", FormationTargetEffect.None),
+        var entry when entry == CoreFormationSkills.ChaosRebirthEcho =>
+            (CoreFormationEffectFamilies.Chaos, "entropy_burst", "entropy", FormationTargetEffect.None),
+        var entry when entry == CoreFormationSkills.IronSeverance =>
+            (CoreFormationEffectFamilies.Iron, "sword_qi_1", "iron", FormationTargetEffect.ArmorBreak),
+        var entry when entry == CoreFormationSkills.WoodVenomBloom =>
+            (CoreFormationEffectFamilies.Wood, "wood_burst", "wood", FormationTargetEffect.Poison),
+        var entry when entry == CoreFormationSkills.WaterFrostBind =>
+            (CoreFormationEffectFamilies.Water, "frost_flower", "water", FormationTargetEffect.FrostBind),
+        var entry when entry == CoreFormationSkills.FireBrand =>
+            (CoreFormationEffectFamilies.Fire, "fire_burst", "fire", FormationTargetEffect.Burn),
+        var entry when entry == CoreFormationSkills.FireEmberBurst =>
+            (CoreFormationEffectFamilies.Fire, "flame_meteor_impact", "fire", FormationTargetEffect.EmberBurst),
+        var entry when entry == CoreFormationSkills.BodyCounter =>
+            (CoreFormationEffectFamilies.Body, "earth_wall_strata_rubble", "earth", FormationTargetEffect.BodyCounter),
+        var entry when entry == CoreFormationSkills.PrimalBodyCounter =>
+            (CoreFormationEffectFamilies.Body, "earth_burst", "earth", FormationTargetEffect.BodyCounter),
+        var entry when entry == CoreFormationSkills.CondensedRelease =>
+            (CoreFormationEffectFamilies.Condensed, "entropy_wedge", "entropy", FormationTargetEffect.CondensedRelease),
+        var entry when entry == CoreFormationSkills.SwordChase =>
+            (CoreFormationEffectFamilies.Sword, "flying_sword", "iron", FormationTargetEffect.SwordChase),
+        var entry when entry == CoreFormationSkills.SwordEmbryoStrike =>
+            (CoreFormationEffectFamilies.Sword, "flying_sword_1", "iron", FormationTargetEffect.SwordChase),
+        var entry when entry == CoreFormationSkills.YinDrain =>
+            (CoreFormationEffectFamilies.Yin, "yin_bolt_0", "yin", FormationTargetEffect.YinDrain),
+        var entry when entry == CoreFormationSkills.MysteriousYinDrain =>
+            (CoreFormationEffectFamilies.Yin, "yin_bolt", "yin", FormationTargetEffect.YinDrain),
+        var entry when entry == CoreFormationSkills.WoodLifeReturn =>
+            (CoreFormationEffectFamilies.Wood, "healing_seed", "wood", FormationTargetEffect.LifeReturn),
+        var entry when entry == CoreFormationSkills.YangCleanse =>
+            (CoreFormationEffectFamilies.Yang, "purification_surge", "yang", FormationTargetEffect.YangCleanse),
+        var entry when entry == CoreFormationSkills.PureYangCleanse =>
+            (CoreFormationEffectFamilies.Yang, "solar_scale_release", "yang", FormationTargetEffect.YangCleanse),
+        _ => default
+    };
+
     /// <summary>保留原碰撞大小、时间、伤害和本次触发确定的元素。</summary>
     /// <param name="emission">原修炼效果排入的实际发射步骤。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         var skill = emission.SkillContainer;
-        (string family, string form, string matter, FormationTargetEffect contact) = skill switch
-        {
-            var entry when entry == CoreFormationSkills.FivePhaseStrike =>
-                (CoreFormationEffectFamilies.FivePhase, "earth_burst", "earth", FormationTargetEffect.None),
-            var entry when entry == CoreFormationSkills.ChaosEcho =>
-                (CoreFormationEffectFamilies.Chaos, "chaos_orb_impact", "entropy", FormationTargetEffect.None),
-            var entry when entry == CoreFormationSkills.ChaosRebirthEcho =>
-                (CoreFormationEffectFamilies.Chaos, "entropy_burst", "entropy", FormationTargetEffect.None),
-            var entry when entry == CoreFormationSkills.IronSeverance =>
-                (CoreFormationEffectFamilies.Iron, "sword_qi_1", "iron", FormationTargetEffect.ArmorBreak),
-            var entry when entry == CoreFormationSkills.WoodVenomBloom =>
-                (CoreFormationEffectFamilies.Wood, "wood_burst", "wood", FormationTargetEffect.Poison),
-            var entry when entry == CoreFormationSkills.WaterFrostBind =>
-                (CoreFormationEffectFamilies.Water, "frost_flower", "water", FormationTargetEffect.FrostBind),
-            var entry when entry == CoreFormationSkills.FireBrand =>
-                (CoreFormationEffectFamilies.Fire, "fire_burst", "fire", FormationTargetEffect.Burn),
-            var entry when entry == CoreFormationSkills.FireEmberBurst =>
-                (CoreFormationEffectFamilies.Fire, "flame_meteor_impact", "fire", FormationTargetEffect.EmberBurst),
-            var entry when entry == CoreFormationSkills.BodyCounter =>
-                (CoreFormationEffectFamilies.Body, "earth_wall_strata_rubble", "earth", FormationTargetEffect.BodyCounter),
-            var entry when entry == CoreFormationSkills.PrimalBodyCounter =>
-                (CoreFormationEffectFamilies.Body, "earth_burst", "earth", FormationTargetEffect.BodyCounter),
-            var entry when entry == CoreFormationSkills.CondensedRelease =>
-                (CoreFormationEffectFamilies.Condensed, "entropy_wedge", "entropy", FormationTargetEffect.CondensedRelease),
-            var entry when entry == CoreFormationSkills.SwordChase =>
-                (CoreFormationEffectFamilies.Sword, "flying_sword", "iron", FormationTargetEffect.SwordChase),
-            var entry when entry == CoreFormationSkills.SwordEmbryoStrike =>
-                (CoreFormationEffectFamilies.Sword, "flying_sword_1", "iron", FormationTargetEffect.SwordChase),
-            var entry when entry == CoreFormationSkills.YinDrain =>
-                (CoreFormationEffectFamilies.Yin, "yin_bolt_0", "yin", FormationTargetEffect.YinDrain),
-            var entry when entry == CoreFormationSkills.MysteriousYinDrain =>
-                (CoreFormationEffectFamilies.Yin, "yin_bolt", "yin", FormationTargetEffect.YinDrain),
-            var entry when entry == CoreFormationSkills.WoodLifeReturn =>
-                (CoreFormationEffectFamilies.Wood, "healing_seed", "wood", FormationTargetEffect.LifeReturn),
-            var entry when entry == CoreFormationSkills.YangCleanse =>
-                (CoreFormationEffectFamilies.Yang, "purification_surge", "yang", FormationTargetEffect.YangCleanse),
-            var entry when entry == CoreFormationSkills.PureYangCleanse =>
-                (CoreFormationEffectFamilies.Yang, "solar_scale_release", "yang", FormationTargetEffect.YangCleanse),
-            _ => default
-        };
-        if (family == null) return SkillEmissionResult.Unhandled;
+        (string family, string form, string matter, FormationTargetEffect contact) = ShapeFor(skill);
+        if (family == null) return SkillEmissionResult.Rejected;
         if (emission.Sourceless || emission.Source.isRekt() || !emission.Source.isActor() ||
             !emission.Source.a.isAlive() || emission.Target.isRekt() || !emission.Target.isActor())
             return SkillEmissionResult.Rejected;

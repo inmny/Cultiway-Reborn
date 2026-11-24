@@ -8,37 +8,43 @@ using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Content.Skills;
 
 /// <summary>修炼已成立的结果通过共用立体部位显示，不因显示重新确认一次作用。</summary>
 internal static class FormationCueConstruction
 {
+    internal static bool Supports(Entity skill) => ShapeFor(skill).Family != null;
+
+    private static (string Family, string form, string matter, float scale, float height, float spin) ShapeFor(Entity skill) => skill switch
+    {
+        var entry when entry == CoreFormationSkills.EarthWard =>
+            (CoreFormationEffectFamilies.Earth, "guard_seal", "earth", 1.35f, .10f, 0f),
+        var entry when entry == CoreFormationSkills.EarthWardImpact =>
+            (CoreFormationEffectFamilies.Earth, "earth_wall_strata_rubble", "earth", .65f, .18f, 100f),
+        var entry when entry == CoreFormationSkills.BalancedAdaptation =>
+            (CoreFormationEffectFamilies.Balanced, "entropy_guard", "entropy", 1f, .32f, -70f),
+        var entry when entry == CoreFormationSkills.ReservoirOrb =>
+            (CoreFormationEffectFamilies.Condensed, "spirit_bolt", "wood", 1.46f, .75f, 80f),
+        var entry when entry == CoreFormationSkills.SpiritEcho =>
+            (CoreFormationEffectFamilies.Spiritual, "purification_surge", "spirit", .55f, .19f, -55f),
+        var entry when entry == CoreFormationSkills.IllusionDecoy =>
+            (CoreFormationEffectFamilies.Illusion, "spirit_colossus", "yin", .31f, 0f, 0f),
+        var entry when entry == CoreFormationSkills.InfantGuard =>
+            (CoreFormationEffectFamilies.Survival, "spirit_aegis", "yang", .66f, .32f, 48f),
+        var entry when entry == CoreFormationSkills.ChaosRebirth =>
+            (CoreFormationEffectFamilies.Survival, "chaos_orb", "entropy", 1.7f, .43f, -95f),
+        _ => default
+    };
+
     /// <summary>在原事件排入的步骤位置，用预付入口建立一次装饰显形。</summary>
     /// <param name="emission">原修炼效果实际排入的步骤。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         var skill = emission.SkillContainer;
-        (string family, string form, string matter, float scale, float height, float spin) = skill switch
-        {
-            var entry when entry == CoreFormationSkills.EarthWard =>
-                (CoreFormationEffectFamilies.Earth, "guard_seal", "earth", 1.35f, .10f, 0f),
-            var entry when entry == CoreFormationSkills.EarthWardImpact =>
-                (CoreFormationEffectFamilies.Earth, "earth_wall_strata_rubble", "earth", .65f, .18f, 100f),
-            var entry when entry == CoreFormationSkills.BalancedAdaptation =>
-                (CoreFormationEffectFamilies.Balanced, "entropy_guard", "entropy", 1f, .32f, -70f),
-            var entry when entry == CoreFormationSkills.ReservoirOrb =>
-                (CoreFormationEffectFamilies.Condensed, "spirit_bolt", "wood", 1.46f, .75f, 80f),
-            var entry when entry == CoreFormationSkills.SpiritEcho =>
-                (CoreFormationEffectFamilies.Spiritual, "purification_surge", "spirit", .55f, .19f, -55f),
-            var entry when entry == CoreFormationSkills.IllusionDecoy =>
-                (CoreFormationEffectFamilies.Illusion, "spirit_colossus", "yin", .31f, 0f, 0f),
-            var entry when entry == CoreFormationSkills.InfantGuard =>
-                (CoreFormationEffectFamilies.Survival, "spirit_aegis", "yang", .66f, .32f, 48f),
-            var entry when entry == CoreFormationSkills.ChaosRebirth =>
-                (CoreFormationEffectFamilies.Survival, "chaos_orb", "entropy", 1.7f, .43f, -95f),
-            _ => default
-        };
-        if (family == null) return SkillEmissionResult.Unhandled;
+        (string family, string form, string matter, float scale, float height, float spin) = ShapeFor(skill);
+        if (family == null) return SkillEmissionResult.Rejected;
         if (emission.Sourceless || emission.Source.isRekt() || !emission.Source.isActor() ||
             !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         var owner = emission.Source.a.GetExtend();

@@ -31,6 +31,8 @@ internal sealed class CoreFormationSkills : ICanInit
     private const float FrameInterval = 0.05f;
     private static readonly List<Entity> SkillContainers = new();
 
+    internal static IReadOnlyList<Entity> RegisteredContainers => SkillContainers;
+
     internal static Entity IronSeverance { get; private set; }
     internal static Entity WoodVenomBloom { get; private set; }
     internal static Entity WoodLifeReturn { get; private set; }

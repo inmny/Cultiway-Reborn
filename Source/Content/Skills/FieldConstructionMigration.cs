@@ -32,13 +32,13 @@ internal static class FieldConstructionMigration
     {
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            !IsField(skill.GetComponent<SkillContainer>().Asset))
-            return SkillEmissionResult.Unhandled;
+            !Supports(skill.GetComponent<SkillContainer>().Asset))
+            return SkillEmissionResult.Rejected;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         bool follow = definition.Binding.Follow;
         var target = new ActiveAbilityTarget(follow ? emission.Target : null, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
@@ -194,7 +194,7 @@ internal static class FieldConstructionMigration
 
     /// <summary>只接管五种没有额外人物状态的原领域，不按名字臆造毒状态或解构作用。</summary>
     /// <param name="asset">真实原来源。</param>
-    private static bool IsField(SkillEntityAsset asset) => asset == SkillEntities.PoisonPool ||
+    internal static bool Supports(SkillEntityAsset asset) => asset == SkillEntities.PoisonPool ||
         asset == SkillEntities.PoisonMist || asset == SkillEntities.EntropyField ||
         asset == SkillEntities.Tornado || asset == SkillEntities.YinField;
 }

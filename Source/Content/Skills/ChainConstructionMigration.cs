@@ -33,12 +33,12 @@ internal static class ChainConstructionMigration
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
             skill.GetComponent<SkillContainer>().Asset != SkillEntities.ChainLightning)
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         AbilityDefinition definition = Convert(emission, out GetHitEvent damage);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         var target = new ActiveAbilityTarget(emission.Target, emission.TargetPos, attackKingdom: emission.AttackKingdom,
             runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target,

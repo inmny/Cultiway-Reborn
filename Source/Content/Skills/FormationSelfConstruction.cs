@@ -8,29 +8,35 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Content.Skills;
 
 /// <summary>从修炼来源的真实出手开始自身法相，状态继续由修炼规则维护。</summary>
 internal static class FormationSelfConstruction
 {
+    internal static bool Supports(Entity skill) => ShapeFor(skill).Family != null;
+
+    private static (string Family, string form, string matter, float height, float scale, float spin) ShapeFor(Entity skill) => skill switch
+    {
+        var entry when entry == CoreFormationSkills.SwordEmbryoAura =>
+            (CoreFormationEffectFamilies.Sword, "sword_curtain", "iron", .21f, .55f, 84f),
+        var entry when entry == CoreFormationSkills.SpiritPlatform =>
+            (CoreFormationEffectFamilies.Spiritual, "spirit_aegis", "spirit", .66f, .8f, -56f),
+        var entry when entry == CoreFormationSkills.PrimalBody =>
+            (CoreFormationEffectFamilies.Body, "guard_seal", "earth", .12f, 1.15f, 0f),
+        var entry when entry == CoreFormationSkills.FivePhase =>
+            (CoreFormationEffectFamilies.FivePhase, "five_phase_mantle", "earth", .05f, .85f, 42f),
+        _ => default
+    };
+
     /// <summary>将授予容器的真实出手转换成绑定施法者的法相启动。</summary>
     /// <param name="emission">原主动能力已经确认的单次出手。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         var skill = emission.SkillContainer;
-        (string family, string form, string matter, float height, float scale, float spin) = skill switch
-        {
-            var entry when entry == CoreFormationSkills.SwordEmbryoAura =>
-                (CoreFormationEffectFamilies.Sword, "sword_curtain", "iron", .21f, .55f, 84f),
-            var entry when entry == CoreFormationSkills.SpiritPlatform =>
-                (CoreFormationEffectFamilies.Spiritual, "spirit_aegis", "spirit", .66f, .8f, -56f),
-            var entry when entry == CoreFormationSkills.PrimalBody =>
-                (CoreFormationEffectFamilies.Body, "guard_seal", "earth", .12f, 1.15f, 0f),
-            var entry when entry == CoreFormationSkills.FivePhase =>
-                (CoreFormationEffectFamilies.FivePhase, "five_phase_mantle", "earth", .05f, .85f, 42f),
-            _ => default
-        };
-        if (family == null) return SkillEmissionResult.Unhandled;
+        (string family, string form, string matter, float height, float scale, float spin) = ShapeFor(skill);
+        if (family == null) return SkillEmissionResult.Rejected;
         if (emission.Sourceless || emission.Source.isRekt() || !emission.Source.isActor() ||
             !emission.Source.a.isAlive() || emission.Source != emission.Target ||
             !TryResolve(emission.Source.a.GetExtend(), family, out CoreFormationResolvedEffect effect) ||

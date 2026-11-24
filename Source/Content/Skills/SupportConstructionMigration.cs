@@ -29,6 +29,10 @@ internal static class SupportConstructionMigration
         typeof(ProficiencyModifier), typeof(BurstCount), typeof(SalvoCount), typeof(ComboModifier), typeof(VolleyModifier)
     };
 
+    internal static bool Supports(SkillEntityAsset asset) => asset == SkillEntities.HealingLight ||
+        asset == SkillEntities.RejuvenationField || asset == SkillEntities.PurificationWave ||
+        asset == SkillEntities.BattleBlessing || asset == SkillEntities.GuardBlessing || asset == SkillEntities.HasteBlessing;
+
     /// <summary>只接管已完整映射的来源，受理失败沿用原支付撤销。</summary>
     /// <param name="emission">到达真实发射时点的已学来源。</param>
     internal static SkillEmissionResult Emit(SkillEmission emission)
@@ -36,14 +40,13 @@ internal static class SupportConstructionMigration
         Entity skill = emission.SkillContainer;
         var asset = skill.GetComponent<SkillContainer>().Asset;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            asset != SkillEntities.HealingLight && asset != SkillEntities.RejuvenationField && asset != SkillEntities.PurificationWave &&
-            asset != SkillEntities.BattleBlessing && asset != SkillEntities.GuardBlessing && asset != SkillEntities.HasteBlessing)
-            return SkillEmissionResult.Unhandled;
+            !Supports(asset))
+            return SkillEmissionResult.Rejected;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && !emission.SpatialSource.isActor())
-            return SkillEmissionResult.Unhandled;
+            return SkillEmissionResult.Rejected;
         AbilityDefinition definition = Convert(emission);
-        if (definition == null) return SkillEmissionResult.Unhandled;
+        if (definition == null) return SkillEmissionResult.Rejected;
         var target = new ActiveAbilityTarget(definition.Use.Target == ActiveAbilityTargetMode.Object ? emission.Target : null,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData, worldScope: emission.RuntimeData.WorldScope);
         // 载体有明确交锋余量，人物伤害始终为零；恢复量独立保存，不拿攻击力驱动治疗。
