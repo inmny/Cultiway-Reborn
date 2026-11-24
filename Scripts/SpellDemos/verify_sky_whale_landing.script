@@ -143,6 +143,33 @@ async Task<object> Landing()
             var cast = await Restage();
             int before = endings.Count;
             bool whale = false, rolling = false, stones = false, spill = false, water = false;
+            double maxInner = 0d, maxOuter = 0d;
+            Vector2 firstOuter = Vector2.zero;
+            var flooded = new HashSet<Vector2Int>();
+            void MeasureWater()
+            {
+                var layer = Water(cast, runoff);
+                var flow = (Vector3[])Field(layer, "Water");
+                int n = (int)Field(Field(layer, "Settings"), "Cells");
+                float cell = (float)Field(layer, "Cell");
+                Vector2 origin = (Vector2)Field(layer, "Origin");
+                double inside = 0d, outside = 0d;
+                for (int i = 0; i < flow.Length; i++)
+                {
+                    if (flow[i].x <= .015f) continue;
+                    Vector2 point = origin + new Vector2(i % n + .5f, i / n + .5f) * cell;
+                    flooded.Add(new Vector2Int((int)point.x, (int)point.y));
+                    double volume = flow[i].x * cell * cell;
+                    if (IsInFilmCity(city, point)) inside += volume;
+                    else
+                    {
+                        outside += volume;
+                        if (firstOuter == Vector2.zero) firstOuter = point;
+                    }
+                }
+                maxInner = Math.Max(maxInner, inside);
+                maxOuter = Math.Max(maxOuter, outside);
+            }
             var times = await Film(definition.Lifetime + .36f, () =>
             {
                 forms.Clear(); cast.AppendVisuals(forms);
@@ -152,14 +179,27 @@ async Task<object> Landing()
                     rolling |= (view.Transform * view.Skin[0]).MultiplyVector(Vector3.forward).normalized.z < -.7f;
                 stones |= new[] { 3,4,5 }.All(i => cast.NodeAge(i) >= 0f);
                 spill |= forms.Any(form => form.Resource.Description.Id == "water_whale_spill" && form.Layer == null);
-                water |= Flowing(cast, runoff) && !Exists(cast, 0) && forms.Any(form => form.Layer != null);
+                bool runoffVisible = Flowing(cast, runoff) && !Exists(cast, 0) && forms.Any(form => form.Layer != null);
+                water |= runoffVisible;
+                if (cityFilm && runoffVisible) MeasureWater();
             });
             Check(whale && rolling && stones && spill && water && RootTouches().Count() == 2 &&
                   ground.Count(hit => hit.Node is 1 or 2) == 2 && endings.Count == before + 1 && Live() == null,
                 "同段原速录像拍到起跃、翻转、卷石、垂流、撞散和自然退场", new { whale, rolling, stones, spill, water });
+            var cityWater = cityFilm ? new
+            {
+                maxInner, maxOuter, firstOuter = firstOuter.ToString(),
+                cells = flooded.OrderBy(p => p.x).ThenBy(p => p.y).Select(p => new { p.x, p.y }).ToArray(),
+                impacts = contacts.Where(hit => hit.Node == 0 && hit.Damage.HealthLost > 0).Select(hit => new
+                {
+                    hit.Age, hit.TargetId, point = hit.Position.ToString(), inCity = IsInFilmCity(city, hit.Position)
+                }).ToArray()
+            } : null;
+            if (cityFilm) Check(maxInner > .10d && maxOuter > .10d && cityWater.impacts.Any(hit => hit.inCity),
+                "真实覆压命中城内人物，分流在城内外都有实际水量", cityWater);
             return new { passed = true, times, duration = definition.Lifetime + .36f,
                 previewFrame = Math.Max(0, times.FindIndex(t => t >= 1.73)), view = recordView, scene = "construction",
-                resource = "wakan", paid = definition.Cost };
+                resource = "wakan", paid = definition.Cost, cityWater };
         }
         if (section == "impact") return new { passed = true, result = await Press(await Restage(), true), checks };
         var variant = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(folder, "variant.json")));

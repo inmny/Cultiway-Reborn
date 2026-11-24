@@ -6,6 +6,7 @@ Actor source = replay == null ? Make(64.5f) : World.world.units.get((long)replay
 Actor aim = replay == null ? Make(73.5f, "wolf") : World.world.units.get((long)replay["targetId"]);
 Actor side = replay == null ? Make(73.5f, "wolf") : World.world.units.get((long)replay["sideId"]);
 var owner = source.GetExtend();
+City city = null;
 var forms = new List<FormVisualInstance>();
 var shapes = new List<AbilityCapsule>();
 var trace = new List<object>();
@@ -55,7 +56,7 @@ try
         CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
         wolf.updateStats();
     }
-    await SetCamera(9f);
+    await SetCamera(cityFilm ? 16f : 9f);
     for (int x = 62; x <= 84; x++)
     for (int y = 66; y <= 81; y++)
     {
@@ -63,6 +64,7 @@ try
         tile.Height = 140;
         tile.setTileTypes(TileLibrary.soil_low, null, true);
     }
+    if (cityFilm) city = CreateFilmCity(72);
     await Advance(.18f);
     Check(!aim.isImmovable() && !side.isImmovable() && aim.asset.can_be_moved_by_powers && side.asset.can_be_moved_by_powers,
         "目标和侧边对照都能真实受力");

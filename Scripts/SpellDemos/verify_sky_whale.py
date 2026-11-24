@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('breach', 'spill', 'cutoff', 'stones', 'impact', 'save', 'native', 'worldfall'), default='breach')
     parser.add_argument('--resume-save', type=Path, help='只用上次输出目录中的正式世界复验重开后改角复放')
+    parser.add_argument('--city', action='store_true', help='复用原版城区及两侧水量记录')
     args = parser.parse_args()
+    if args.city and args.section != 'native':
+        parser.error('--city 只用于原版主术录像')
     section = args.section
     if args.resume_save and section != 'save':
         parser.error('--resume-save 仅用于 --section save')
@@ -47,10 +50,11 @@ def main():
                                   'foreach (Actor a in Array.Empty<Actor>())')
     camera = 'object cameraSettings' + (scripts / 'verify_wind_combat.script').read_text().split('object cameraSettings', 1)[1]
     camera = camera[:camera.index('void ReleaseChecks()')] + camera[camera.index('async Task SetCamera('):]
-    camera = camera.replace('67.7f, 72f', '72.5f, 74f')
+    camera = camera.replace('67.7f, 72f', '76.5f, 74f' if args.city else '72.5f, 74f')
     script = folder / 'input.script'
     script.write_text('using Cultiway.Const;\n' + helpers + f'\nconst string recordView = {json.dumps(view)};\n' +
-                      f'const string section = {json.dumps(section)};\n' + camera +
+                      f'const string section = {json.dumps(section)};\nbool cityFilm = {str(args.city).lower()};\n' + camera +
+                      (scripts / 'city_film_scene.script').read_text() +
                       (scripts / 'verify_sky_whale.script').read_text().replace(
                           '// 翻身和垂流。', (scripts / 'verify_sky_whale_spill.script').read_text() +
                           (scripts / 'verify_sky_whale_stones.script').read_text() +
@@ -64,7 +68,7 @@ def main():
     if not result.get('passed'):
         raise RuntimeError(f'天鲸覆城 {section} 未通过：{folder}')
     if filming:
-        encode(folder.parent, dict(key=folder.name, name='天鲸覆城：起跃、卷石、翻身、垂流与覆压', label='原速',
+        encode(folder.parent, dict(key=folder.name, name='天鲸覆城：起跃、卷石、翻身、垂流与覆压', label='城区实录' if args.city else '原速',
                                    variant=0, trajectory='', modifiers=[], caption='撞散后余水沿真实地形奔流'), keep_frames=True)
     print(json.dumps(dict(output=str(folder), result=result), ensure_ascii=False))
 
