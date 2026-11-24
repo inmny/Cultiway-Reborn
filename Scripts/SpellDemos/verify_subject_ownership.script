@@ -228,7 +228,7 @@ try
 
 // 生成和借用共享实际控制凭据，不能被另一执行体抢走或被旧结束清除。
     var world = Cultiway.ModClass.I.W;
-    Entity Execution() => world.CreateEntity(new SkillExecution(), new SkillExecutionWithoutBody());
+    Entity Execution() => world.CreateEntity(new SkillExecution());
     Check(!SkillExecutionLifecycle.TryBorrowBody(ArtifactSkillExecutions.FlyingSword.PrefabEntity, artifact),
         "正式预制原型不能取得原法宝的实际控制");
     var first = Execution();

@@ -56,8 +56,7 @@ Check(provider.Describe(owner, handle).Name.Contains("法宝承载验证飞剑")
 ConstructedAbilityService.Learn(target.GetExtend(), carried.Id);
 var foreign = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(target.GetExtend(), foreign);
 Check(!foreign.Any(h => h.EntryId == carried.Id && h.Source == artifact), "其他修士即使学会同一规则也不能取得本人的法宝入口");
-var held = Cultiway.ModClass.I.W.CreateEntity(new Cultiway.Core.SkillLibV3.Components.SkillExecution(),
-    new Cultiway.Core.SkillLibV3.Components.SkillExecutionWithoutBody());
+var held = Cultiway.ModClass.I.W.CreateEntity(new Cultiway.Core.SkillLibV3.Components.SkillExecution());
 Check(Cultiway.Core.SkillLibV3.Components.SkillExecutionLifecycle.TryBorrowBody(held, artifact), "已有执行取得同一原本体");
 float balance = owner.GetCultisys<Xian>().wakan;
 var choice = new ActiveAbilityTarget(target, target.GetSimPos());

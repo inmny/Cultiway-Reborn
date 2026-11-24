@@ -113,9 +113,6 @@ internal static class ArtifactSpatialAttackLauncher
             execution.GetComponent<Position>().value = position;
             execution.GetComponent<Rotation>().value = artifact.GetComponent<Rotation>().value;
             execution.GetComponent<PrevPosition>() = new PrevPosition { Value = position, Height = position.z };
-            ref SkillGroundFxState groundFxState = ref execution.GetComponent<SkillGroundFxState>();
-            groundFxState.LastX = execution.GetComponent<Position>().x;
-            groundFxState.LastY = execution.GetComponent<Position>().y;
             ArtifactBody body = artifact.GetComponent<ArtifactBody>();
             if (!spatial)
             {

@@ -22,8 +22,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
 {
     /// <summary>当前显示帧的模型快照；没有自己的玩法时钟。</summary>
     internal static readonly List<SpatialVisualMeshInstance> Meshes = new();
-    /// <summary>当前世界的实际近战执行体。</summary>
-    private readonly ArchetypeQuery<Position, Rotation, EquippedWeaponMotionState, AnimData, Scale> weapons;
     /// <summary>实际魔法护持身体。</summary>
     private readonly ArchetypeQuery<ActorBinder, Magic> mages;
     /// <summary>实际单帧物品的空间显示。</summary>
@@ -43,7 +41,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
     {
         QueryFilter filter = new();
         filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
-        weapons = world.Query<Position, Rotation, EquippedWeaponMotionState, AnimData, Scale>(filter);
         artifacts = world.Query<Position, Rotation, ArtifactAppearance, ArtifactManifestation>(filter);
         mages = world.Query<ActorBinder, Magic>(filter);
         QueryFilter spriteFilter = new();
@@ -81,11 +78,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             GroundWeaponService.Append(Meshes);
             bool worldfall = Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled;
             SampleArtifacts(worldfall);
-            if (worldfall)
-            {
-                SampleWeapons();
-                NativeProjectileFlights.AppendSpatial(Meshes);
-            }
+            if (worldfall) NativeProjectileFlights.AppendSpatial(Meshes);
         }
         nativeBatch.Clear();
         foreach (SpatialVisualMeshInstance instance in Meshes)
@@ -113,19 +106,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             if (projection.Pose.Model != null && projection.Pose.Tint.a > 0f &&
                 ArtifactSwordArrayExecution.IsActiveBlade(entity))
                 Meshes.Add(projection.Pose);
-        });
-    }
-
-    /// <summary>直接读取当前真实武器精灵和运动姿态，三维显示使用像素轮廓挤出的薄实体。</summary>
-    private void SampleWeapons()
-    {
-        weapons.ForEachEntity((ref Position position, ref Rotation rotation, ref EquippedWeaponMotionState _,
-            ref AnimData animation, ref Scale scale, Entity entity) =>
-        {
-            if (entity.Tags.Has<TagRecycle>() || animation.CurrentFrame == null) return;
-            float angle = AnimVisualUtils.GetVisualAngle(entity, ref rotation);
-            Meshes.Add(new SpatialVisualMeshInstance(SpatialSpriteMesh.Get(animation.CurrentFrame), position.value,
-                Quaternion.Euler(0f, 0f, angle), scale.value, Color.white));
         });
     }
 

@@ -48,6 +48,5 @@ public sealed class EquippedWeaponTrajectories : ExtendLibrary<TrajectoryAsset, 
         Motion.Orientations = TrajectoryOrientation.Melee;
         Motion.WithDomains(SkillTrajectoryDomain.Melee)
             .AddSemantics(DeliveryTag.Melee, MotionTag.MeleeSweep);
-        Motion.OnInit = entity => entity.AddComponent(new EquippedWeaponMotionState());
     }
 }

@@ -34,7 +34,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         FlyingSword.Element = ElementComposition.Static.Iron;
         FlyingSword.PrefabEntity = FlyingSword.World.CreateEntity(
             new SkillExecution(),
-            new SkillExecutionWithoutBody(),
             new SkillEntity
             {
                 Asset = FlyingSword,
@@ -68,7 +67,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         SwordArray.Element = ElementComposition.Static.Iron;
         SwordArray.PrefabEntity = SwordArray.World.CreateEntity(
             new SkillExecution(),
-            new SkillExecutionWithoutBody(),
             new SkillEntity
             {
                 Asset = SwordArray,

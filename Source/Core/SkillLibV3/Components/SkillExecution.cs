@@ -14,14 +14,6 @@ public struct SkillExecution : IComponent
     public bool end_requested;
 }
 
-/// <summary>
-/// 标记执行会话没有需要统一同步位姿的单一世界 Body。
-/// 会话仍可通过 Body 关系持有独立运动的派生实体，并在结束时统一回收它们。
-/// </summary>
-public struct SkillExecutionWithoutBody : IComponent
-{
-}
-
 /// <summary>实际本体归属于本次生成，还是原世界借用。</summary>
 public enum SkillExecutionBodyOwnership
 {

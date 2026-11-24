@@ -75,7 +75,7 @@ internal sealed class ConstructedArtifactCarrier : IDisposable
     {
         if (!CanBorrow(owner, artifact)) return null;
         ArtifactAppearanceRenderer.TryGetSpatialPose(artifact, out SpatialVisualMeshInstance before);
-        Entity execution = ModClass.I.W.CreateEntity(new SkillExecution(), new SkillExecutionWithoutBody(),
+        Entity execution = ModClass.I.W.CreateEntity(new SkillExecution(),
             new ConstructedCarrierSession());
         if (!SkillExecutionLifecycle.TryBorrowBody(execution, artifact))
         { SkillExecutionLifecycle.RequestEnd(execution); return null; }

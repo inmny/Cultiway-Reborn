@@ -457,7 +457,7 @@ public class SkillEntityAsset : Asset
     }
 
     /// <summary>
-    /// 为运行时法术实体挂载地面影响、扫掠碰撞和命中反馈节流所需的组件。
+    /// 为实际法宝执行准备扫掠前态和作用尺度。
     /// </summary>
     private void SetupRuntimeFx(Entity entity)
     {
@@ -465,19 +465,6 @@ public class SkillEntityAsset : Asset
 
         // 扫掠碰撞：记录上一帧位置
         entity.AddComponent(new PrevPosition { Value = new Vector2(pos.x, pos.y), Height = pos.z });
-
-        // 地面影响距离节流
-        entity.AddComponent(new SkillGroundFxState
-        {
-            DistanceAccumulator = 0f,
-            LastX = pos.x,
-            LastY = pos.y
-        });
-
-        entity.AddComponent(new SkillImpactFeedbackState
-        {
-            NextAllowedTime = 0f
-        });
 
         entity.AddComponent(new EffectRadiusScale
         {

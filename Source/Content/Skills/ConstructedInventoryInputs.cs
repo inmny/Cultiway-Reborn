@@ -103,7 +103,7 @@ internal sealed class ConstructedInventoryInputs : IDisposable
     internal static ConstructedInventoryInputs TryAcquire(ActorExtend owner, CompiledAbility plan)
     {
         if (!Select(owner, plan.Inventory, out var selected)) return null;
-        Entity execution = ModClass.I.W.CreateEntity(new SkillExecution(), new SkillExecutionWithoutBody(), new ConstructedInventorySession());
+        Entity execution = ModClass.I.W.CreateEntity(new SkillExecution(), new ConstructedInventorySession());
         var session = new ConstructedInventoryInputs(owner, execution, selected); sessions.Add(execution, session);
         foreach (Entity item in selected.Values.SelectMany(group => group))
         {
