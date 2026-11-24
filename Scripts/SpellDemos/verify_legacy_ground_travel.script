@@ -1,7 +1,5 @@
 // 相同对练地图，记录每次真正掠地的位置及地块操作。
-bool legacy = caseName == "legacy";
-var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
-var prior = legacy ? null : JObject.Parse(File.ReadAllText(travelBaseline));
+var prior = JObject.Parse(File.ReadAllText(travelBaseline));
 var results = new JArray();
 var samples = new List<JObject>();
 var hook = new HarmonyLib.Harmony("cultiway.test.ground-travel." + Guid.NewGuid().ToString("N"));
@@ -51,12 +49,7 @@ TravelProbe.Record = (pos, element, before, after) => samples.Add(JObject.FromOb
 hook.Patch(typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx).GetMethod("OnFlyOver", F),
     prefix: new HarmonyLib.HarmonyMethod(typeof(TravelProbe), nameof(TravelProbe.Before)),
     postfix: new HarmonyLib.HarmonyMethod(typeof(TravelProbe), nameof(TravelProbe.After)));
-if (legacy)
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
-        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
-            ? SkillEmissionResult.Unhandled : original(emission);
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
 try
 {
     foreach (SkillEntityAsset asset in travelSpells)
@@ -66,13 +59,12 @@ try
         bool stationary = asset == SkillEntities.PoisonPool;
         Reset(wind);
         samples.Clear();
-        int old = oldExecutions, current = casts.Count;
+        int current = casts.Count;
         Check(Use(skill), "原学习入口受理掠地对练", asset.id);
         await Advance(wind ? 2.6f : .88f);
-        Check(legacy ? oldExecutions == old + 1 && casts.Count == current :
-                       oldExecutions == old && casts.Count == current + 1, "原入口只产生对应的执行体", asset.id);
+        Check(casts.Count == current + 1, "原入口只产生一次正式施放", asset.id);
         var route = samples.ToArray();
-        float endX = legacy ? 0f : ((Matrix4x4)typeof(AbilityCast).GetMethod("NodeTransform", F)
+        float endX = ((Matrix4x4)typeof(AbilityCast).GetMethod("NodeTransform", F)
             .Invoke(casts.Last().Value, new object[] { 0 })).m03;
         int changed = route.Count(sample => (string)sample["before"] != (string)sample["after"]);
         results.Add(JObject.FromObject(new { id = asset.id, route, changed, endX }));
@@ -93,16 +85,13 @@ try
                 return before[4] == "False" && after[4] == "True";
             }
             Check(route.Any(ChangedAsExpected), "原元素在实走格子留下可核对的变化", new { asset.id, changed });
-            if (!legacy)
-            {
-                var previous = (JArray)prior["spells"].Single(value => (string)value["id"] == asset.id)["route"];
-                Check((string)previous[0]["element"] == (string)route[0]["element"] &&
-                      Math.Abs((float)previous[0]["x"] - (float)route[0]["x"]) < .11f &&
-                      route.All(sample => (float)sample["x"] <= endX + .01f),
-                    "原元素和起步坐标一致，末次取样不超出实际位置", new { asset.id, start = route[0], endX });
-            }
+            var previous = (JArray)prior["spells"].Single(value => (string)value["id"] == asset.id)["route"];
+            Check((string)previous[0]["element"] == (string)route[0]["element"] &&
+                  Math.Abs((float)previous[0]["x"] - (float)route[0]["x"]) < .11f &&
+                  route.All(sample => (float)sample["x"] <= endX + .01f),
+                "原元素和起步坐标一致，末次取样不超出实际位置", new { asset.id, start = route[0], endX });
         }
-        if (!legacy && !casts.Last().Value.Finished)
+        if (!casts.Last().Value.Finished)
         {
             long castId = casts.Last().Key;
             service.GetMethod("Cancel", F).Invoke(null, new object[] { castId });
@@ -120,15 +109,13 @@ try
         }
         await Advance(wind ? 4f : 3f);
     }
-    return new { passed = true, legacy, process, spells = results, checks };
+    return new { passed = true, legacy = false, process, spells = results, checks };
 }
 finally
 {
     hook.UnpatchSelf();
     TravelProbe.ReadTile = null;
     TravelProbe.Record = null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;

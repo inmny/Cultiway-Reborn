@@ -2744,7 +2744,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 旧攻击沿途掠地（10.01）
 
-在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_travel.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 复验当前实现，查看沿途格子状态及取消后的结果。可用 `--spell PoisonNeedle` 等参数只复验一个样本。
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_travel.py --baseline <原执行的 result.json>`。原记录来自此前发布的实际复验。当前入口核对沿途格子状态、取消和再施放，可用 `--spell PoisonNeedle` 指定一个样本。
 
 ### 旧攻击命中人物后的地块作用（10.01）
 
