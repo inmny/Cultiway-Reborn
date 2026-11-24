@@ -448,7 +448,8 @@ def main(all_spells):
     parser.add_argument("--fps", type=int, default=20, help="每世界秒截图上限")
     parser.add_argument("--battle-artifact", help="自主交战时装备一件指定主动能力的法宝，由 AI 决定使用")
     parser.add_argument("--battle-opponent", action="append", default=[], help="指定对手实际掌握的登记能力，可重复指定")
-    parser.add_argument("--battle-event", choices=["clash"], help="要求实际观察到双方自主施放的相撞")
+    parser.add_argument("--battle-event", choices=["clash", "guard", "break", "reflection", "element"],
+                        help="要求双方自主施放有实际相撞、格挡、破盾、反射或水火反应")
     parser.add_argument("--battle-seed", type=int, help="固定自主交战的原版随机种子")
     parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
     parser.add_argument("--motion-trace", action="store_true", help="随单招原帧记录真实外形、方向、身体姿态和阻挡")

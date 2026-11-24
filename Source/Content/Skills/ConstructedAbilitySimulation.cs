@@ -1350,8 +1350,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             long leftOwner = running.Owner(node).Id, rightOwner = right.Running.Owner(right.To.Node).Id;
             float leftBefore = running.Cast.RemainingForce(node), rightBefore = right.Running.Cast.RemainingForce(right.To.Node);
             float absorbed = Mathf.Min(leftBefore, rightBefore);
-            bool leftSurface = running.Cast.Role(node) == ConstructionContactRole.Barrier ||
-                right.Running.Cast.Role(right.To.Node) != ConstructionContactRole.Barrier && leftBefore <= rightBefore;
+            ConstructionContactRole leftRole = running.Cast.Role(node), rightRole = right.Running.Cast.Role(right.To.Node);
+            bool leftSurface = leftRole == ConstructionContactRole.Barrier ||
+                rightRole != ConstructionContactRole.Barrier && leftBefore <= rightBefore;
             AbilityMatter contactSurface = leftSurface ? running.Cast.Matter(node) : right.Running.Cast.Matter(right.To.Node);
             if (hit.LeftRayLength >= 0f && absorbed >= running.Cast.RemainingForce(node))
                 running.Cast.ClipRay(node, hit.LeftRayLength);
@@ -1374,7 +1375,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, leftOwner, rightOwner,
                 node, right.To.Node, hit.Point, hit.Normal, LogicTime, running.Cast.Age, right.Running.Cast.Age, absorbed,
                 leftAfter, rightAfter, running.SourceId, right.Running.SourceId, leftBefore - leftAfter,
-                rightBefore - rightAfter, ContactPartPresent(running, node), ContactPartPresent(right.Running, right.To.Node)));
+                rightBefore - rightAfter, ContactPartPresent(running, node), ContactPartPresent(right.Running, right.To.Node),
+                leftRole, rightRole));
             return;
         }
 

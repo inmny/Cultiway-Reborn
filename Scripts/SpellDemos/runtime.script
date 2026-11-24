@@ -892,6 +892,8 @@ private void Update()
         ConstructedAbilityService.QueuedDamageConfirmed += OnQueuedDamage;
     ConstructedAbilityService.CastEnded += OnConstructedEnd;
     ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
+    if ((string)request["scene"] == "battle")
+        ConstructedAbilityService.ReflectionConfirmed += OnConstructedReflection;
     StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() : Run()));
 }
 
@@ -973,6 +975,7 @@ private IEnumerator Guarded(IEnumerator steps)
     ConstructedAbilityService.CastEnded -= OnConstructedEnd;
     ConstructedAbilityService.QueuedDamageConfirmed -= OnQueuedDamage;
     ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
+    ConstructedAbilityService.ReflectionConfirmed -= OnConstructedReflection;
     FormVisualScene.Clear();
     Write(Path.Combine(output, "status.json"),
         new { done = true, current = currentCase, error = failure, sceneRestored, errors });
@@ -1078,6 +1081,9 @@ private IEnumerator ProbeFormResources()
 /// <summary>正式交锋结果，录像不会用显示重叠替代真实损耗。</summary>
 private readonly List<object> clashesLog = new();
 
+/// <summary>原来招已实际转向并移交归属的记录。</summary>
+private readonly List<object> reflectionsLog = new();
+
 /// <summary>真实世界材料转交、回收及入账，使用稳定材料编号关联。</summary>
 private readonly List<object> worldMaterialsLog = new();
 
@@ -1094,6 +1100,7 @@ private void OnConstructedClash(ConstructedClash clash)
         leftOriginal = clash.LeftOriginalSource, rightOriginal = clash.RightOriginalSource,
         leftSpent = clash.LeftSpent, rightSpent = clash.RightSpent, leftPresent = clash.LeftPresent,
         rightPresent = clash.RightPresent, guardShape = clash.GuardShape,
+        leftRole = clash.LeftRole.ToString(), rightRole = clash.RightRole.ToString(),
         absorbed = clash.Absorbed, leftRemaining = clash.LeftRemaining, rightRemaining = clash.RightRemaining,
         point = new[] { clash.Position.x, clash.Position.y, clash.Position.z }
     });
@@ -1104,6 +1111,21 @@ private void OnConstructedClash(ConstructedClash clash)
     if (barrierBefore == 0) barrierBefore = barrierLowest = remaining + clash.Absorbed;
     barrierLowest = Mathf.Min(barrierLowest, remaining);
 }
+
+/// <summary>保留原施放和屏障实际支付，供双方自主交锋核对。</summary>
+private void OnConstructedReflection(ConstructedReflection reflection) => reflectionsLog.Add(new
+{
+    cast = reflection.CastId, barrierCast = reflection.BarrierCast,
+    node = reflection.Node, barrierNode = reflection.BarrierNode,
+    original = reflection.OriginalSource, previous = reflection.PreviousOwner, owner = reflection.Owner,
+    barrierOriginal = reflection.BarrierOriginalSource, barrierOwner = reflection.BarrierOwner,
+    time = reflection.WorldTime, count = reflection.Count, force = reflection.Force,
+    barrierSpent = reflection.BarrierSpent, barrierPresent = reflection.BarrierPresent,
+    barrierRemaining = reflection.BarrierRemaining,
+    point = new[] { reflection.Position.x, reflection.Position.y, reflection.Position.z },
+    incoming = new[] { reflection.IncomingVelocity.x, reflection.IncomingVelocity.y, reflection.IncomingVelocity.z },
+    outgoing = new[] { reflection.OutgoingVelocity.x, reflection.OutgoingVelocity.y, reflection.OutgoingVelocity.z }
+});
 
 /// <summary>通过正式学习和施放入口录制当前资料。</summary>
 /// <param name="item">当前构造及其录制编号。</param>
@@ -3203,6 +3225,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
     burningLog.Clear();
     contactsLog.Clear();
     clashesLog.Clear();
+    reflectionsLog.Clear();
     areasLog.Clear();
     barrierLog.Clear();
     footprints.Clear();
@@ -3239,12 +3262,35 @@ private IEnumerator RecordBattle(JObject item, string folder)
     var rivalCasts = autonomous.Where(row => (long?)row["source"] == enemy.id).ToArray();
     var leftIds = new HashSet<long>(casts.Where(row => row["cast"] != null).Select(row => (long)row["cast"]));
     var rightIds = new HashSet<long>(rivalCasts.Where(row => row["cast"] != null).Select(row => (long)row["cast"]));
+    bool Opposing(long first, long second) => leftIds.Contains(first) && rightIds.Contains(second) ||
+        rightIds.Contains(first) && leftIds.Contains(second);
     var pairedClashes = clashesLog.Select(JObject.FromObject).Where(row =>
-        ((float)row["absorbed"]) > 0f &&
-        (leftIds.Contains((long)row["leftCast"]) && rightIds.Contains((long)row["rightCast"]) ||
-         rightIds.Contains((long)row["leftCast"]) && leftIds.Contains((long)row["rightCast"]))).ToArray();
-    string reason = (string)request["battleEvent"] == "clash" && pairedClashes.Length == 0
-        ? "观察时间内未发生双方自主施放的相撞损耗" : null;
+        (float)row["absorbed"] > 0f && Opposing((long)row["leftCast"], (long)row["rightCast"])).ToArray();
+    bool GuardedAttack(JObject row, string guard, string attack) =>
+        (string)row[guard + "Role"] == nameof(ConstructionContactRole.Barrier) &&
+        (string)row[attack + "Role"] == nameof(ConstructionContactRole.Attack) &&
+        (float)row[guard + "Spent"] > 0f;
+    bool BrokenGuard(JObject row, string guard, string attack) =>
+        GuardedAttack(row, guard, attack) && !(bool)row[guard + "Present"] &&
+        (float)row[guard + "Remaining"] <= 0f && (bool)row[attack + "Present"] &&
+        (float)row[attack + "Remaining"] > 0f;
+    var guards = pairedClashes.Where(row => GuardedAttack(row, "left", "right") || GuardedAttack(row, "right", "left")).ToArray();
+    var breaks = guards.Where(row => BrokenGuard(row, "left", "right") || BrokenGuard(row, "right", "left")).ToArray();
+    var pairedReflections = reflectionsLog.Select(JObject.FromObject).Where(row =>
+        Opposing((long)row["cast"], (long)row["barrierCast"]) && (float)row["barrierSpent"] > 0f &&
+        (long)row["previous"] != (long)row["owner"] && (long)row["owner"] == (long)row["barrierOwner"]).ToArray();
+    var pairedReactions = quenchingLog.Select(JObject.FromObject).Where(row =>
+        Opposing((long)row["fireCast"], (long)row["waterCast"]) &&
+        (float)row["spent"] > 0f && (double)row["evaporated"] > 0d).ToArray();
+    string reason = (string)request["battleEvent"] switch
+    {
+        "clash" when pairedClashes.Length == 0 => "观察时间内未发生双方自主施放的相撞损耗",
+        "guard" when guards.Length == 0 => "观察时间内未发生双方自主施放的格挡消耗",
+        "break" when breaks.Length == 0 => "观察时间内未发生双方自主施放的破盾结果",
+        "reflection" when pairedReflections.Length == 0 => "观察时间内未发生双方自主施放的反射交接",
+        "element" when pairedReactions.Length == 0 => "观察时间内未发生双方自主施放的水火相消",
+        _ => null
+    };
     bool artifactUsed = battleArtifact == null || artifact.GetComponent<ArtifactAbilityRuntime>().abilities
         .Any(entry => entry.instance_id == battleArtifact && entry.last_triggered_at >= start);
     int distinct = casts.Select(row => (string)row["id"]).Distinct().Count();
@@ -3264,7 +3310,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
         lightingState = LightingState(), scene = "battle", executionLog, contactsLog, areasLog, barrierLog,
         participants = new[] { new { id = caster.id, before = ownerHealth, after = Health(caster) },
             new { id = enemy.id, before = rivalHealth, after = Health(enemy) } },
-        clashesLog, pairedClashes,
+        clashesLog, pairedClashes, guards, breaks, reflectionsLog, pairedReflections, quenchingLog, pairedReactions,
         footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
         validation = "没有脚本逐帧调用施法、规划或执行；仅观察原版 AI 调度", frozen = caster.hasTag("frozen_ai"),

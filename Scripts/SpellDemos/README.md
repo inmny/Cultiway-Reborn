@@ -123,7 +123,7 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 python3 -m unittest discover -s Scripts/SpellDemos -p 'test_*.py'
 ```
 
-`--scene shield` 接受实际屏障、护盾或金钟护界。`--scene battle` 可用基础法术或构造，双方从初始站位开始自行交战。基础法术场景仍核对同次出手。构造场景核对双方正式自主施放，可加 `--battle-event clash` 要求两次自主施放发生实际相撞。对手可通过 `--battle-opponent` 或 `--opponent-construction` 选择。可加 `--battle-artifact FlyingSwordAttack` 装备飞剑法宝，额外要求 AI 实际使用。[自主交战实测](../../Doc/技能系统全面重构/演示入口与能力目录.md#自主交战和真实交锋1405)
+`--scene shield` 接受实际屏障、护盾或金钟护界。`--scene battle` 可用基础法术或构造，双方从初始站位开始自行交战。基础法术场景仍核对同次出手。构造场景核对双方正式自主施放，可用 `--battle-event` 要求实际相撞（`clash`）、格挡（`guard`）、破盾（`break`）、转手反射（`reflection`）或水火相消（`element`）。对手可通过 `--battle-opponent` 或 `--opponent-construction` 选择。可加 `--battle-artifact FlyingSwordAttack` 装备飞剑法宝，额外要求 AI 实际使用。[自主交战实测](../../Doc/技能系统全面重构/演示入口与能力目录.md#自主交战和真实交锋1405)
 
 法宝演示按能力选择钟、印、幡等代表器形；材料和能力参数来自同一份实际炼制设计，结果记录器形、材料与参数。为观察指定能力，演示仅保留这一项能力，不代表自然炼制一定只产出该能力。
 

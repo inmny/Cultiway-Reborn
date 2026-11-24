@@ -114,6 +114,7 @@ public sealed partial class ConstructedAbilityService
             right.Running.Cast.Age, consumed, leftBody ? force - consumed : imageAfter,
             leftBody ? imageAfter : force - consumed, hit.Left.Running.SourceId, right.Running.SourceId,
             leftBody ? consumed : imageBefore - imageAfter, leftBody ? imageBefore - imageAfter : consumed,
-            ContactPartPresent(hit.Left.Running, hit.Left.To.Node), ContactPartPresent(right.Running, right.To.Node)));
+            ContactPartPresent(hit.Left.Running, hit.Left.To.Node), ContactPartPresent(right.Running, right.To.Node),
+            hit.Left.Running.Cast.Role(hit.Left.To.Node), right.Running.Cast.Role(right.To.Node)));
     }
 }

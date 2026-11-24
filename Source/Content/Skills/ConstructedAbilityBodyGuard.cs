@@ -143,6 +143,6 @@ public sealed partial class ConstructedAbilityService
             node, -1, hit.Point, hit.Normal, LogicTime, attack.Cast.Age, guard.Cast.Age, spent,
             after, guard.BodyGuardRemaining, attack.SourceId, guard.SourceId, before - after,
             guardBefore - guard.BodyGuardRemaining, ContactPartPresent(attack, node), guard.BodyControlled,
-            hit.BodyGuardFacing, defense.To.Shape));
+            attack.Cast.Role(node), guard.Cast.Role(-1), hit.BodyGuardFacing, defense.To.Shape));
     }
 }
