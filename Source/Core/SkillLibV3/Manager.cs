@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Threading;
+using Cultiway.Content.Systems.Logic;
 using Cultiway.Core.Components;
 using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3.Components;
@@ -77,6 +78,7 @@ public class Manager
         SkillLogicSystemGroup.Add(new SkillCooldownSystem());
         SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new ArtifactBladeFlightSystem());
         SkillLogicSystemGroup.Add(new LogicSkillBarrierSystem());
         SkillLogicSystemGroup.Add(new LogicSkillPositionImpactSystem());
         SkillLogicSystemGroup.Add(new LogicSkillPeriodicEffectSystem());

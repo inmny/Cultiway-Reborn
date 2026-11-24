@@ -84,11 +84,16 @@ public sealed partial class ConstructedAbilityService
     /// <param name="entity">刚完成轨迹更新的旧执行体。</param>
     void ISkillBarrierBridge.Intercept(Entity entity)
     {
-        if (barriers.Count == 0) return;
         const SkillTrajectoryDomain kinds = SkillTrajectoryDomain.FlyingBody | SkillTrajectoryDomain.FlyingWave |
             SkillTrajectoryDomain.Ballistic | SkillTrajectoryDomain.Skyfall | SkillTrajectoryDomain.Beam;
-        if ((entity.GetComponent<Trajectory>().Asset.Domains & kinds) == 0 ||
-            !entity.TryGetComponent(out ColliderSphere collider)) return;
+        if ((entity.GetComponent<Trajectory>().Asset.Domains & kinds) != 0) InterceptFlyingBody(entity);
+    }
+
+    /// <summary>确认一个实际飞行路径是否被共同屏障截住。</summary>
+    /// <param name="entity">带实际前后位置及来向的飞行物。</param>
+    internal static bool InterceptFlyingBody(Entity entity)
+    {
+        if (barriers.Count == 0 || !entity.TryGetComponent(out ColliderSphere collider)) return false;
         SkillContext context = entity.GetComponent<SkillContext>();
         Vector3 end = entity.GetComponent<Position>().value;
         Vector3 start = entity.TryGetComponent(out PrevPosition previous)
@@ -106,9 +111,10 @@ public sealed partial class ConstructedAbilityService
         var a = new AbilityCapsule(0, start - direction * backward, start + direction * forward, radius, null);
         var b = new AbilityCapsule(0, end - direction * backward, end + direction * forward, radius, null);
         if (!FindBarrier(a, b, context.ResolveAttackKingdom(), context.SourceObj?.isActor() == true ? context.SourceId : 0, null, false, out BarrierContact wall,
-            out _, out Vector3 point)) return;
+            out _, out Vector3 point)) return false;
         entity.AddTag<TagRecycle>();
         ConsumeBarrier(wall, context.Strength, point);
+        return true;
     }
 
     /// <summary>将相对地表的旧对象坐标换算到共同世界高度。</summary>

@@ -85,7 +85,9 @@ try
     await WaitFor(() => !Current(original).active_execution.IsNull, .45f);
     var execution = Current(original).active_execution;
     Check(!execution.IsNull && execution.TryGetComponent(out ArtifactSpatialAttackMotion motion) &&
-          motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn && (bool)swept.Invoke(execution, new object[] { null }) &&
+          motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn &&
+          !execution.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>() &&
+          (bool)swept.Invoke(execution, new object[] { null }) &&
           original.HasComponent<SkillExecutionBodyLease>() &&
           execution.GetComponent<SkillContext>().RuntimeData.DamageOrigin == DamageOrigin.Reaction &&
           Current(original).charges == first.charges - 1 && Current(other).charges == opposing.charges,

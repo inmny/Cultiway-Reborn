@@ -35,6 +35,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         FlyingSword.Element = ElementComposition.Static.Iron;
         FlyingSword.PrefabEntity = FlyingSword.World.CreateEntity(
             new SkillExecution(),
+            new SkillExecutionWithoutBody(),
             new SkillEntity
             {
                 Asset = FlyingSword,
@@ -64,7 +65,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
                 Building = true,
                 Enemy = true,
             })
-            .SetupDefaultTraj(ArtifactSkillTrajectories.FlyingSword)
             .OnObjCollision = ResolveFlyingSwordHit;
 
         SwordArray.Element = ElementComposition.Static.Iron;

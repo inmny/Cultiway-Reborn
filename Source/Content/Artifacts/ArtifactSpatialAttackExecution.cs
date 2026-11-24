@@ -9,7 +9,7 @@ using UnityEngine;
 namespace Cultiway.Content.Artifacts;
 
 /// <summary>
-/// 借用法宝真实本体发动空间攻击的共用轨迹。会话计算位姿，Core 随后将位姿同步到被借用的 Body。
+/// 借用法宝真实本体发动空间攻击的共用飞行。确认后由法宝飞行系统写入被借用的原件。
 /// </summary>
 internal static partial class ArtifactSpatialAttackExecution
 {
@@ -26,20 +26,25 @@ internal static partial class ArtifactSpatialAttackExecution
     private const float AfterimageSpeedPerLayer = 11f;
     private static readonly ArtifactSpatialTargeting Targeting = new();
 
-    public static void Update(
-        ref SkillContext context,
-        ref Position position,
-        ref Rotation rotation,
-        Entity execution,
-        float deltaTime)
+    /// <summary>沿用原追踪与收势规则，保留本轮飞行前态，供实际扫掠及屏障确认。</summary>
+    /// <param name="execution">实际原件飞行会话。</param>
+    /// <param name="deltaTime">本轮消耗的世界秒数。</param>
+    /// <param name="body">仍由本次会话控制的原件。</param>
+    internal static bool Advance(Entity execution, float deltaTime, out Entity body)
     {
-        if (ModClass.I.Game.IsPaused()) return;
-        if (!TryResolveOwnerAndBody(ref context, execution, out Actor owner, out Entity body))
+        body = default;
+        if (execution.IsNull || execution.GetComponent<SkillExecution>().end_requested ||
+            ModClass.I.Game.IsPaused()) return false;
+        ref SkillContext context = ref execution.GetComponent<SkillContext>();
+        if (!TryResolveOwnerAndBody(ref context, execution, out Actor owner, out body))
         {
             SkillExecutionLifecycle.RequestEnd(execution);
-            return;
+            return false;
         }
 
+        ref Position position = ref execution.GetComponent<Position>();
+        ref Rotation rotation = ref execution.GetComponent<Rotation>();
+        execution.GetComponent<PrevPosition>() = new PrevPosition { Value = position.v2, Height = position.z };
         ref ArtifactSpatialAttackMotion motion = ref execution.GetComponent<ArtifactSpatialAttackMotion>();
 
         ref ArtifactManifestation manifestation = ref body.GetComponent<ArtifactManifestation>();
@@ -95,12 +100,10 @@ internal static partial class ArtifactSpatialAttackExecution
                 break;
         }
 
-        if (motion.spatial_model)
-        {
-            if (!execution.GetComponent<SkillExecution>().end_requested)
-                UpdateBlade(execution, body, in motion, position.value, rotation);
-        }
+        if (execution.GetComponent<SkillExecution>().end_requested) return false;
+        if (motion.spatial_model) UpdateBlade(execution, body, in motion, position.value, rotation);
         else UpdateAfterimage(execution, motion.current_speed);
+        return true;
     }
 
     private static void UpdatePursuing(
