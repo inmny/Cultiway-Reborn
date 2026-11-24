@@ -53,8 +53,8 @@ Source/Core/（通用框架，不含具体修仙玩法语义）
   EventSystem/           事件总线 EventSystemHub + 事件定义 + 处理系统
   Libraries/             模组自有资产库（XxxAsset + XxxLibrary 成对）+ Manager
   Persistence/           独立 JSON 存档（ModSaveManager + SaveDocumentDefinition + 迁移链）
-  SkillLibV3/            技能子框架（组件/系统/施法/弹道/命中/视觉/万法阁）
-  Skills/               新构造定义、有限展开编译和单次运行；正在逐步接替旧技能执行
+  SkillLibV3/            已学法术、支付、发射、原编号与万法阁
+  Skills/               构造定义、共用操作、编译和单次运行
   Visuals/Forms/        共用模型、部件、挂点及原版显示；Worldfall接入在内容兼容层
                        资源按版本完整加载和验证；实例从所属资源取材质，重载保留旧施放，失去引用后主线程释放
   SubWorlds/ GeoLib/ Combat/ Performance/ Pathfinding/ Logging/ Localization/
@@ -164,6 +164,12 @@ public partial class WorldboxGame
 | 新贴图/特效/皮肤 | `GameResources/cultiway/...`（按第 4 节约定） | 见第 4 节表格 |
 | 新辅助脚本 | `Scripts/`（动词开头命名；包用 `python -m Scripts.<名>`） | 无；产物不进 git |
 | 新大子系统（小世界/技能库级别） | `Source/Core/<名>Lib/`（框架）+ `Source/Content/`（玩法数据） | 自带 Manager 挂 SystemGroup；`ModClass.OnModLoad` new 并 Init |
+
+## 技能接入
+
+主动能力经 `ActiveAbilityService` 选择和受理。已学技能保留容器与学习关系，经序列确定实际支付及发射时点。共同构造由 `AbilityCompiler` 生成单次运行资料，由 `ConstructedAbilityService` 管理实际施放。器物、专属动作和持久世界过程从同一个受理入口进入各自的真实执行。
+
+需要新增共用操作、制作形体、修改存档资料或录制实机效果时，沿用[技能接入手册](../Doc/技能系统全面重构/技能接入手册.md)的示例和验证入口。
 
 ## 构建与发布
 

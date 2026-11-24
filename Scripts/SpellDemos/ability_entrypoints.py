@@ -254,7 +254,7 @@ ROUTES["consumable"] = dict(LEARNED,
 
 ROUTES["palm"] = dict(CONSTRUCTION,
     learning=at("身体适配的徒手来源直接提供；不要求把掌击再学习一遍。", CONTENT + "Combat/PalmStrikeCombat.cs::public void Collect"),
-    casting=at("旧掌击能力入口调用共同 Start，旧专用 Action 循环已删除。", CONTENT + "Combat/PalmStrikeCombat.cs::public bool TryUse"),
+    casting=at("掌击能力入口提交共同身体动作。", CONTENT + "Combat/PalmStrikeCombat.cs::public bool TryUse"),
     payment=at("当前正式掌击资料 Cost 为零；伤害和恢复仍按实际身体与普攻规则，其他改造读取自己的费用。",
                "Content/Skills/Body/palm-strike.json", NEW + "ConstructedAbilityService.cs::ConstructionResources.TryBegin"),
     manual=at("掌击声明 Combat，可在附体轮换中选择并调用；仍需真实身体、敌方人物及动作恢复条件。",
@@ -262,7 +262,7 @@ ROUTES["palm"] = dict(CONSTRUCTION,
 
 ROUTES["internal_artifact"] = dict(ARTIFACT,
     learning=at("不独立学习，只由对应法宝能力启动或内部派生。", CONTENT + "Artifacts/ArtifactSkillExecutions.cs"),
-    casting=at("旧技能内部执行/剑阵子体，不是另一个主动提供者。", CONTENT + "Artifacts/ArtifactSkillExecutions.cs"),
+    casting=at("原法宝内部执行和剑阵子体由所属法宝发起。", CONTENT + "Artifacts/ArtifactSkillExecutions.cs"),
     payment=at("费用归原法宝生命周期，此内部执行不独立按默认需求收费。", CONTENT + "Artifacts/ArtifactAbilityLifecycle.cs"),
     effect=LEARNED["effect"],
     manual=at("没有独立按钮，人工使用其所属法宝主动能力。", CONTENT + "Artifacts/ActiveAbilities/ArtifactActiveAbilityProvider.cs"),
@@ -426,7 +426,7 @@ def render_entrypoints(payload):
             cell = fields[field]
             lines.append("| " + label + " | " + cell["text"] + " " + links(cell["sources"]) + " |")
     for kind in Counter(row["kind"] for row in payload["entries"]):
-        lines += ["", "## " + kind, "", "| 稳定定位符与名称 | 应用路径 | 本项调用差异 | 当前作用/显示与回调 | 新旧执行状态 |", "|---|---|---|---|---|"]
+        lines += ["", "## " + kind, "", "| 稳定定位符与名称 | 应用路径 | 本项调用差异 | 当前作用/显示与回调 | 执行说明 |", "|---|---|---|---|---|"]
         for entry in (entry for entry in payload["entries"] if entry["kind"] == kind):
             changes = [FIELDS[field] + "：" + cell["text"] + links(cell["sources"]) for field, cell in entry["overrides"].items()]
             details = entry["details"]
@@ -513,7 +513,7 @@ def links(refs):
 
 
 def export_entrypoints(data, destination):
-    """每项登记应用完整九字段路径，再附真实回调、差异及旧路径状态。"""
+    """每项登记应用完整九字段路径，再附真实回调和执行说明。"""
     declarations, types, texts = source_index()
     names = locale_index()
     providers = data["sourceEntrances"]
@@ -525,6 +525,14 @@ def export_entrypoints(data, destination):
     routes.update(process_routes())
     profiles = {key: {field: dict(text=value["text"], sources=[source_ref(ref) for ref in value["sources"]])
                       for field, value in fields.items()} for key, fields in routes.items()}
+    execution_notes = {
+        "palm": "原掌击入口提交共同身体动作",
+        "construction": "独立构造经共同编译和执行",
+        "utility": "正式发射接入实际世界作用，旧编号和学习资料保留",
+        "learned": "已学容器经正式发射，学习关系沿用原编号",
+        "weapon": "原武器按实际发射和回手规则执行",
+        "internal_artifact": "所属法宝维护的专属部位或执行记录",
+    }
     entries = []
     for raw in data["entries"]:
         entry = enrich(raw, names, declarations, types, texts)
@@ -553,11 +561,7 @@ def export_entrypoints(data, destination):
             overrides["payment"] = dict(text="不走普通施法收费；本条启动、维持或归返是否改变资源，由所列实际领域方法处理。",
                                         sources=command_refs)
             overrides["effect"] = dict(text="本条实际提交的领域方法，不与同组其他命令混用。", sources=command_refs)
-        migration = ("共同执行，旧专用掌击结算已删除" if profile == "palm" else
-                     "新增共同构造；不表示其他旧来源已替换" if profile == "construction" else
-                     "部分转入共同执行；Convert 返回空仍走旧分支，旧容器保存保留" if profile == "utility" else
-                     "纯显示辅助，非迁移对象" if profile == "raw" else
-                     "当前专属或旧执行在用，未删除")
+        migration = execution_notes.get(profile, "沿用表中所列调用路径")
         entries.append(dict(key=raw["key"], name=entry["displayName"], kind=raw["kind"], profile=profile,
                             details=details, callbacks=specific, migration=migration, trajectory=raw.get("trajectory"),
                             overrides=overrides,
