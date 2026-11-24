@@ -16,7 +16,7 @@ public static class SkillGroundFx
     internal const float FlyOverDistanceThreshold = .6f;
 
     /// <summary>
-    /// 法术飞行掠过时对地面的轻量影响。由 <see cref="Systems.LogicSkillGroundFxRecordSystem"/> 按距离节流调用。
+    /// 法术实际飞行掠过时对地面的轻量影响。
     /// </summary>
     public static void OnFlyOver(Vector3 pos, SkillVfxElementAsset element)
     {

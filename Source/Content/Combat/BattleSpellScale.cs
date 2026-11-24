@@ -1,13 +1,10 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Visuals;
 using Cultiway.Core;
-using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Patch;
-using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -20,7 +17,6 @@ internal static class BattleSpellScale
     internal static void Initialize()
     {
         SkillEffectRadius.CasterGrowth = ResolveContainerGrowth;
-        Core.SkillLibV3.Manager.ExecutionConfigured += Configure;
         SkillHitResolver.AreaResolved += BattleSpellVisualRuntime.OnAreaResolved;
         PatchMapBox.RegisterActionOnClearWorld(BattleSpellVisualRuntime.Clear);
     }
@@ -50,29 +46,5 @@ internal static class BattleSpellScale
             growth*=Mathf.Lerp(1f,2f,Mathf.InverseLerp(1f,6.4f,growth));
         float basis=SkillEffectRadius.ResolveContainer(container,Mathf.Max(asset.ImpactProfile.EffectRadius*asset.ImpactTuning.EffectRadiusMultiplier,asset.ImpactProfile.CollisionRadius));
         return basis>0?Mathf.Max(1f,Mathf.Min(growth,32f/basis)):growth;
-    }
-
-    /// <summary>图纸修正已就绪后放大实际范围；近战武器、法宝借体和无来源天劫保持自身规则。</summary>
-    /// <param name="entity">已经配置好的普通法术。</param>
-    private static void Configure(Entity entity)
-    {
-        var skill=entity.GetComponent<SkillEntity>();
-        if(!SkillSpatialVisualCatalog.Forms.ContainsKey(skill.Asset.id) &&
-            skill.Asset!=SkillEntities.LightningStrike && skill.Asset!=SkillEntities.GroundSpike)return;
-        SkillContext context=entity.GetComponent<SkillContext>();
-        ActorExtend owner=context.SourceObj?.isActor()==true && !context.SourceObj.isRekt() ? context.SourceObj.a.GetExtend() : null;
-        float growth=SkillEffectRadius.ResolveCasterGrowth(owner,skill.SkillContainer);
-        float original=entity.GetComponent<EffectRadiusScale>().Value;
-        float basis=Mathf.Max(skill.Asset.ImpactProfile.EffectRadius,skill.Asset.ImpactProfile.CollisionRadius);
-        if(basis>0f)growth=Mathf.Max(1f,Mathf.Min(growth,32f/(basis*original)));
-        entity.GetComponent<EffectRadiusScale>().Value*=growth;
-        if(entity.TryGetComponent(out TrajectoryParams trajectory) &&
-            trajectory.Kind is TrajectoryKind.Falling or TrajectoryKind.RainFall)
-        {
-            float vertical=Mathf.Sqrt(growth);
-            trajectory.StartHeight*=vertical;trajectory.FallSpeed*=vertical;
-            entity.GetComponent<TrajectoryParams>()=trajectory;
-        }
-        BattleSpellVisualRuntime.Register(entity,growth);
     }
 }

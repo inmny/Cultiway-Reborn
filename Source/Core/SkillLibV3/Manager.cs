@@ -6,12 +6,11 @@ using Cultiway.Content.Systems.Logic;
 using Cultiway.Core.Components;
 using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Editor;
+using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Motions;
-using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -27,7 +26,7 @@ namespace Cultiway.Core.SkillLibV3;
 
 public class Manager
 {
-    /// <summary>执行体配置完成、作用范围初始化之前的通知；内容层可统一应用真实成长规则。</summary>
+    /// <summary>旧迁移复验脚本的观测接口，随探索脚本清理时移除。</summary>
     public static event Action<Entity> ExecutionConfigured;
 
     /// <summary>按原收费和步骤安排提交给共同执行。只有实际受理才推进本次发射。</summary>
@@ -77,17 +76,8 @@ public class Manager
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new SkillCooldownSystem());
         SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
-        SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
         SkillLogicSystemGroup.Add(new ArtifactBladeFlightSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillBarrierSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillPositionImpactSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillPeriodicEffectSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillExecutionBodySyncSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillGroundFxRecordSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillPersistentSystem(World));
         SkillLogicSystemGroup.Add(new WeaponControlStrikeSystem());
-        SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
     }
 
     internal void Init()
@@ -465,306 +455,11 @@ public class Manager
         return ConstructionEmission?.Invoke(request) == SkillEmissionResult.Accepted;
     }
 
-    public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
-        float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
-        SkillCastRuntimeData runtime_data = default)
-    {
-        BaseSimObject spatialSource = ResolveSpatialSource(source);
-        var target_pos = target == null || target.isRekt()
-            ? spatialSource.GetSimPos() + Vector3.right
-            : target.GetSimPos();
-        return SpawnSkill(skill_container, source, spatialSource, target, target_pos, strength, delay, power_level,
-            initial_angle_offset_degrees, runtime_data: runtime_data);
-    }
-
-    public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject spatial_source,
-        BaseSimObject target, Vector3 target_pos, float strength, float delay = 0f, float? power_level = null,
-        float initial_angle_offset_degrees = 0f, Kingdom attack_kingdom = null,
-        SkillCastRuntimeData runtime_data = default)
-    {
-        return SpawnSkillFromPosition(skill_container, source, spatial_source, spatial_source.GetSimPos(), target,
-            target_pos, strength, delay, power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
-    }
-
-    public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, Vector3 target_pos,
-        float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
-        Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
-    {
-        BaseSimObject spatialSource = ResolveSpatialSource(source);
-        return SpawnSkillFromPosition(skill_container, source, spatialSource, spatialSource.GetSimPos(), target,
-            target_pos, strength, delay, power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
-    }
-
-    /// <summary>保留施法者归属，但从指定世界坐标生成技能实体。</summary>
-    /// <param name="skillContainer">技能容器。</param>
-    /// <param name="source">资源、冷却、关系和击杀归属人物。</param>
-    /// <param name="sourcePosition">技能实体出生坐标。</param>
-    /// <param name="target">对象目标；可为空。</param>
-    /// <param name="targetPosition">目标世界坐标。</param>
-    /// <param name="strength">技能强度。</param>
-    /// <param name="powerLevel">攻击功率层级。</param>
-    /// <param name="initialAngleOffsetDegrees">初始方向偏角。</param>
-    /// <param name="attackKingdom">本次攻击使用的阵营。</param>
-    /// <param name="runtimeData">本次施法运行参数。</param>
-    /// <returns>新建技能实体。</returns>
-    public Entity SpawnSkillAtPosition(
-        Entity skillContainer,
-        BaseSimObject source,
-        Vector3 sourcePosition,
-        BaseSimObject target,
-        Vector3 targetPosition,
-        float strength,
-        float powerLevel,
-        float initialAngleOffsetDegrees = 0f,
-        Kingdom attackKingdom = null,
-        SkillCastRuntimeData runtimeData = default,
-        BaseSimObject spatialSource = null)
-    {
-        return SpawnSkillFromPosition(
-            skillContainer,
-            source,
-            spatialSource,
-            sourcePosition,
-            target,
-            targetPosition,
-            strength,
-            0f,
-            powerLevel,
-            initialAngleOffsetDegrees,
-            attackKingdom,
-            runtimeData);
-    }
-
-    /// <summary>从给定世界坐标生成没有施法者的技能实体。</summary>
-    public Entity SpawnSourcelessSkill(Entity skill_container, Vector3 source_pos, BaseSimObject target,
-        Vector3 target_pos, float strength, float power_level, float delay = 0f,
-        float initial_angle_offset_degrees = 0f, Kingdom attack_kingdom = null,
-        SkillCastRuntimeData runtime_data = default)
-    {
-        return SpawnSkillFromPosition(skill_container, null, null, source_pos, target, target_pos, strength, delay,
-            power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
-    }
-
     /// <summary>原执行与迁移后的实际地块作用共用本次元素选择。</summary>
     internal SkillVfxElementAsset ResolveGroundEffectElement(Entity skill, in SkillCastRuntimeData runtime) =>
         runtime.HasElementOverride && (!skill.TryGetComponent(out Settings.SkillSettings settings) || settings.NatureId == null)
             ? VfxElementLib.Resolve(runtime.ElementOverride)
             : skill.GetComponent<SkillContainer>().VfxElement;
-
-    private Entity SpawnSkillFromPosition(Entity skill_container, BaseSimObject source,
-        BaseSimObject spatial_source, Vector3 source_pos, BaseSimObject target, Vector3 target_pos, float strength,
-        float delay, float? power_level, float initial_angle_offset_degrees, Kingdom attack_kingdom,
-        SkillCastRuntimeData runtime_data)
-    {
-        ref var container = ref skill_container.GetComponent<SkillContainer>();
-
-        var base_dir = target_pos - source_pos;
-        if (base_dir.sqrMagnitude < 0.0001f)
-        {
-            base_dir = Vector3.right;
-        }
-        else
-        {
-            base_dir.Normalize();
-        }
-
-        var initial_dir = ApplyInitialAngleOffset(base_dir, initial_angle_offset_degrees);
-
-        var animation = container.Asset.GetAnimation(container.AnimationIndex);
-        var entity = container.Asset.NewEntity(container.AnimationIndex);
-        int generation = CastGeneration;
-        bool configured = false;
-        try
-        {
-            entity.GetComponent<Scale>().value *= runtime_data.ResolveEffectScale();
-            entity.AddRelation(new SkillMasterRelation()
-            {
-                SkillContainer = skill_container
-            });
-            var data = entity.Data;
-            ref var context = ref data.Get<SkillContext>();
-            context.Strength = strength;
-            context.PowerLevel = power_level ?? ((source?.isActor() ?? false) && !source.isRekt()
-                ? source.a.GetExtend().GetPowerLevel()
-                : 0f);
-            context.BindSource(source, spatial_source);
-            context.TargetObj = target == null || target.isRekt() ? null : target;
-            context.AttackKingdom = attack_kingdom;
-            if (skill_container.TryGetComponent(out Settings.SkillSettings skillSettings))
-            {
-                context.Strength *= skillSettings.PowerMultiplier;
-                if (!skillSettings.ContactEnabled) entity.GetComponent<ColliderConfig>().Enabled = false;
-                if (skillSettings.NatureId != null)
-                {
-                    runtime_data.HasElementOverride = true;
-                    runtime_data.ElementOverride = Settings.SkillSettingsCompiler.Element(skillSettings.NatureId);
-                }
-            }
-
-            context.RuntimeData = runtime_data;
-            ref var skill_entity = ref data.Get<SkillEntity>();
-            skill_entity.SkillContainer = skill_container;
-            skill_entity.VfxElement = ResolveGroundEffectElement(skill_container, in runtime_data);
-            skill_entity.ColorPalette = container.ColorPalette;
-            context.TargetPos = target_pos;
-            context.TargetDir = base_dir;
-            ref var pos = ref data.Get<Position>();
-            pos.value = source_pos;
-            SyncRuntimeFxStartPosition(entity, source_pos);
-            ref var rot = ref data.Get<Rotation>();
-            rot.value = initial_dir;
-
-            ApplyMotionProfile(entity, container.MotionProfile, source_pos, target_pos);
-
-            if (delay > 0f)
-            {
-                entity.Add(new DelayActive()
-                {
-                    LeftTime = delay
-                }, Tags.Get<TagInactive>());
-            }
-
-            if (container.OnSetup != null)
-            {
-                container.OnSetup(entity);
-            }
-
-            if (container.EffectPipeline?.HasPeriodicEffects == true)
-            {
-                float interval = container.EffectPipeline.MinimumPeriodicInterval;
-                entity.AddComponent(new SkillPeriodicEffectState
-                {
-                    Interval = interval,
-                    NextTick = interval
-                });
-            }
-
-            if (skill_container.TryGetComponent(out Settings.SkillSettings areaSettings))
-            {
-                entity.GetComponent<EffectRadiusScale>().Value *= areaSettings.AreaMultiplier;
-                entity.GetComponent<Scale>().value *= areaSettings.AreaMultiplier;
-            }
-
-            ExecutionConfigured?.Invoke(entity);
-            SkillImpactRuntime.Initialize(entity);
-            ref AliveTimeLimit lifetime = ref entity.GetComponent<AliveTimeLimit>();
-            lifetime.value = container.Asset.ResolveRuntimeLifetime(skill_container, lifetime.value);
-            if (skill_container.TryGetComponent(out Settings.SkillSettings lifetimeSettings) &&
-                lifetimeSettings.Duration > 0f)
-                entity.GetComponent<AliveTimeLimit>().value = lifetimeSettings.Duration;
-            ApplyTrajectoryAfterimage(entity, container.MotionProfile);
-            SkillAnimationLifecycle.Initialize(
-                entity,
-                animation,
-                container.MotionProfile.FrameInterval,
-                container.Asset.DefaultAnimationLoop);
-            configured = true;
-            return entity;
-        }
-        finally
-        {
-            if (!configured && generation == CastGeneration && !entity.IsNull)
-            {
-                SkillExecutionLifecycle.ReleaseBodies(entity);
-                // 新实例仍有帧末命令，保持实体到统一回收，避免留下指向已删实体的命令。
-                entity.AddTag<TagRecycle>();
-            }
-        }
-    }
-
-    private static void ApplyMotionProfile(Entity entity, SkillMotionProfileAsset profile, Vector3 sourcePos,
-        Vector3 targetPos)
-    {
-        var distance = Vector2.Distance(new Vector2(sourcePos.x, sourcePos.y), new Vector2(targetPos.x, targetPos.y));
-        SetOrAdd(entity, new MotionParams
-        {
-            Velocity = profile.ResolveSpeed(distance),
-            TurnRate = profile.TurnRate,
-            RampStart = profile.LaunchMultiplier,
-            RampEnd = profile.CruiseMultiplier,
-            RampDuration = profile.RampDuration,
-            HasRamp = true
-        });
-
-        ref var controller = ref entity.GetComponent<AnimController>();
-        controller.meta.frame_interval = profile.FrameInterval;
-    }
-
-    private static void ApplyTrajectoryAfterimage(Entity entity, SkillMotionProfileAsset profile)
-    {
-        if (!entity.TryGetComponent(out Trajectory trajectory)) return;
-
-        var trajectoryAsset = trajectory.Asset;
-        const SkillTrajectoryDomain movingDomains = SkillTrajectoryDomain.FlyingBody |
-                                                    SkillTrajectoryDomain.FlyingWave |
-                                                    SkillTrajectoryDomain.Ballistic |
-                                                    SkillTrajectoryDomain.GroundTravel |
-                                                    SkillTrajectoryDomain.MobileField |
-                                                    SkillTrajectoryDomain.Melee;
-        if ((trajectoryAsset.Domains & movingDomains) == SkillTrajectoryDomain.None)
-        {
-            if (entity.HasComponent<AnimAfterimage>())
-            {
-                entity.RemoveComponent<AnimAfterimage>();
-            }
-
-            return;
-        }
-
-        var speed = entity.GetComponent<MotionParams>().Velocity;
-        var afterimage = profile.ResolveAfterimage(speed);
-        if (entity.HasComponent<AnimAfterimage>())
-        {
-            ref var current = ref entity.GetComponent<AnimAfterimage>();
-            current = afterimage;
-        }
-        else
-        {
-            entity.AddComponent(afterimage);
-        }
-
-        if (!entity.TryGetComponent(out AnimAfterimageOverride runtimeOverride)) return;
-        if (entity.HasComponent<AnimAfterimage>())
-        {
-            entity.GetComponent<AnimAfterimage>() = runtimeOverride.Value;
-        }
-        else
-        {
-            entity.AddComponent(runtimeOverride.Value);
-        }
-    }
-
-    private static void SetOrAdd<TComponent>(Entity entity, TComponent component)
-        where TComponent : struct, IComponent
-    {
-        if (entity.HasComponent<TComponent>())
-        {
-            ref var current = ref entity.GetComponent<TComponent>();
-            current = component;
-            return;
-        }
-
-        entity.AddComponent(component);
-    }
-
-    private static void SyncRuntimeFxStartPosition(Entity entity, Vector3 sourcePos)
-    {
-        var planePos = new Vector2(sourcePos.x, sourcePos.y);
-        if (entity.HasComponent<PrevPosition>())
-        {
-            ref var prevPosition = ref entity.GetComponent<PrevPosition>();
-            prevPosition.Value = planePos;
-            prevPosition.Height = sourcePos.z;
-        }
-
-        if (entity.HasComponent<SkillGroundFxState>())
-        {
-            ref var groundFxState = ref entity.GetComponent<SkillGroundFxState>();
-            groundFxState.DistanceAccumulator = 0f;
-            groundFxState.LastX = sourcePos.x;
-            groundFxState.LastY = sourcePos.y;
-        }
-    }
 
     /// <summary>在当前能力调用中解析真实空间载体。</summary>
     internal static BaseSimObject ResolveSpatialSource(BaseSimObject source)

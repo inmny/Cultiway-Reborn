@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Cultiway.Core.Components;
 
 /// <summary>
-/// 扫掠碰撞用：记录实体上一帧的平面位置，供 <see cref="SkillLibV3.Systems.LogicActorCollisionSystem"/> 做线段-瓦片相交检测。
+/// 记录实体上一帧的位置，供共用扫掠检查变动路径。
 /// </summary>
 public struct PrevPosition : IComponent
 {

@@ -63,7 +63,6 @@ internal class Manager
         ModClass.L.SemanticLibrary.LinkAndValidate();
         Persistence.WorldSaveContent.Initialize();
         CombatWorldService.Initialize();
-        Combat.ConductiveWaterSystem.Initialize();
         Combat.CombatImpactVisuals.Initialize();
         Combat.BattleSpellScale.Initialize();
         CultibookRequestService.Initialize();

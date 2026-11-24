@@ -222,7 +222,7 @@ internal static partial class BattleSpellVisualRuntime
     };
 
     /// <summary>切换世界释放快照与来源，绝不跨世界继续施放。</summary>
-    internal static void Clear(){casts.Clear();active.Clear();contacts.Clear();statusEffects.Clear();statusCast.Source=null;statusCast.Entity=default;MaterialSpellVisuals.Clear();Cultiway.Content.Combat.ConductiveWaterSystem.Clear();}
+    internal static void Clear(){casts.Clear();active.Clear();contacts.Clear();statusEffects.Clear();statusCast.Source=null;statusCast.Entity=default;MaterialSpellVisuals.Clear();}
 
     /// <summary>一项真实施放的短暂显示资料，不进入正式存档。</summary>
     private sealed class Cast

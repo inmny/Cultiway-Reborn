@@ -9,7 +9,6 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Impacts;
-using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -155,7 +154,6 @@ public static partial class CombatWorldService
         GroupStates.Clear();
         CombatSpatialAwarenessIndex.Clear();
         nextGlobalCleanupAt = 0d;
-        LogicSkillPersistentSystem.ClearCombatSnapshots();
         CombatDiagnostics.Reset();
     }
 
@@ -1030,7 +1028,6 @@ public static partial class CombatWorldService
             scannedAllies);
 
         long actionStartedAt = StartPlanningMeasurement();
-        CombatObstacleSnapshot[] obstacles = BuildObstacleSnapshots(actor);
         CombatantSnapshot[] enemies = BuildEnemySnapshots(
             actor,
             runtime,
@@ -1038,11 +1035,10 @@ public static partial class CombatWorldService
             enemyObjects,
             visibleEnemyIds,
             threatContexts,
-            obstacles,
+            snapshot.Obstacles,
             now);
         snapshot.Enemies = enemies;
         snapshot.Allies = allies;
-        snapshot.Obstacles = obstacles;
 
         float hostilePower = 0f;
         for (int i = 0; i < enemies.Length; i++) hostilePower += enemies[i].EstimatedPower;
@@ -1077,7 +1073,7 @@ public static partial class CombatWorldService
             allies,
             enemies,
             actionArray,
-            obstacles,
+            snapshot.Obstacles,
             engagementBearing,
             positionCap,
             directive,
@@ -1086,7 +1082,7 @@ public static partial class CombatWorldService
         RecordPlanningMeasurement(
             "b3_findEnemyTarget.snapshot_actions_positions",
             actionStartedAt,
-            actionArray.Length + positions.Length + obstacles.Length);
+            actionArray.Length + positions.Length + snapshot.Obstacles.Length);
         return snapshot;
     }
 
@@ -1838,42 +1834,6 @@ public static partial class CombatWorldService
             selected.Add(candidate);
             return;
         }
-    }
-
-    private static CombatObstacleSnapshot[] BuildObstacleSnapshots(Actor actor)
-    {
-        using var source = new ListPool<SkillPersistentCombatSnapshot>();
-        LogicSkillPersistentSystem.CopyCombatSnapshots(
-            actor.current_position,
-            72f,
-            source);
-        var result = new CombatObstacleSnapshot[source.Count];
-        for (int i = 0; i < source.Count; i++)
-        {
-            SkillPersistentCombatSnapshot obstacle = source[i];
-            SkillImpactKind kind = obstacle.Kind switch
-            {
-                SkillPersistentKind.Field => SkillImpactKind.Field,
-                SkillPersistentKind.Barrier => SkillImpactKind.Wall,
-                SkillPersistentKind.Shield => SkillImpactKind.Shield,
-                _ => SkillImpactKind.Field
-            };
-            bool hostile = actor.kingdom != null &&
-                           obstacle.Kingdom != null &&
-                           actor.kingdom.isEnemy(obstacle.Kingdom);
-            result[i] = new CombatObstacleSnapshot(
-                obstacle.SourceId,
-                obstacle.Kingdom,
-                kind,
-                obstacle.Position,
-                obstacle.Direction,
-                obstacle.Length,
-                obstacle.Width,
-                obstacle.Durability,
-                hostile);
-        }
-
-        return result;
     }
 
     private static CombatPositionCandidate[] BuildPositionCandidates(

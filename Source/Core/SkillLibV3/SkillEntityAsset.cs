@@ -493,8 +493,6 @@ public class SkillEntityAsset : Asset
 
     /// <summary>
     /// 为运行时法术实体挂载地面影响、扫掠碰撞和命中反馈节流所需的组件。
-    /// 出生位置会在 <see cref="Manager.SpawnSkill(Entity, BaseSimObject, BaseSimObject, Vector3, float, float, float?, float, Kingdom)"/>
-    /// 写入后同步刷新。
     /// </summary>
     private void SetupRuntimeFx(Entity entity)
     {

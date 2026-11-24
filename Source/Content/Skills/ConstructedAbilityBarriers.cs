@@ -80,15 +80,6 @@ public sealed partial class ConstructedAbilityService
     bool ISkillBarrierBridge.HasGroundBarriers => barriers.Exists(b => BarrierLive(b) &&
         b.Running.Cast.Plan.Nodes[b.Shape.Node].BlocksGroundActors);
 
-    /// <summary>在真实作用前按三维完整路径寻找最近屏障并回收旧执行体。</summary>
-    /// <param name="entity">刚完成轨迹更新的旧执行体。</param>
-    void ISkillBarrierBridge.Intercept(Entity entity)
-    {
-        const SkillTrajectoryDomain kinds = SkillTrajectoryDomain.FlyingBody | SkillTrajectoryDomain.FlyingWave |
-            SkillTrajectoryDomain.Ballistic | SkillTrajectoryDomain.Skyfall | SkillTrajectoryDomain.Beam;
-        if ((entity.GetComponent<Trajectory>().Asset.Domains & kinds) != 0) InterceptFlyingBody(entity);
-    }
-
     /// <summary>确认一个实际飞行路径是否被共同屏障截住。</summary>
     /// <param name="entity">带实际前后位置及来向的飞行物。</param>
     internal static bool InterceptFlyingBody(Entity entity)
