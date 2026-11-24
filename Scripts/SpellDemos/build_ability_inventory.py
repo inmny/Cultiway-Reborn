@@ -117,11 +117,9 @@ def entry_files(entry, declarations, types, texts):
                   "Source/Content/KnightCombat/KnightTechniqueStatuses.cs" if entry["id"].startswith("Knight") else "Source/Content/StatusEffects.cs")
     if entry["kind"] == "技能资产" and entry["id"].endswith(".Execution"):
         files.add("Source/Content/KnightCombat/KnightTechniqueSkills.cs")
-    if entry["kind"] == "技能资产" and entry["id"] == "raw_anim":
-        files.add("Source/Content/SkillEntities.cs")
     if entry["kind"] in ("构造资料", "身体动作"):
         for path in sorted((PROJECT / "Content/Skills/Body").glob("*.json")):
-            if json.loads(path.read_text())["Id"] == entry["id"]:
+            if json.loads(path.read_text()).get("Id") == entry["id"]:
                 files.add(path.relative_to(PROJECT).as_posix())
     return sorted(files)
 
