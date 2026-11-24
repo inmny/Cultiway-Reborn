@@ -116,6 +116,9 @@ private readonly List<ConstructedCastEnded> constructionEndLog = new();
 /// <summary>已实际登记给收件人的消息，按施放编号与接触独立归档。</summary>
 private readonly List<ConstructedSignalReceipt> signals = new();
 
+/// <summary>实际正式提交的支付，保留付款人与每条真实通道。</summary>
+private readonly List<object> committedPayments = new();
+
 /// <summary>当前观察的技能容器。</summary>
 private Entity observed;
 
@@ -899,6 +902,7 @@ private void Update()
     ConstructedAbilityService.CastStarted += OnConstructedStart;
     ConstructedAbilityService.WorldContactConfirmed += OnWorldContact;
     ConstructedAbilityService.SignalReceived += OnSignal;
+    SkillCastPayment.Committed += OnPayment;
     ConstructedAbilityService.RecoveryConfirmed += OnConstructedRecovery;
     ConstructedAbilityService.ConductionConfirmed += OnConduction;
     ConstructedAbilityService.QuenchingConfirmed += OnQuenching;
@@ -983,6 +987,7 @@ private IEnumerator Guarded(IEnumerator steps)
     ConstructedAbilityService.CastStarted -= OnConstructedStart;
     ConstructedAbilityService.WorldContactConfirmed -= OnWorldContact;
     ConstructedAbilityService.SignalReceived -= OnSignal;
+    SkillCastPayment.Committed -= OnPayment;
     ConstructedAbilityService.RecoveryConfirmed -= OnConstructedRecovery;
     ConstructedAbilityService.ConductionConfirmed -= OnConduction;
     ConstructedAbilityService.QuenchingConfirmed -= OnQuenching;
@@ -1679,7 +1684,8 @@ private IEnumerator RecordConstruction(JObject item)
     {
         passed = executed && effectConfirmed && paid == definition.Cost && presentationReady && errors.Count == 0,
         error = validationError,
-        execution = new { accepted = used, started = executed, cast = ownCast, source = sourceId, naturalEnd,
+        execution = new { accepted = used, started = scriptCasts.Length > 0, starts = scriptCasts.Length,
+            cast = ownCast, source = sourceId, naturalEnd,
             payment = new { resource = definition.Resource, paid, before, afterPayment } },
         effect = new { confirmed = executed ? (bool?)effectConfirmed : null, target = pointTarget ? (long?)null : targetId,
             contacts = actualContacts, lost, shieldAbsorbed, changedTiles = worldChanges.Length,
@@ -1714,7 +1720,8 @@ private IEnumerator RecordConstruction(JObject item)
             poseFrames = organPoseFrames, released = !BodyControlState.IsBusy(sourceId) } : null,
         joint = jointScene ? new { species = caster.asset.id, part = effector, poseFrames = jointPoseFrames,
             travel = jointTravel, released = !BodyControlState.IsBusy(sourceId) } : null,
-        worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, queuedDamageLog, materialFrames, errors
+        worldSurvivedCast, worldMaterialsLog, executionLog, committedPayments, contactsLog,
+        queuedDamageLog, materialFrames, errors
     });
 
     float Balance() => definition.Resource switch
@@ -2303,6 +2310,7 @@ private void Prepare(JObject item)
     artifactDetails = null;
     executionLog.Clear();
     signals.Clear();
+    committedPayments.Clear();
     worldContactsLog.Clear();
     constructionEndLog.Clear();
     worldMaterialsLog.Clear();
@@ -2824,7 +2832,7 @@ private IEnumerator Record(JObject item, string folder)
         view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog,
-        worldContactsLog, areasLog, queuedDamageLog,
+        worldContactsLog, areasLog, queuedDamageLog, committedPayments,
         barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
         shield = new { probeUsed, breakProbeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
@@ -3037,6 +3045,13 @@ private void OnWorldContact(ConstructedWorldContact contact) => worldContactsLog
 
 /// <summary>只记录正式送达的消息，不用选中的目标冒充实际收件人。</summary>
 private void OnSignal(ConstructedSignalReceipt received) => signals.Add(received);
+
+/// <summary>记录正式提交的实际数值，不用段落末尾的资源余额冒充支付。</summary>
+private void OnPayment(long payer, IReadOnlyList<SkillCastPaymentEntry> entries) => committedPayments.Add(new
+{
+    payer, time = World.world.getCurWorldTime(),
+    entries = entries.Select(entry => new { resource = entry.Resource.id, cost = entry.Cost, spent = entry.Spent }).ToArray()
+});
 
 /// <summary>只保留可与实际施放对应的送达内容及冻结方位。</summary>
 private static object SignalFact(ConstructedSignalReceipt received) => new
@@ -3330,6 +3345,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
     caster.attack_timer = enemy.attack_timer = 0;
     executionLog.Clear();
     signals.Clear();
+    committedPayments.Clear();
     worldContactsLog.Clear();
     worldMaterialsLog.Clear();
     recoveryLog.Clear();
@@ -3430,7 +3446,8 @@ private IEnumerator RecordBattle(JObject item, string folder)
         rivalCasts = rivalCasts.Length, artifactUsed, artifactDetails,
         view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day",
-        lightingState = LightingState(), scene = "battle", executionLog, contactsLog, queuedDamageLog, areasLog, barrierLog,
+        lightingState = LightingState(), scene = "battle", executionLog, committedPayments, contactsLog,
+        queuedDamageLog, areasLog, barrierLog,
         deliveredSignals = signals.Where(value => leftIds.Contains(value.CastId) || rightIds.Contains(value.CastId))
             .Select(SignalFact).ToArray(),
         participants = new[] { new { id = caster.id, before = ownerHealth, after = Health(caster) },

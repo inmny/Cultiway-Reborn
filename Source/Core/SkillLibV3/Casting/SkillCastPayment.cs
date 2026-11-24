@@ -64,6 +64,9 @@ public sealed class SkillCastPayment : IDisposable
     /// <summary>只读的实际扣费结果；空集合表示免费。</summary>
     public IReadOnlyList<SkillCastPaymentEntry> Entries { get; private set; }
 
+    /// <summary>支付正式提交后通知付款人编号和实际扣费凭据，撤销时不发布。</summary>
+    public static event Action<long, IReadOnlyList<SkillCastPaymentEntry>> Committed;
+
     /// <summary>只在取得当前人物支付权之后建立。</summary>
     /// <param name="payer">实际支付者。</param>
     private SkillCastPayment(ActorExtend payer)
@@ -204,6 +207,7 @@ public sealed class SkillCastPayment : IDisposable
         closed = true;
         pending.TryRemove(payer, out _);
         OnCommitted?.Invoke();
+        Committed?.Invoke(payerId, Entries);
     }
 
     /// <summary>未受理时反向恢复本次真实扣费，不按回收容量截掉原本已有的余额。</summary>

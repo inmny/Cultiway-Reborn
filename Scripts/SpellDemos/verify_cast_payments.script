@@ -29,10 +29,32 @@ var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(6
 double first = 20, second = 20; int quotes = 0, spends = 0;
 var a = new SkillCastResourceAsset { id = "test.payments.a" }; a.Configure(_ => true, _ => first, (_, value) => first = value, (_, demand) => { quotes++; return demand; }).ConfigureSpending((_, value) => { spends++; first -= value; }).ConfigureRecovery(_ => 100);
 var b = new SkillCastResourceAsset { id = "test.payments.b" }; b.Configure(_ => true, _ => second, (_, value) => second = value, (_, demand) => demand).ConfigureRecovery(_ => 100);
-using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 3)) { Check(payment != null && Near(first, 17) && quotes == 1 && spends == 1 && Near(payment.Entries[0].Principal, 3), "本次只报价及扣费一次，凭据读取实际本金"); }
-Check(Near(first, 20) && !SkillCastPayment.IsPending(owner), "未正式受理即释放时完整撤销支付并解除占用");
-using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 3)) { payment.Commit(); Check(payment.IsCommitted, "正式受理显式提交支付"); }
-Check(Near(first, 17), "已经正式开始的支付不因释放凭据自动退款");
+var committed = new List<(long Payer, SkillCastPaymentEntry Entry)>();
+void RecordPayment(long payer, IReadOnlyList<SkillCastPaymentEntry> entries)
+{
+    foreach (var entry in entries) committed.Add((payer, entry));
+}
+SkillCastPayment.Committed += RecordPayment;
+try
+{
+    using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 3))
+        Check(payment != null && Near(first, 17) && quotes == 1 && spends == 1 && Near(payment.Entries[0].Principal, 3),
+            "本次只报价及扣费一次，凭据读取实际本金");
+    Check(Near(first, 20) && !SkillCastPayment.IsPending(owner) && committed.Count == 0,
+        "未正式受理即释放时恢复余额，不产生正式凭据");
+    using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 3))
+    {
+        payment.Commit();
+        Check(payment.IsCommitted, "正式受理显式提交支付");
+    }
+    Check(Near(first, 17), "已经正式开始的支付不因释放凭据自动退款");
+    Check(committed.Count == 1 && committed[0].Payer == actor.id && committed[0].Entry.Resource == a &&
+        Near(committed[0].Entry.Spent, 3), "正式提交只发布一份原付款人的真实凭据");
+}
+finally
+{
+    SkillCastPayment.Committed -= RecordPayment;
+}
 first = 20; second = 2; Check(SkillCastPayment.TryBegin(owner, new[] { a, b }, SkillCastResourceRequirementMode.AllOf, 3) == null && Near(first, 20) && Near(second, 2), "全部支付在扣费前核对所有余额，不产生部分收费");
 using (var payment = SkillCastPayment.TryBegin(owner, new[] { b, a }, SkillCastResourceRequirementMode.AnyOf, 3)) { Check(payment.Entries.Count == 1 && payment.Entries[0].Resource == a && Near(first, 17) && Near(second, 2), "任选按原顺序跳过不足通道，保留实际选择"); payment.Commit(); }
 first = 20; second = 20; using (var payment = SkillCastPayment.TryBegin(owner, new[] { a, b }, SkillCastResourceRequirementMode.AllOf, 3)) { Check(payment.Entries.Count == 2 && Near(first, 17) && Near(second, 17), "多种真实余额各形成自己的支付凭据"); }
