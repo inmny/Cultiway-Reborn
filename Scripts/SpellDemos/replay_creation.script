@@ -1,0 +1,102 @@
+// 只在独立游戏执行。通过同一个正式队列运行固定输入，不写原世界存档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cultiway.Const;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+// CREATION_REPLAY_REQUEST
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+string profile = (string)request["profile"];
+if (Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") != profile ||
+    !UnityEngine.Application.persistentDataPath.StartsWith(profile + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+    throw new InvalidOperationException("创法复现需要独立游戏存档目录");
+
+// 等到原版世界及模组区段均完成读入，再访问人物和实际队列。
+var assembly = typeof(ConstructedAbilityService).Assembly;
+var initializing = assembly.GetType("Cultiway.Patch.PatchFramePriorityScheduler", true)
+    .GetMethod("IsWorldInitializationPending", Flags);
+var runnerType = assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner", true);
+var runner = runnerType.GetProperty("Instance", Flags).GetValue(null);
+var boundary = runnerType.GetProperty("IsAtCycleBoundary", Flags);
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld((string)request["world"]);
+await Game.NextFrame();
+await Game.WaitUntil(() => !SmoothLoader.isLoading() && !(bool)initializing.Invoke(null, null) &&
+    (bool)boundary.GetValue(runner), 3600);
+Config.paused = true;
+
+JObject selection = (JObject)request["input"];
+long actorId = (long)selection["actor"];
+int seed = (int)selection["seed"];
+Actor person = World.world.units.get(actorId);
+if (person == null || !person.isAlive()) throw new InvalidOperationException("正式档没有活着的指定创造者：" + actorId);
+var owner = person.GetExtend();
+if (owner.E.TryGetComponent(out ConstructedCreationState state) && state.Pending)
+    throw new InvalidOperationException("此人物在原档已有待处理创法，请选择提交前的存档");
+if (!GeneralSettings.EnableSkillSystems) throw new InvalidOperationException("请在独立游戏启用技能系统");
+
+var service = typeof(ConstructedAbilityService);
+var access = ConstructionEditing.Access;
+int knownBefore = access.List(owner).Count, directoryBefore = access.List().Count;
+if ((string)request["mode"] == "capture")
+{
+    if (!ConstructedAbilityService.TryQueueCreation(owner, seed, (string)selection["sourceId"]) ||
+        !owner.E.TryGetComponent(out state) || !state.Pending)
+        throw new InvalidOperationException("正式创法入口未受理指定人物和种子");
+}
+else
+{
+    // 用原请求资料重新入队，保留前面已在原档等待的请求及正式容量限制。
+    state.Seed = seed;
+    state.Origin = selection["origin"].ToObject<ConstructionCreationOrigin>();
+    state.Inspiration = selection["inspiration"].ToObject<ConstructionInspiration>();
+    state.Source = selection["source"].ToObject<AbilityDefinition>();
+    state.Resources = selection["resources"].ToObject<SynthesisResources>();
+    if (state.Inspiration == null || state.Resources == null && (state.Inspiration.Rules >= 7 || state.Source == null))
+        throw new InvalidDataException("复现资料缺少受理时固定的创法输入");
+    if (!(bool)service.GetMethod("EnqueueCreation", Flags).Invoke(null, new object[] { actorId }))
+        throw new InvalidOperationException("正式创法队列已满");
+    state.LastFailure = null;
+    state.Pending = true;
+    owner.E.AddComponent(state);
+}
+
+// 受理资料在正式处理前复制。处理后会按原规则释放临时原术和资源。
+var input = JObject.FromObject(new
+{
+    actor = actorId, seed = state.Seed, origin = state.Origin, inspiration = state.Inspiration,
+    source = state.Source, resources = state.Resources
+});
+var process = (Action)service.GetMethod("ProcessCreation", Flags).CreateDelegate(typeof(Action));
+int queued = ConstructedAbilityService.PendingCreations;
+for (int i = 0; i < queued && state.Pending; i++)
+{
+    process();
+    owner.E.TryGetComponent(out state);
+}
+if (state.Pending) throw new InvalidOperationException("正式队列尚未完成指定请求");
+bool accepted = state.LastFailure == null;
+AbilityDefinition definition = accepted ? access.Read(state.LastAbility) : null;
+if (accepted && (definition == null || !access.List(owner).Any(entry => entry.Id == definition.Id)))
+    throw new InvalidOperationException("正式完成记录缺少实际登记或掌握");
+var observation = new
+{
+    input,
+    result = new
+    {
+        outcome = accepted ? "created" : "rejected", reason = state.LastFailure, definition,
+        knownBefore, knownAfter = access.List(owner).Count, directoryBefore, directoryAfter = access.List().Count
+    },
+    runtime = new { game = UnityEngine.Application.version, assembly = assembly.ManifestModule.ModuleVersionId }
+};
+File.WriteAllText((string)request["observation"], JsonConvert.SerializeObject(observation, Formatting.Indented));
+return new { observation.result.outcome };
