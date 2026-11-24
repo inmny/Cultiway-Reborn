@@ -50,7 +50,7 @@ void Damage(ActorExtend victim, BaseSimObject attacker, float amount, ElementCom
 }
 void Emitted(Entity entity)
 {
-    if (handle.ProviderId != bowProvider || entity.GetComponent<SkillEntity>().SkillContainer != handle.Source) return;
+    if (handle.ProviderId != bowProvider || entity.GetComponent<SkillContext>().SourceObj != source) return;
     emissions++;
     events.Add(new { kind = "emission", time = World.world.getCurWorldTime() });
 }
@@ -128,7 +128,9 @@ void Capture(string path)
 
 WakanResourceService.RegisterMutationCommitted(Paid);
 ActorExtend.RegisterActionOnDamageResolved(Damage);
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+var strikeStarted = service.Assembly.GetType("Cultiway.Content.Systems.Logic.WeaponControlStrikeSystem").GetEvent("Started", F);
+Action<Entity> onStrike = Emitted;
+strikeStarted.GetAddMethod(true).Invoke(null, new object[] { onStrike });
 var bowObserver = new HarmonyLib.Harmony("Cultiway.Verify.WeaponFlightRecording");
 bowObserver.Patch(typeof(ProjectileManager).GetMethod("spawn", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(VerifyNativeProjectileBirth).GetMethod("AfterSpawn")));
@@ -335,7 +337,7 @@ finally
     timeMode?.SetValue(settings, priorMode);
     VerifyNativeProjectileBirth.Observed = null;
     bowObserver.UnpatchSelf();
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    strikeStarted.GetRemoveMethod(true).Invoke(null, new object[] { onStrike });
     mutationField.SetValue(null, priorMutations);
     damageField.SetValue(null, priorDamage);
     ConstructedAbilityService.ContactConfirmed -= Hit;

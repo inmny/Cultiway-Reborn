@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Skills;
+using Cultiway.Content.Systems.Logic;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
@@ -224,25 +225,14 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         flight?.End();
     }
 
-    /// <summary>把通用 SkillEntity 配置成本步骤对应的投射物或真实武器近战执行体。</summary>
-    public void ConfigureExecution(Entity execution)
-    {
-        if (!WeaponControlRuntimeService.IsCurrentWeapon(Caster.Base, Weapon))
-        {
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(execution.Id);
-            return;
-        }
-
-        if (!IsRanged) ConfigureMeleeExecution(execution, executionIndex++);
-    }
-
-    /// <summary>使用这一步真正选择的目标，从已经借出的原弓发射原版箭。</summary>
+    /// <summary>按正式发射启动一次实际攻击。</summary>
     /// <param name="emission">本次序列确定的发射资料。</param>
-    internal bool EmitRanged(in SkillEmission emission)
+    internal bool Emit(in SkillEmission emission)
     {
         Actor source = Caster.Base;
-        if (!IsRanged || source != emission.Source || !WeaponControlRuntimeService.IsCurrentWeapon(source, Weapon))
+        if (source != emission.Source || !WeaponControlRuntimeService.IsCurrentWeapon(source, Weapon))
             return false;
+        if (!IsRanged) return BeginStrike(emission);
         if (!SpawnProjectile(emission, executionIndex)) return false;
         if (executionIndex++ == 0) PlayRangedRelease(emission);
         return true;
@@ -327,23 +317,38 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             pForcedKingdom: attackKingdom) != null;
     }
 
-    /// <summary>一次已付出击沿实际器物刃端运动，继续使用共用扫掠确认和原版武器结算。</summary>
-    private void ConfigureMeleeExecution(Entity execution, int index)
+    /// <summary>用原器形和既有出击规则建立实际刃端动作。</summary>
+    /// <param name="emission">本次序列确认的目标与来向。</param>
+    private bool BeginStrike(in SkillEmission emission)
     {
-        flight.BeginStrike();
-        ref EquippedWeaponMotionState state = ref execution.GetComponent<EquippedWeaponMotionState>();
-        state.Weapon = Weapon;
-        state.ReleasedWeapon = flight;
-        state.Duration = WeaponControlRules.StrokeSeconds(Caster, category, mode);
-        SkillContext context = execution.GetComponent<SkillContext>();
+        if (flight == null || !flight.IsCurrent) return false;
+        Vector3 direction = emission.TargetPos - emission.SourcePos;
+        direction = direction.sqrMagnitude < .0001f ? Vector3.right : direction.normalized;
+        var context = new SkillContext
+        {
+            Strength = emission.Strength,
+            PowerLevel = emission.PowerLevel,
+            RuntimeData = emission.RuntimeData,
+            TargetObj = emission.Target.isRekt() ? null : emission.Target,
+            TargetPos = emission.TargetPos,
+            TargetDir = direction,
+            AttackKingdom = emission.AttackKingdom,
+        };
+        context.BindSource(emission.Source, emission.SpatialSource);
         Vector3 aim = context.TargetObj.isRekt() ? context.TargetPos : context.TargetObj.current_position;
-        state.Reach = Mathf.Clamp(Vector2.Distance(Caster.Base.current_position, aim), .38f, range);
-        state.DamageMultiplier = ResolveDamageMultiplier();
-        state.Direction = execution.GetComponent<Rotation>().value;
-        ResolveSweepAngles(index, out state.StartAngle, out state.EndAngle);
-        execution.GetComponent<Position>().value = flight.ContactPoint;
-        execution.GetComponent<ColliderSphere>().Radius = flight.ContactRadius;
-        execution.GetComponent<AliveTimeLimit>().value = state.Duration + .1f;
+        ResolveSweepAngles(executionIndex++, out float startAngle, out float endAngle);
+        var motion = new EquippedWeaponMotionState
+        {
+            Weapon = Weapon,
+            Duration = WeaponControlRules.StrokeSeconds(Caster, category, mode),
+            Reach = Mathf.Clamp(Vector2.Distance(Caster.Base.current_position, aim), .38f, range),
+            DamageMultiplier = ResolveDamageMultiplier(),
+            Direction = Core.SkillLibV3.Manager.ApplyInitialAngleOffset(direction, emission.InitialAngleOffsetDegrees),
+            StartAngle = startAngle,
+            EndAngle = endAngle,
+        };
+        WeaponControlStrikeSystem.Begin(context, flight, motion);
+        return true;
     }
 
     /// <summary>按动作重量返回相对一次原版普攻的伤害倍率。</summary>

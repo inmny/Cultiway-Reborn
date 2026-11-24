@@ -87,84 +87,21 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
 
         skillContainer = new SkillContainerBuilder(WeaponControl)
             .Build(SkillContainerBuildMode.SourceGranted);
-        skillContainer.GetComponent<SkillContainer>().OnSetup = ConfigureExecution;
 
         var provider = new WeaponControlAbilityProvider(skillContainer, SourceDetailLocaleKey);
         ActiveAbilityService.Register(provider);
         SourceGrantedSkillService.Register(provider);
         PatchMapBox.RegisterActionOnClearWorld(WeaponControlRuntimeService.ClearWorldState);
-        WeaponControl.OnObjCollision = ResolveWeaponHit;
     }
 
-    /// <summary>逐次受理现有御器序列的真实放箭，不生成临时旧法术。</summary>
+    /// <summary>按御器序列逐次发射原版箭或启动原兵器出击。</summary>
     /// <param name="emission">正式发射已经确认的来源及目标。</param>
-    internal static SkillEmissionResult EmitRanged(in SkillEmission emission)
+    internal static SkillEmissionResult Emit(in SkillEmission emission)
     {
         if (emission.SkillContainer.GetComponent<SkillContainer>().Asset != WeaponControl)
             return SkillEmissionResult.Unhandled;
         return WeaponControlRuntimeService.TryGet(emission.RuntimeData.CorrelationId, out WeaponControlCastSession session) &&
-               session.EmitRanged(emission) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
-    }
-
-    /// <summary>把通用施放步骤按关联 ID 交给对应的御器会话配置。</summary>
-    private static void ConfigureExecution(Entity execution)
-    {
-        long correlationId = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
-        if (correlationId == 0 ||
-            !WeaponControlRuntimeService.TryGet(correlationId, out WeaponControlCastSession session))
-        {
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(execution.Id);
-            return;
-        }
-
-        session.ConfigureExecution(execution);
-    }
-
-    /// <summary>让近战武器实体通过原版攻击结算造成伤害并触发当前装备的全部攻击效果。</summary>
-    private static bool ResolveWeaponHit(
-        ref SkillContext context,
-        Entity container,
-        Entity execution,
-        BaseSimObject target)
-    {
-        if (context.SourceObj.isRekt() || !context.SourceObj.isActor() || target.isRekt()) return true;
-        Actor owner = context.SourceObj.a;
-        ref EquippedWeaponMotionState state = ref execution.GetComponent<EquippedWeaponMotionState>();
-        if (!WeaponControlRuntimeService.IsCurrentWeapon(owner, state.Weapon) ||
-            !owner.canAttackTarget(target)) return true;
-
-        Vector3 hitPosition = new(
-            target.current_position.x,
-            target.current_position.y,
-            target.getHeight());
-        var attack = new AttackData(
-            owner,
-            target.current_tile,
-            hitPosition,
-            owner.current_position,
-            target,
-            context.ResolveAttackKingdom() ?? owner.kingdom,
-            AttackType.Weapon,
-            owner.haveMetallicWeapon(),
-            true);
-        float previousMultiplier = AttackDamageScaleContext.Enter(state.DamageMultiplier);
-        try
-        {
-            using (DamageResolutionContext.Enter(
-                       DamageOrigin.Primary,
-                       context.RuntimeData.CorrelationId))
-            {
-                AttackDataResult result = MapBox.checkAttackFor(attack, target);
-                if (result.state is ApplyAttackState.Block or ApplyAttackState.Deflect)
-                    CombatImpactVisuals.OnDefended(target, owner);
-            }
-        }
-        finally
-        {
-            AttackDamageScaleContext.Restore(previousMultiplier);
-        }
-
-        return true;
+               session.Emit(emission) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 }
 

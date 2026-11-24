@@ -86,6 +86,7 @@ public class Manager
         SkillLogicSystemGroup.Add(new LogicSkillGroundFxRecordSystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
         SkillLogicSystemGroup.Add(new LogicSkillPersistentSystem(World));
+        SkillLogicSystemGroup.Add(new WeaponControlStrikeSystem());
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
     }
 
@@ -774,7 +775,10 @@ public class Manager
         return source;
     }
 
-    private static Vector3 ApplyInitialAngleOffset(Vector3 base_dir, float angle_degrees)
+    /// <summary>按正式发射的角度偏差旋转出手方向。</summary>
+    /// <param name="base_dir">已经归一的基础方向。</param>
+    /// <param name="angle_degrees">实际偏角，以度计。</param>
+    internal static Vector3 ApplyInitialAngleOffset(Vector3 base_dir, float angle_degrees)
     {
         if (Mathf.Abs(angle_degrees) < 0.01f) return base_dir;
 

@@ -47,12 +47,11 @@ var payments = new List<float>();
 var strokes = new List<(Entity Entity, object Flight, double Time, float Duration)>();
 var damage = new List<float>();
 var contactsDuringStrike = new List<object>();
-var stateType = service.Assembly.GetType("Cultiway.Content.Combat.EquippedWeaponMotionState");
+var stateType = service.Assembly.GetType("Cultiway.Content.Systems.Logic.WeaponControlStrike");
+var started = service.Assembly.GetType("Cultiway.Content.Systems.Logic.WeaponControlStrikeSystem").GetEvent("Started", F);
 var getMotion = typeof(Entity).GetMethods(F)
     .Single(method => method.Name == "TryGetComponent" && method.IsGenericMethod)
     .MakeGenericMethod(stateType);
-var skillAsset = handle.Source.GetComponent<SkillContainer>().Asset;
-var originalCollision = skillAsset.OnObjCollision;
 var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
 var previousMutations = mutationField.GetValue(null);
 var damageField = typeof(ActorExtend).GetField("action_on_damage_resolved", F);
@@ -63,17 +62,16 @@ void Paid(ActorExtend actor, in WakanMutation mutation)
 }
 void Emitted(Entity entity)
 {
-    if (entity.GetComponent<SkillEntity>().SkillContainer != handle.Source) return;
+    if (entity.GetComponent<SkillContext>().SourceObj != source) return;
     object[] args = { null };
     getMotion.Invoke(entity, args);
-    strokes.Add((entity, Flight(), World.world.getCurWorldTime(), (float)Field(args[0], "Duration")));
+    strokes.Add((entity, Flight(), World.world.getCurWorldTime(), (float)Field(Field(args[0], "Motion"), "Duration")));
 }
-bool Contact(ref SkillContext context, Entity container, Entity execution, BaseSimObject victim)
+void Contact(Entity execution, BaseSimObject victim)
 {
-    if (victim == target && context.SourceObj == source)
+    if (victim == target && execution.GetComponent<SkillContext>().SourceObj == source)
         contactsDuringStrike.Add(new { time = World.world.getCurWorldTime(), canAttack = source.canAttackTarget(target),
             position = target.current_position.ToString(), invincible = target.hasStatus("invincible") });
-    return originalCollision(ref context, container, execution, victim);
 }
 void LoseLife(ActorExtend victim, BaseSimObject attacker, float amount, ElementComposition element, AttackType type)
 {
@@ -100,8 +98,9 @@ void Use()
 
 WakanResourceService.RegisterMutationCommitted(Paid);
 ActorExtend.RegisterActionOnDamageResolved(LoseLife);
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
-skillAsset.OnObjCollision = Contact;
+Action<Entity> onStrike = Emitted;
+started.GetAddMethod(true).Invoke(null, new object[] { onStrike });
+SkillHitResolver.ContactResolved += Contact;
 try
 {
     var camera = World.world.camera;
@@ -145,6 +144,9 @@ try
         "第一道远距突刺只借出当前实际枪并支付一次");
     Place(target, 71.2f, 74.1f);
     var first = strokes[0];
+    Check(!first.Entity.HasComponent<SkillEntity>() &&
+          !first.Entity.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>(),
+        "正式御器使用原器物刃端，脱离旧法术实体和轨迹");
     Vector3 tip = Vector3.zero, position = Vector3.zero;
     bool activeTip = false;
     await Until(() =>
@@ -222,8 +224,8 @@ try
 finally
 {
     Config.paused = true;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
-    skillAsset.OnObjCollision = originalCollision;
+    started.GetRemoveMethod(true).Invoke(null, new object[] { onStrike });
+    SkillHitResolver.ContactResolved -= Contact;
     mutationField.SetValue(null, previousMutations);
     damageField.SetValue(null, previousDamage);
     ConstructedAbilityService.ContactConfirmed -= Hit;
