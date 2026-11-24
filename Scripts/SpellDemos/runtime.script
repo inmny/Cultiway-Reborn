@@ -483,10 +483,12 @@ private static IEnumerable<ConstructionNode> DemoNodes(ConstructionNode node)
 }
 
 /// <summary>列出当前通用夹具缺少的原始输入，避免把无法正式受理的能力录成空片。</summary>
-private static string ConstructionSceneProblem(AbilityDefinition definition)
+private static string ConstructionSceneProblem(AbilityDefinition definition, string species = null, bool battle = false)
 {
     string part = DemoEffector(definition.Body);
-    if (part?.StartsWith("part:", StringComparison.Ordinal) == true)
+    bool joint = part?.StartsWith("part:", StringComparison.Ordinal) == true;
+    if (species != null && !joint) return "仅依赖真实关节的构造可指定施法身体";
+    if (joint && (battle || (species ?? DemoJointSpecies(part)) == null))
         return "需要实际拥有对应关节的身体：" + part;
     if (part?.StartsWith("organ:", StringComparison.Ordinal) == true)
     {
@@ -507,6 +509,9 @@ private static string DemoEffector(BodyActionDefinition body)
     string effector = body?.Effector;
     return body?.Construction?.Parts?.FirstOrDefault(part => part.Id == effector)?.Part ?? effector;
 }
+
+/// <summary>已有实机证据的关节身体，其他关节可由录制参数选择实际身体。</summary>
+private static string DemoJointSpecies(string part) => part == "part:leg_fl" ? "wolf" : null;
 
 /// <summary>已有取证的真身搭配。同一器官的资料共用场景，正式绑定仍校验具体部件。</summary>
 private static (string Species, string Slot, int Rank) DemoOrgan(string part) =>
@@ -1132,13 +1137,18 @@ private void OnConstructedReflection(ConstructedReflection reflection) => reflec
 private IEnumerator RecordConstruction(JObject item)
 {
     AbilityDefinition definition = item["construction"].ToObject<AbilityDefinition>();
-    string unavailable = ConstructionSceneProblem(definition);
+    string requestedSpecies = (string)request["casterSpecies"];
+    string unavailable = ConstructionSceneProblem(definition, requestedSpecies);
     if (unavailable != null) throw new InvalidOperationException(unavailable);
     CompiledAbility plan = AbilityCompiler.Compile(definition);
     string effector = DemoEffector(definition.Body);
     var organ = DemoOrgan(effector);
     bool organScene = organ.Species != null;
-    var loading = LoadScene(organ.Species ?? "human");
+    bool jointScene = effector?.StartsWith("part:", StringComparison.Ordinal) == true;
+    string species = requestedSpecies ?? organ.Species ?? DemoJointSpecies(effector) ?? "human";
+    if (AssetManager.actor_library.get(species) == null)
+        throw new InvalidOperationException("没有登记的施法身体：" + species);
+    var loading = LoadScene(species);
     while (loading.MoveNext()) yield return loading.Current;
     currentCase = (string)item["id"];
     Prepare(item);
@@ -1202,7 +1212,7 @@ private IEnumerator RecordConstruction(JObject item)
         foreach (Entity status in owner.GetStatuses().ToArray())
             if (status.GetComponent<StatusComponent>().Type.id == "Cultiway.SpellDemo.Hold")
                 owner.RemoveSharedStatus(status);
-        if (organScene && externalView == null)
+        if ((organScene || jointScene) && externalView == null)
         {
             // 场地重载可能撤掉原附体状态。用原版附体阻止脚步干扰独立器官的原地出手。
             ControllableUnit.setControllableCreatureAndSelected(caster);
@@ -1421,6 +1431,10 @@ private IEnumerator RecordConstruction(JObject item)
     bool selfStatusBefore = CombatStatusEffects.HasStatus(caster, selfStatus, caster);
 
     float health = Health(target), before = Balance();
+    Vector3 bodyDirection = aim - caster.GetSimPos();
+    bodyDirection.z = 0f;
+    if (jointScene && BindDemoBody(plan, caster, target, bodyDirection.normalized) == null)
+        throw new InvalidOperationException("实际身体缺少资料所需的关节或承接动作：" + species + " / " + effector);
     bool used = ActiveAbilityService.TryUse(owner, handle, selection, ActiveAbilityUseOrigin.Script);
     float paid = before - Balance();
     if (!used)
@@ -1444,7 +1458,8 @@ private IEnumerator RecordConstruction(JObject item)
     double start = World.world.getCurWorldTime(), next = 0, lastWalk = 0;
     double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
     int peak = 0;
-    int organPoseFrames = 0;
+    int organPoseFrames = 0, jointPoseFrames = 0;
+    float jointTravel = 0f;
     float targetPeakHeight = 0f;
     var materialFrames = new List<object>();
     bool worldSurvivedCast = false;
@@ -1477,9 +1492,15 @@ private IEnumerator RecordConstruction(JObject item)
         targetPeakHeight = Mathf.Max(targetPeakHeight, target.position_height);
         if (elapsed >= next)
         {
-            bool organPose = organScene &&
-                ConstructedAbilityService.TryGetBodyPose(sourceId, out var bodyPose) && bodyPose.Organ.HasValue;
-            if (organPose) organPoseFrames++;
+            if ((organScene || jointScene) && ConstructedAbilityService.TryGetBodyPose(sourceId, out var bodyPose))
+            {
+                if (organScene && bodyPose.Organ.HasValue) organPoseFrames++;
+                if (jointScene && bodyPose.Joint != null)
+                {
+                    jointPoseFrames++;
+                    jointTravel = Mathf.Max(jointTravel, Vector2.Distance(casterStart, (Vector2)bodyPose.Foot));
+                }
+            }
             times.Add(elapsed);
             new ScreenFacade().Capture(Path.Combine(folder, "frames",
                 (times.Count - 1).ToString("00000") + ".png"));
@@ -1621,7 +1642,9 @@ private IEnumerator RecordConstruction(JObject item)
                   conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 ||
                   ownHeating.Length > 0 || transferredMaterials > 0 && worldSurvivedCast ||
                   plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) &&
-                 (organScene ? organPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId) : peak > 0) &&
+                 (organScene || jointScene
+                     ? organPoseFrames + jointPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId)
+                     : peak > 0) &&
                  (cleanPlot == null || cleanConfirmed) &&
                  (definition.WorldCondition == null || fireConditionVerified) &&
                  (selfStatus == null || selfStatusApplied) &&
@@ -1655,6 +1678,8 @@ private IEnumerator RecordConstruction(JObject item)
         scriptCasts = scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials,
         organ = organScene ? new { species = caster.asset.id, part = effector, rank = organ.Rank,
             poseFrames = organPoseFrames, released = !BodyControlState.IsBusy(sourceId) } : null,
+        joint = jointScene ? new { species = caster.asset.id, part = effector, poseFrames = jointPoseFrames,
+            travel = jointTravel, released = !BodyControlState.IsBusy(sourceId) } : null,
         worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
     });
 
@@ -1704,14 +1729,13 @@ private IEnumerator RecordConstruction(JObject item)
 /// <summary>用真身姿态确定站立对手的起点，实际接触和结算仍由正式施放产生。</summary>
 private static void PositionOrganTarget(CompiledAbility plan, Actor source, Actor target)
 {
-    var assembly = typeof(ConstructedAbilityService).Assembly;
-    var bindingType = assembly.GetType("Cultiway.Content.Skills.BodyActionBinding", true);
-    var heightMethod = assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true).GetMethod("Height", Flags);
+    var heightMethod = typeof(ConstructedAbilityService).Assembly
+        .GetType("Cultiway.Content.Combat.SpatialActorPose", true).GetMethod("Height", Flags);
     float height = (float)heightMethod.Invoke(null, new object[] { target });
     Vector3 aim = target.GetSimPos();
-    object binding = bindingType.GetMethod("TryCreate", Flags).Invoke(null,
-        new object[] { source, plan.Body, Vector3.right, aim, height });
+    object binding = BindDemoBody(plan, source, target, Vector3.right);
     if (binding == null) throw new InvalidOperationException("真身缺少资料要求的器官或支撑");
+    Type bindingType = binding.GetType();
     var frame = (BodyFrame)bindingType.GetMethod("Frame", Flags, null, new[] { typeof(Actor) }, null)
         .Invoke(binding, new object[] { source });
     var cast = new AbilityCast(plan, Matrix4x4.identity, frame);
@@ -1734,6 +1758,18 @@ private static void PositionOrganTarget(CompiledAbility plan, Actor source, Acto
     Vector3 position = points.OrderBy(point => Mathf.Abs(point.y - frame.Foot.y))
         .ThenByDescending(point => point.x).First();
     Place(target, position.x, position.y);
+}
+
+/// <summary>用正式身体绑定核对实际关节和所需支撑。</summary>
+private static object BindDemoBody(CompiledAbility plan, Actor source, Actor target, Vector3 direction)
+{
+    var assembly = typeof(ConstructedAbilityService).Assembly;
+    var bindingType = assembly.GetType("Cultiway.Content.Skills.BodyActionBinding", true);
+    var heightMethod = assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true).GetMethod("Height", Flags);
+    if (direction.sqrMagnitude < .00001f) direction = Vector3.right;
+    return bindingType.GetMethod("TryCreate", Flags).Invoke(null, new[] {
+        (object)source, plan.Body, direction, target.GetSimPos(), heightMethod.Invoke(null, new object[] { target })
+    });
 }
 
 /// <summary>读取独立测试世界，然后依次准备、释放和录制每一招。</summary>
@@ -3348,7 +3384,7 @@ private void TeachBattleSide(ActorExtend participant, JArray choices)
         participant.E.RemoveComponent<Magic>();
     foreach (var definition in definitions)
     {
-        string unavailable = ConstructionSceneProblem(definition);
+        string unavailable = ConstructionSceneProblem(definition, battle: true);
         if (unavailable != null) throw new InvalidOperationException(unavailable);
         ConstructedAbilityService.Register(definition);
         ConstructedAbilityService.Learn(participant, definition.Id);

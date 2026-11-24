@@ -459,6 +459,7 @@ def main(all_spells):
     parser.add_argument("--scene", choices=["single", "shield", "battle"], default="single", help="单招、护盾迎击或真正自主交战")
     parser.add_argument("--shield-break", action="store_true", help="迎击录像先挡住小石弹，再用真实重击打穿")
     parser.add_argument("--realm", type=int, default=2, choices=range(5), help="修炼境界 0～4")
+    parser.add_argument("--caster-species", help="为依赖真实关节的构造选择原版生物编号")
     parser.add_argument("--caster-walk", type=float, default=0, help="构造演示中让施法者通过原版附体移动沿地图X轴行走指定格数")
     parser.add_argument("--caster-position", type=float, nargs=2, metavar=("X", "Y"), help="单招录像复用指定的施法者地图坐标")
     parser.add_argument("--target-offset", type=float, nargs=2, metavar=("X", "Y"), help="单招或迎击场景中，目标相对施法者的地图位置")
@@ -490,6 +491,8 @@ def main(all_spells):
         parser.error("--target-offset 只用于单招或迎击场景")
     if args.caster_position and (args.scene != "single" or any(not math.isfinite(v) for v in args.caster_position)):
         parser.error("--caster-position 只用于单招，坐标须为有限数")
+    if args.caster_species and args.scene != "single":
+        parser.error("--caster-species 只用于单招场景")
     if args.aim_offset and (args.scene != "single" or
                             any(not math.isfinite(v) or abs(v) > 20 for v in args.aim_offset)):
         parser.error("--aim-offset 只用于单招，偏移须在 -20 至 20 格")
@@ -579,6 +582,8 @@ def main(all_spells):
             reasons = list(dict.fromkeys(row["reason"] for row in skipped))
             detail = "；".join(reasons) if reasons else "请检查 --cases 和兼容范围"
             parser.error("没有可用演示：" + detail)
+        if args.caster_species and any("construction" not in case for case in cases):
+            raise ValueError("--caster-species 需要选择依赖真实关节的构造")
         if args.scene == "shield" and args.cases != "base":
             parser.error("护盾迎击请使用 --cases base")
         output = (args.output or CONTROL / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")).resolve()
@@ -603,6 +608,8 @@ def main(all_spells):
             manifest["shieldBreak"] = True
         if args.caster_position:
             manifest["casterPosition"] = args.caster_position
+        if args.caster_species:
+            manifest["casterSpecies"] = args.caster_species
         if args.aim_offset:
             manifest["aimOffset"] = args.aim_offset
         if args.target_offset or constructions is not None:
