@@ -54,6 +54,13 @@ void Emitted(Entity entity)
     emissions++;
     events.Add(new { kind = "emission", time = World.world.getCurWorldTime() });
 }
+void BowLaunch(BaseSimObject initiator, Projectile projectile)
+{
+    if (initiator != source || handle.ProviderId != bowProvider || projectile == null ||
+        !projectiles.Contains(projectile)) return;
+    emissions++;
+    events.Add(new { kind = "emission", time = World.world.getCurWorldTime() });
+}
 void SetCentre(Vector2 centre, float zoom, float distance, float tip)
 {
     shotPosition = new Vector3(centre.x, centre.y + .25f, originalPosition.z);
@@ -122,6 +129,10 @@ void Capture(string path)
 WakanResourceService.RegisterMutationCommitted(Paid);
 ActorExtend.RegisterActionOnDamageResolved(Damage);
 Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
+var bowObserver = new HarmonyLib.Harmony("Cultiway.Verify.WeaponFlightRecording");
+bowObserver.Patch(typeof(ProjectileManager).GetMethod("spawn", F),
+    postfix: new HarmonyLib.HarmonyMethod(typeof(VerifyNativeProjectileBirth).GetMethod("AfterSpawn")));
+VerifyNativeProjectileBirth.Observed = BowLaunch;
 try
 {
     var moves = new[]
@@ -322,6 +333,8 @@ finally
     Config.paused = true;
     clock.multiplier = originalSpeed;
     timeMode?.SetValue(settings, priorMode);
+    VerifyNativeProjectileBirth.Observed = null;
+    bowObserver.UnpatchSelf();
     Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
     mutationField.SetValue(null, priorMutations);
     damageField.SetValue(null, priorDamage);

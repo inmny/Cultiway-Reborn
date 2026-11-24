@@ -1,0 +1,7 @@
+// 只供主动复验和录像采集原版实际发射。
+public static class VerifyNativeProjectileBirth
+{
+    public static Action<BaseSimObject, Projectile> Observed;
+    public static void AfterSpawn(BaseSimObject pInitiator, Projectile __result) =>
+        Observed?.Invoke(pInitiator, __result);
+}

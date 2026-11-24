@@ -233,30 +233,33 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             return;
         }
 
-        int index = executionIndex++;
-        if (IsRanged)
-        {
-            if (index == 0) PlayRangedRelease(execution);
-            SpawnProjectile(execution, index);
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(execution.Id);
-            return;
-        }
-
-        ConfigureMeleeExecution(execution, index);
+        if (!IsRanged) ConfigureMeleeExecution(execution, executionIndex++);
     }
 
-    /// <summary>在第一道攻击成功支付后播放原放箭声音及箭雨动作。</summary>
-    private void PlayRangedRelease(Entity execution)
+    /// <summary>使用这一步真正选择的目标，从已经借出的原弓发射原版箭。</summary>
+    /// <param name="emission">本次序列确定的发射资料。</param>
+    internal bool EmitRanged(in SkillEmission emission)
+    {
+        Actor source = Caster.Base;
+        if (!IsRanged || source != emission.Source || !WeaponControlRuntimeService.IsCurrentWeapon(source, Weapon))
+            return false;
+        if (!SpawnProjectile(emission, executionIndex)) return false;
+        if (executionIndex++ == 0) PlayRangedRelease(emission);
+        return true;
+    }
+
+    /// <summary>在第一发实际发出后播放原放箭声音及箭雨动作。</summary>
+    /// <param name="emission">已经发生的发射。</param>
+    private void PlayRangedRelease(in SkillEmission emission)
     {
         ProjectileAsset projectile = AssetManager.projectiles.get(weaponAsset.projectile);
         if (!string.IsNullOrEmpty(projectile?.sound_launch))
             MusicBox.playSound(projectile.sound_launch, Caster.Base.current_position.x, Caster.Base.current_position.y, true);
         if (mode != WeaponControlCastMode.ArrowRain) return;
 
-        ref SkillContext context = ref execution.GetComponent<SkillContext>();
-        Vector3 targetPosition = context.TargetObj.isRekt()
-            ? context.TargetPos
-            : context.TargetObj.current_position;
+        Vector3 targetPosition = emission.Target.isRekt()
+            ? emission.TargetPos
+            : emission.Target.current_position;
         Caster.Base.punchTargetAnimation(targetPosition, true, true);
     }
 
@@ -297,13 +300,14 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         ? 5.5f + WeaponControlRules.ResolveRealm(Caster) * .65f : .45f;
 
     /// <summary>以天空倾泻或高弧箭雨姿态生成武器对应的原版投射物。</summary>
-    private void SpawnProjectile(Entity execution, int index)
+    /// <param name="emission">正式位置和对象。</param>
+    /// <param name="index">此前已经发出的箭数。</param>
+    private bool SpawnProjectile(in SkillEmission emission, int index)
     {
         string projectileId = WeaponControlProjectileProxyLibrary.Resolve(weaponAsset.projectile, mode);
-        if (string.IsNullOrEmpty(projectileId)) return;
-        ref SkillContext context = ref execution.GetComponent<SkillContext>();
-        BaseSimObject target = context.TargetObj;
-        Vector3 targetPosition = target.isRekt() ? context.TargetPos : target.current_position;
+        if (string.IsNullOrEmpty(projectileId)) return false;
+        BaseSimObject target = emission.Target;
+        Vector3 targetPosition = target.isRekt() ? emission.TargetPos : target.current_position;
         float angle = index * 137.50776f * Mathf.Deg2Rad;
         float targetRadius = mode == WeaponControlCastMode.SkyVolley ? 2.4f : 1.7f;
         targetPosition += new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) *
@@ -312,7 +316,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         Vector3 position = Caster.Base.current_position;
         position.z = ResolveLaunchHeight();
         Vector3 launch = flight?.LaunchPoint() ?? position;
-        World.world.projectiles.spawn(
+        return World.world.projectiles.spawn(
             Caster.Base,
             target.isRekt() ? null : target,
             projectileId,
@@ -320,7 +324,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             targetPosition,
             target.isRekt() ? 0f : target.getHeight(),
             launch.z,
-            pForcedKingdom: attackKingdom);
+            pForcedKingdom: attackKingdom) != null;
     }
 
     /// <summary>一次已付出击沿实际器物刃端运动，继续使用共用扫掠确认和原版武器结算。</summary>

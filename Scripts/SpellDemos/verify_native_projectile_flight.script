@@ -43,12 +43,18 @@ void Paid(ActorExtend actor, in WakanMutation mutation)
 {
     if (actor == owner && mutation.Kind == WakanMutationKind.Spend) payments.Add(-mutation.Delta);
 }
-void Emitted(Entity execution)
+Action<Projectile> observeLaunch = null;
+var observe = new HarmonyLib.Harmony("Cultiway.Verify.NativeProjectileBirth");
+void OnLaunch(BaseSimObject initiator, Projectile shot)
 {
-    if (execution.GetComponent<SkillEntity>().SkillContainer == handle.Source) emitted++;
+    if (initiator != source || shot == null || !active.Contains(shot) || !Casting()) return;
+    emitted++;
+    observeLaunch?.Invoke(shot);
 }
+var spawn = typeof(ProjectileManager).GetMethod("spawn", F);
+observe.Patch(spawn, postfix: new HarmonyLib.HarmonyMethod(typeof(VerifyNativeProjectileBirth).GetMethod("AfterSpawn")));
+VerifyNativeProjectileBirth.Observed = OnLaunch;
 WakanResourceService.RegisterMutationCommitted(Paid);
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
 try
 {
     source.attack_timer = 0f;
@@ -132,7 +138,8 @@ try
 finally
 {
     Config.paused = true;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    VerifyNativeProjectileBirth.Observed = null;
+    observe.UnpatchSelf();
     mutationField.SetValue(null, previousMutations);
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

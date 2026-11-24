@@ -11,15 +11,7 @@ int BowMeshes(object flight) => ((IEnumerable)visuals.GetValue(null)).Cast<objec
     .Count(mesh => ReferenceEquals(Field(mesh, "Model"), Field(flight, "model")));
 bool Borrowed() => ConstructedAbilityService.IsWeaponBorrowed(source) && ConstructedAbilityService.HasWeaponControl(source);
 var births = new List<(Projectile Projectile, Vector3 Expected, Vector3 Actual)>();
-var countedProjectiles = new HashSet<Projectile>();
-void Launched(Entity execution)
-{
-    if (execution.GetComponent<SkillEntity>().SkillContainer != handle.Source) return;
-    Vector3 bowPoint = BowPoint(CurrentFlight());
-    foreach (Projectile shot in active)
-        if (countedProjectiles.Add(shot))
-            births.Add((shot, bowPoint, Where(shot)));
-}
+observeLaunch = shot => births.Add((shot, BowPoint(CurrentFlight()), Where(shot)));
 async Task WaitHere(Func<bool> done)
 {
     Config.paused = false;
@@ -51,7 +43,6 @@ async Task SwitchWorld()
         "切世界解除仍在升弓的实际器物及施放会话");
 }
 
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Launched;
 try
 {
     var camera = World.world.camera;
@@ -129,8 +120,8 @@ try
 finally
 {
     Config.paused = true;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Launched;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
+    VerifyNativeProjectileBirth.Observed = null;
+    observe.UnpatchSelf();
     mutationField.SetValue(null, previousMutations);
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

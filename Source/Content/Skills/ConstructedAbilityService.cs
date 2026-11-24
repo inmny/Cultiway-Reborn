@@ -79,7 +79,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         SkillModifiers.RegisterConstructionWorldEffects();
         Core.SkillLibV3.Manager.ConstructionEmission = emission =>
         {
-            SkillEmissionResult result = FoxfireBreathConstruction.Emit(emission);
+            SkillEmissionResult result = WeaponControlSkills.EmitRanged(emission);
+            if (result == SkillEmissionResult.Unhandled) result = FoxfireBreathConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = SealRelayConstruction.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = UtilityConstructionMigration.Emit(emission);
             if (result == SkillEmissionResult.Unhandled) result = ProjectileConstructionMigration.Emit(emission);

@@ -53,6 +53,8 @@ def main():
         else:
             recall = str(args.section == 'artifact-array-recall').lower()
             body = f'bool recallOnly = {recall};\n' + (scripts / 'verify_artifact_sword_array.script').read_text()
+    if args.section in ('projectiles', 'bow', 'bow-world'):
+        body += (scripts / 'observe_native_projectile_birth.script').read_text()
     program.write_text('using Friflo.Engine.ECS;\nusing Cultiway.Core.SkillLibV3;\n'
                        'using Cultiway.Core.SkillLibV3.Components;\n' + imports + base + body)
     try:

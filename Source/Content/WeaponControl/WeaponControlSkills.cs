@@ -96,6 +96,16 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
         WeaponControl.OnObjCollision = ResolveWeaponHit;
     }
 
+    /// <summary>逐次受理现有御器序列的真实放箭，不生成临时旧法术。</summary>
+    /// <param name="emission">正式发射已经确认的来源及目标。</param>
+    internal static SkillEmissionResult EmitRanged(in SkillEmission emission)
+    {
+        if (emission.SkillContainer.GetComponent<SkillContainer>().Asset != WeaponControl)
+            return SkillEmissionResult.Unhandled;
+        return WeaponControlRuntimeService.TryGet(emission.RuntimeData.CorrelationId, out WeaponControlCastSession session) &&
+               session.EmitRanged(emission) ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
+    }
+
     /// <summary>把通用施放步骤按关联 ID 交给对应的御器会话配置。</summary>
     private static void ConfigureExecution(Entity execution)
     {

@@ -75,7 +75,8 @@ def main():
         program = folder / 'input.script'
         program.write_text(IMPORTS + world_helpers(folder, PROJECT / FIXTURE)
                            + (SCRIPTS / 'weapon_flight_scene.script').read_text() + settings
-                           + Path(__file__).with_suffix('.script').read_text())
+                           + Path(__file__).with_suffix('.script').read_text()
+                           + (SCRIPTS / 'observe_native_projectile_birth.script').read_text())
         try:
             result = baseline.call('run', str(program), '570000')
         except RuntimeError as error:
