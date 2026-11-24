@@ -1438,6 +1438,7 @@ private IEnumerator RecordConstruction(JObject item)
     var selfStatus = plan.Use.SelfStatus?.Asset;
     bool selfStatusBefore = CombatStatusEffects.HasStatus(caster, selfStatus, caster);
 
+    var viewState = ConfirmViewState();
     float health = Health(target), before = Balance();
     Vector3 bodyDirection = aim - caster.GetSimPos();
     bodyDirection.z = 0f;
@@ -1681,7 +1682,8 @@ private IEnumerator RecordConstruction(JObject item)
         targetStart = new[] { targetStart.x, targetStart.y },
         targetEnd = new[] { target.current_position.x, target.current_position.y }, peakForms = peak,
         casterWalk = walk, walked = Vector2.Distance(casterStart, caster.current_position),
-        times, frames = times.Count, duration, view = (string)request["view"],
+        times, frames = times.Count, duration, view = (string)request["view"], viewState,
+        finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day", lightingState = LightingState(),
         scriptCasts = scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials,
         organ = organScene ? new { species = caster.asset.id, part = effector, rank = organ.Rank,
@@ -2625,16 +2627,7 @@ private IEnumerator Record(JObject item, string folder)
         yield return null;
     }
 
-    // 使用实际镜头和附身状态，防止有效的战斗画面被标为未经进入的视角。
-    var viewState = externalView == null ? null : new
-    {
-        firstPerson = (bool)externalView.GetProperty("IsFirstPerson", Flags).GetValue(externalViewInstance),
-        attached = ControllableUnit.isControllingUnit(caster),
-        godView = (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance),
-        godAlpha = (float)externalView.GetProperty("GodAlpha", Flags).GetValue(externalViewInstance)
-    };
-    if ((string)request["view"] == "firstperson" && (viewState == null || !viewState.firstPerson || !viewState.attached))
-        throw new InvalidOperationException("正式施放前未实际附身到施法者");
+    var viewState = ConfirmViewState();
 
     bool used;
     if (dedicated)
@@ -2791,7 +2784,8 @@ private IEnumerator Record(JObject item, string folder)
         palm = palm ? new { cast = palmCast, contacts = palmHits.Length, settlements = palmDamage.Length,
             lost = palmDamage.Sum(hit => (int?)hit["lost"] ?? 0), released = palmReleased,
             end = palmEnd?.WorldTime, age = palmEnd?.Age } : null,
-        view = (string)request["view"], viewState, lighting = (string)request["lighting"] ?? "day",
+        view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
+        lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog,
         worldContactsLog, areasLog, queuedDamageLog,
         barrierLog, clashesLog, footprints = footprints.Values.ToArray(), yellowObjects,
@@ -3290,6 +3284,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
     barrierLog.Clear();
     footprints.Clear();
     int ownerHealth = Health(caster), rivalHealth = Health(enemy);
+    var viewState = ConfirmViewState();
     double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
     var times = new List<double>();
     Config.paused = false;
@@ -3366,7 +3361,8 @@ private IEnumerator RecordBattle(JObject item, string folder)
         item, frames = times.Count, times,
         duration = World.world.getCurWorldTime() - start, spawned = casts.Length, distinct, together,
         rivalCasts = rivalCasts.Length, artifactUsed, artifactDetails,
-        view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
+        view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
+        lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = "battle", executionLog, contactsLog, areasLog, barrierLog,
         participants = new[] { new { id = caster.id, before = ownerHealth, after = Health(caster) },
             new { id = enemy.id, before = rivalHealth, after = Health(enemy) } },
@@ -3460,6 +3456,30 @@ private void ReleaseBodyCloseCamera()
     if (caster == null || !ReferenceEquals(locked.GetValue(externalViewInstance), caster)) return;
     locked.SetValue(externalViewInstance, null);
     externalView.GetField("_godPull", Flags).SetValue(externalViewInstance, 0f);
+}
+
+/// <summary>按实机镜头和附身状态验收视角，并记录真实地图镜头位置和缩放。</summary>
+private object ConfirmViewState()
+{
+    Type viewType = externalView ?? AppDomain.CurrentDomain.GetAssemblies()
+        .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(type => type != null);
+    object observer = externalViewInstance ?? viewType?.GetProperty("Instance", Flags).GetValue(null);
+    bool firstPerson = (bool?)viewType?.GetProperty("IsFirstPerson", Flags).GetValue(observer) ?? false;
+    bool attached = ControllableUnit.isControllingUnit(caster);
+    bool godView = (bool?)viewType?.GetProperty("GodShown", Flags).GetValue(observer) ?? false;
+    float godAlpha = (float?)viewType?.GetProperty("GodAlpha", Flags).GetValue(observer) ?? 0f;
+    string view = (string)request["view"];
+    bool ready = view switch
+    {
+        "firstperson" => firstPerson && attached,
+        "worldfall" => godView && godAlpha >= .99f && !firstPerson,
+        _ => !godView && !firstPerson
+    };
+    if (!ready) throw new InvalidOperationException("实际镜头与所选视角不一致：" + view);
+    var camera = World.world.camera;
+    Vector3 position = camera.transform.position;
+    return new { firstPerson, attached, godView, godAlpha,
+        mapPosition = new[] { position.x, position.y, position.z }, mapZoom = camera.orthographicSize };
 }
 
 /// <summary>固定普通观察视角，所有法术使用同一尺度便于比较。</summary>
