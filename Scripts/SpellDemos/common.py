@@ -375,7 +375,7 @@ def main(all_spells):
     parser.add_argument("--caster-walk", type=float, default=0, help="构造演示中让施法者通过原版附体移动沿地图X轴行走指定格数")
     parser.add_argument("--caster-position", type=float, nargs=2, metavar=("X", "Y"), help="单招录像复用指定的施法者地图坐标")
     parser.add_argument("--target-offset", type=float, nargs=2, metavar=("X", "Y"), help="单招或迎击场景中，目标相对施法者的地图位置")
-    parser.add_argument("--aim-offset", type=float, nargs=2, metavar=("X", "Y"), help="单招录像中，原法术瞄准相对施法者的地面坐标")
+    parser.add_argument("--aim-offset", type=float, nargs=2, metavar=("X", "Y"), help="单招录像中，瞄准相对施法者的地面坐标；构造需允许点地")
     parser.add_argument("--terrain-slope", type=float, default=0, help="每格地图X方向增加的原版地形高度，范围 -4 至 4")
     parser.add_argument("--zoom", type=float, default=22, help="镜头缩放；城域演示建议 38")
     parser.add_argument("--power", type=float, default=6, help="测试人物战力，默认便于观察单招")
@@ -395,9 +395,9 @@ def main(all_spells):
         parser.error("--target-offset 只用于单招或迎击场景")
     if args.caster_position and (args.scene != "single" or any(not math.isfinite(v) for v in args.caster_position)):
         parser.error("--caster-position 只用于单招，坐标须为有限数")
-    if args.aim_offset and (args.scene != "single" or args.construction or
+    if args.aim_offset and (args.scene != "single" or
                             any(not math.isfinite(v) or abs(v) > 20 for v in args.aim_offset)):
-        parser.error("--aim-offset 只用于原法术单招，偏移须在 -20 至 20 格")
+        parser.error("--aim-offset 只用于单招，偏移须在 -20 至 20 格")
     if not math.isfinite(args.terrain_slope) or abs(args.terrain_slope) > 4:
         parser.error("测试地形坡度须为 -4 至 4 的有限数")
     if not math.isfinite(args.caster_walk) or abs(args.caster_walk) > 20 or (args.target_offset and any(not math.isfinite(v) or abs(v) > 20 for v in args.target_offset)):

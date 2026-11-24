@@ -109,6 +109,7 @@ private long executionCase;
 
 /// <summary>已提交的共同地块结果，区别实际作用与仅有开始事件。</summary>
 private readonly List<object> worldContactsLog = new();
+private readonly List<ConstructedCastEnded> constructionEndLog = new();
 
 /// <summary>当前观察的技能容器。</summary>
 private Entity observed;
@@ -936,7 +937,13 @@ private IEnumerator RecordConstruction(JObject item)
     }
 
     CompiledAbility plan = AbilityCompiler.Compile(definition);
-    Actor target = plan.Impact.Targets == Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Self ? caster :
+    bool selfTarget = plan.Use.Target == ActiveAbilityTargetMode.Self;
+    var aimOffset = request["aimOffset"] as JArray;
+    bool pointTarget = plan.Use.Target == ActiveAbilityTargetMode.Point ||
+        plan.Use.Target == ActiveAbilityTargetMode.ObjectOrPoint && aimOffset != null;
+    if (aimOffset != null && !pointTarget)
+        throw new InvalidOperationException("这项构造不选地块，不能指定 --aim-offset");
+    Actor target = selfTarget || plan.Impact.Targets == Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Self ? caster :
         plan.Impact.Targets == Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Friendly ? friend :
         enemies[0];
     if (target == friend) Place(friend, enemies[0].current_position.x, enemies[0].current_position.y);
@@ -963,10 +970,21 @@ private IEnumerator RecordConstruction(JObject item)
         }
     }
 
-    if (request["targetOffset"] is JArray offset)
+    if (!selfTarget && request["targetOffset"] is JArray offset)
         Place(target, caster.current_position.x + (float)offset[0],
             caster.current_position.y + (float)offset[1]);
     Vector2 casterStart = caster.current_position;
+    Vector3 aim = target.GetSimPos();
+    if (pointTarget)
+    {
+        var pointOffset = aimOffset ?? request["targetOffset"] as JArray;
+        aim = pointOffset == null
+            ? new Vector3(Mathf.Floor(casterStart.x + Mathf.Min(6f, (plan.TargetRange ?? 8f) * .75f)) + .5f,
+                Mathf.Floor(casterStart.y) + .5f, 0f)
+            : new Vector3(casterStart.x + (float)pointOffset[0], casterStart.y + (float)pointOffset[1], 0f);
+        if (TileAt(aim) == null) throw new InvalidOperationException("瞄准地点不在测试地图内");
+    }
+    var selection = new ActiveAbilityTarget(pointTarget ? null : target, aim);
     float walk = (float?)request["casterWalk"] ?? 0f;
     if (walk != 0f)
     {
@@ -992,7 +1010,7 @@ private IEnumerator RecordConstruction(JObject item)
         if (!ControllableUnit.isControllingUnit(caster))
             throw new InvalidOperationException("坡面录像未实际附身到施法者");
         // 从实际施法位置朝向已经对位的目标。录制期间不接收桌面的鼠标转向。
-        Vector2 direction = targetStart - casterStart;
+        Vector2 direction = (Vector2)aim - casterStart;
         AimFirstPerson(Mathf.Atan2(direction.y, direction.x), -8f);
         var mouseLookOff = externalView.GetField("MouseLookOff", Flags);
         if (mouseLookOff != null)
@@ -1071,14 +1089,41 @@ private IEnumerator RecordConstruction(JObject item)
         if (definition.Resource == "stamina") caster.data.stamina = caster.getMaxStamina() / 2;
     }
 
+    // 对照物只放在已经加载的测试世界。净土按真实地块确认，防火走原版点火入口。
+    WorldTile cleanPlot = pointTarget && plan.Impact.WorldEffects.Any(effect => effect.Action.Id == "land.cleanse")
+        ? TileAt(aim) : null;
+    if (cleanPlot != null)
+    {
+        if (cleanPlot.hasBuilding() || cleanPlot.Type.road || cleanPlot.Type.liquid)
+            throw new InvalidOperationException("请选择测试区内干燥且没有道路或建筑的净土地块");
+        cleanPlot.setTileTypes(TileLibrary.soil_low, TopTileLibrary.wasteland_low);
+        cleanPlot.setBurnedStage(12);
+        World.world.burned_layer.setTileDirty(cleanPlot);
+    }
+    bool dirtyBefore = IsPolluted(cleanPlot);
+    WorldTile firePlot = definition.WorldCondition == null ? null : definition.WorldCondition.EntireWorld
+        ? World.world.GetTileSimple(MapBox.width - 8, 8)
+        : TileAt(aim);
+    if (firePlot != null)
+    {
+        if (firePlot.hasBuilding() || firePlot.Type.road)
+            throw new InvalidOperationException("测试点火地块不得覆盖道路或建筑");
+        if (firePlot != cleanPlot) firePlot.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        firePlot.stopFire();
+    }
+    bool fireBefore = TryLight(firePlot);
+    var selfStatus = plan.Use.SelfStatus?.Asset;
+    bool selfStatusBefore = CombatStatusEffects.HasStatus(caster, selfStatus, caster);
+
     float health = Health(target), before = Balance();
-    bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()),
-        ActiveAbilityUseOrigin.Script);
+    bool used = ActiveAbilityService.TryUse(owner, handle, selection, ActiveAbilityUseOrigin.Script);
     float paid = before - Balance();
     if (!used)
         throw new InvalidOperationException("构造施放入口拒绝：" +
                                             ActiveAbilityService.ResolveControlState(owner, handle)
                                                 .BlockReason);
+    bool fireBlocked = firePlot != null && !TryLight(firePlot);
+    bool selfStatusApplied = !selfStatusBefore && CombatStatusEffects.HasStatus(caster, selfStatus, caster);
     // 手动单招完成后不再让原版自动普攻混入录像，正式准入及动作本身已经正常执行。
     if (definition.Body != null || walk != 0f) caster.attack_timer = 999f;
     Vector2 walkDestination = casterStart + new Vector2(walk, 0f);
@@ -1169,6 +1214,18 @@ private IEnumerator RecordConstruction(JObject item)
             (long?)value["source"] == sourceId && (long?)value["target"] == targetId).ToArray()
         : Array.Empty<JObject>();
     int actualContacts = targetContacts.Length;
+    long ownCast = scriptCasts.Length == 1 ? (long)scriptCasts[0]["cast"] : 0;
+    JObject[] worldChanges = ownCast == 0 ? Array.Empty<JObject>() :
+        worldContactsLog.Select(JObject.FromObject)
+            .Where(value => (long)value["cast"] == ownCast && (string)value["id"] == definition.Id &&
+                            (bool)value["changed"]).ToArray();
+    bool cleanConfirmed = cleanPlot != null && dirtyBefore && !IsPolluted(cleanPlot) &&
+        worldChanges.Count(change => (int)change["X"] == cleanPlot.pos.x && (int)change["Y"] == cleanPlot.pos.y &&
+                                     (string)change["action"] == "land.cleanse") == 1;
+    bool naturalEnd = ownCast > 0 &&
+        constructionEndLog.Count(end => end.CastId == ownCast && !end.Cancelled) == 1;
+    bool fireAfter = TryLight(firePlot);
+    bool fireConditionVerified = firePlot != null && fireBefore && fireBlocked && naturalEnd && fireAfter;
     int actualClashes = scriptCasts.Length == 1
         ? clashesLog.Select(JObject.FromObject).Count(value =>
             (long?)value["leftCast"] == (long?)scriptCasts[0]["cast"] ||
@@ -1251,9 +1308,13 @@ private IEnumerator RecordConstruction(JObject item)
                      opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 ||
                                                 conductedHits > 0 || quenchedVolume > 0 ||
                                                 heatedWorld.Length > 0))) && scriptCasts.Length == 1 &&
-                 (actualContacts > 0 || conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 ||
+                 (actualContacts > 0 || worldChanges.Length > 0 || fireConditionVerified || selfStatusApplied ||
+                  conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 ||
                   ownHeating.Length > 0 || transferredMaterials > 0 && worldSurvivedCast ||
                   plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 &&
+                 (cleanPlot == null || cleanConfirmed) &&
+                 (definition.WorldCondition == null || fireConditionVerified) &&
+                 (selfStatus == null || selfStatusApplied) &&
                  paid == definition.Cost &&
                  ((extinguished || ownHeating.Length > 0) && actualContacts == 0 ? Health(target) == health :
                      plan.ContactDamageScale > 0f ? Health(target) < health :
@@ -1268,6 +1329,11 @@ private IEnumerator RecordConstruction(JObject item)
         validation =
             "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移、独立腾起检查离地，停顿与束缚检查实际受理，束缚成立可阻止同次推力；纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在，世界转换检查同次施放实际转入正体积，导电检查同次传播确实到达目标并按伤害规则扣血，水火检查同次接触真实减水和火势余量，灭火后不冒充人物命中，点木检查同次火术真实传入热量和后续有限烧损；美术与完整交互另行验收",
         item, definition, used, paid, resource = definition.Resource, before, after = Balance(),
+        targetMode = pointTarget ? "Point" : selfTarget ? "Self" : "Object", selectedActor = pointTarget ? (long?)null : targetId,
+        aimPosition = new[] { aim.x, aim.y, aim.z }, worldChanges, naturalEnd,
+        landWitness = cleanPlot == null ? null : new { cleanPlot.pos.x, cleanPlot.pos.y, dirtyBefore, cleanConfirmed },
+        fireWitness = firePlot == null ? null : new { firePlot.pos.x, firePlot.pos.y, fireBefore, fireBlocked,
+            fireAfter, fireConditionVerified }, selfStatusApplied,
         targetBefore = health, targetAfter = Health(target),
         targetMoved = Vector2.Distance(targetStart, target.current_position), targetPeakHeight, acceptedBind,
         acceptedStagger, movementVerified, controlVerified,
@@ -1289,6 +1355,23 @@ private IEnumerator RecordConstruction(JObject item)
         "stamina" => caster.getStamina(),
         _ => throw new InvalidOperationException("未知演示资源：" + definition.Resource)
     };
+
+    WorldTile TileAt(Vector3 position)
+    {
+        int x = Mathf.FloorToInt(position.x), y = Mathf.FloorToInt(position.y);
+        return x >= 0 && x < MapBox.width && y >= 0 && y < MapBox.height ? World.world.GetTileSimple(x, y) : null;
+    }
+
+    bool IsPolluted(WorldTile tile) =>
+        tile != null && (tile.top_type?.wasteland == true || tile.burned_stages > 0);
+
+    bool TryLight(WorldTile tile)
+    {
+        if (tile == null) return false;
+        bool lit = tile.startFire(pForce: true) && tile.isOnFire();
+        tile.stopFire();
+        return lit;
+    }
 
     void PositionBodyTarget()
     {
@@ -1662,6 +1745,7 @@ private void Prepare(JObject item)
     artifactDetails = null;
     executionLog.Clear();
     worldContactsLog.Clear();
+    constructionEndLog.Clear();
     worldMaterialsLog.Clear();
     recoveryLog.Clear();
     conductionLog.Clear();
@@ -2359,6 +2443,8 @@ private void OnConstructedStart(ConstructedCastStarted started)
 private void OnConstructedEnd(ConstructedCastEnded ended)
 {
     if (palmCast != 0 && ended.CastId == palmCast) palmEnd = ended;
+    if (ended.AbilityId == currentCase && caster != null && ended.SourceId == caster.id)
+        constructionEndLog.Add(ended);
 }
 
 /// <summary>记录共同模拟真正接受的地块操作，不把施放成功直接算成工作完成。</summary>
