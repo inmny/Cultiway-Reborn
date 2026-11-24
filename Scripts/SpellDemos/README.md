@@ -2183,11 +2183,11 @@ python3 Scripts/SpellDemos/demo_spell.py TidalWave --cases base --view native --
 
 短片复验：`dev.py exec --timeout 145 -- python3 Scripts/SpellDemos/demo_spell.py WaterCurtain --cases base --view native --zoom 22 --fps 15 --duration 2.2 --output <本次验收目录>`。
 
-9.05 的施放与命中检查使用 `dev.py exec --timeout 225 -- python3 Scripts/SpellDemos/verify_material_feedback.py --section weapon|spell|steam`（每次选一个段）。`weapon` 复用木剑御器，观察真实生命变化、局部碎屑、原版攻击对照和退场；`spell` 走仍保留的旧执行入口，在混沌弹上区分主体薄雾与通用覆盖；`steam` 对照隔开的水火与实际减水的接触。每段保存原版及 Worldfall 画面、脚本输入和检查结果。
+9.05 和 9.06 的材料反馈使用 `dev.py exec --timeout 225 -- python3 Scripts/SpellDemos/verify_material_feedback.py --section weapon|steam|surface|terrain`，每次选择一段。御器核对受击与局部碎屑，水火核对实际碰触，守护状态核对暂停和结束，排水核对变化地块的反馈。
 
-9.06 粒子复验沿用同一入口，每次用 `--section` 选择一段：`travel`（混沌弹没有掠地粒子，冰枪仍冻结途经水面）、`weapon`（木剑碎屑的位置、方向与真实扣血）、`surface`（守护状态粒子的暂停、换视角、结束与换世界）、`terrain`（正式排水只在实际变化的地块生成下落水珠）。命令格式：`dev.py exec --timeout 225 -- python3 Scripts/SpellDemos/verify_material_feedback.py --section travel`。
+9.07 声音与节奏复验使用 `dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_combat_feedback_907.py --section weapon`，比较木、铁御器的真实受击。指定材质可加 `--material wood` 或 `--material iron`。使用 `--section clash` 查看实际拦截、打穿、短停和恢复。只补破防可加 `--part break`。
 
-9.07 声音与节奏复验：在独立游戏运行 `dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_combat_feedback_907.py --section weapon`，比较同一御器的木、铁受击声、原版普攻和免疫；必要时用 `--material wood` 或 `--material iron` 单独补验。`--section landing` 对照同一坠石在空中结束和真实落地。`--section clash` 对照同一木障挡住与打穿，核对实际声音实例、两视角共用的短停碎面、震动和恢复。只补破防可加 `--part break`。每段保留脚本输入及结果；交锋另留两视角的接触帧。
+旧执行体的混沌粒子、掠地和落地声音探查已退役。用 `verify_legacy_ground_travel.py --case current --baseline <原记录>` 可对照当前地块作用。
 
 9.08 主体及残留去向：`dev.py exec --timeout 230 -- python3 Scripts/SpellDemos/verify_visual_endings_908.py --section motion`。复用固定与追随路线对照移动目标；另选 `block` 核对攻体从共同画面移除、剩余木障正常退场，`interrupt` 核对来源失效后延迟攻体不会出现，或 `material` 核对流水凝冰和有限冰体的世界交接。各段留正式施放结果和代表帧。
 

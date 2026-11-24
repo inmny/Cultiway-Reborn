@@ -11,9 +11,9 @@ from common import PROJECT, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('weapon', 'clash', 'landing'), required=True)
+    parser.add_argument('--section', choices=('weapon', 'clash'), required=True)
     parser.add_argument('--material', choices=('wood', 'iron'), help='只补某一种御器材质')
-    parser.add_argument('--part', choices=('ground', 'break'), help='只补实际落地或破防')
+    parser.add_argument('--part', choices=('break',), help='只补实际破防')
     args = parser.parse_args()
     section = args.section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):

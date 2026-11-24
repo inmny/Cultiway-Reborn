@@ -11,7 +11,7 @@ from common import PROJECT, version_stamp, write_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--section", choices=("weapon", "spell", "steam", "travel", "surface", "terrain"), required=True)
+    parser.add_argument("--section", choices=("weapon", "steam", "surface", "terrain"), required=True)
     args = parser.parse_args()
     if not os.environ.get("CULTIWAY_DEV_ACTIVE"):
         raise RuntimeError("请使用 develop 的 dev.py exec 运行")
