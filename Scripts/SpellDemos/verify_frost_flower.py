@@ -15,7 +15,10 @@ def main():
     parser.add_argument('--section', choices=('ground', 'coating', 'enclosure', 'bloom', 'save', 'film'), default='ground')
     parser.add_argument('--enclosure-part', choices=('all', 'contrast'), default='all')
     parser.add_argument('--view', choices=('native', 'worldfall'), default='native')
+    parser.add_argument('--city', action='store_true', help='录制真实薄霜和碎片作用到城区边界两侧')
     args = parser.parse_args()
+    if args.city and (args.section != 'film' or args.view != 'native'):
+        parser.error('--city 只用于原版主术录像')
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请通过 dev.py exec 运行')
     import baseline_scenarios as baseline
@@ -45,7 +48,7 @@ def main():
     camera = camera.replace('    var scenery = new HashSet<Building>();',
                             '    if (clearScenery) {\n    var scenery = new HashSet<Building>();')
     camera = camera.replace('building.removeBuildingFinal();', 'building.removeBuildingFinal();\n    }')
-    camera = camera.replace('67.7f, 72f', '68.5f, 72.5f').replace(
+    camera = camera.replace('67.7f, 72f', '71f, 73f' if args.city else '68.5f, 72.5f').replace(
         '    Screen.Capture(Path.Combine(folder, name + ".png"));\n    await Game.NextFrame();',
         '    string path = Path.Combine(folder, name + ".png");\n    Screen.Capture(path);\n'
         '    await Game.WaitUntil(() => File.Exists(path), 300);')
@@ -61,10 +64,13 @@ def main():
         camera += film + worldfall[start:end]
         setup = (scripts / 'verify_frost_flower_bloom.script').read_text()
         before, setup = setup.split('\ntry\n{', 1)
+        if args.city:
+            setup = setup.replace('SetCamera(9.1f, true)', 'SetCamera(13f, true)')
         body = before + '\n{\n' + setup.split('    var hitCast =', 1)[0] + '}\n' + (scripts / 'verify_frost_flower_film.script').read_text()
     script.write_text(helpers + f'\nconst string recordView = "{args.view}";\n' +
                       f'const string enclosurePart = "{args.enclosure_part}";\n' + camera +
-                      body)
+                      f'bool cityFilm = {str(args.city).lower()};\n' +
+                      (scripts / 'city_film_scene.script').read_text() + body)
     try:
         result = baseline.call('run', str(script), '145000')
     except RuntimeError as error:
@@ -72,7 +78,7 @@ def main():
         raise RuntimeError(f'霜花葬形未通过：{folder}') from error
     write_json(folder / 'result.json', result)
     if result.get('passed') and args.section == 'film':
-        encode(folder.parent, dict(key=folder.name, name='霜花葬形', label='正式施放', variant=1,
+        encode(folder.parent, dict(key=folder.name, name='霜花葬形', label='城区实录' if args.city else '正式施放', variant=1,
                                   trajectory='static', modifiers=[], caption='贴地薄霜、冰瓣闭合、盛放碎裂'), keep_frames=True)
     print(json.dumps({'output': str(folder), 'result': result}, ensure_ascii=False), flush=True)
     if not result.get('passed'):

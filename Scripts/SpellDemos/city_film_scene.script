@@ -1,7 +1,8 @@
 // 复用地脉传力的原版建城办法，只在专门的城域录制中启用。
-City CreateFilmCity(int east)
+City CreateFilmCity(int east, int settlerY = 72, int windmillY = 70)
 {
     Actor settler = Make(60);
+    if (settlerY != 72) Place(settler, 60, settlerY);
     settler.joinLanguage(World.world.languages.newLanguage(settler, true));
     settler.setCulture(World.world.cultures.newCulture(settler, true));
     World.world.kingdoms.makeNewCivKingdom(settler);
@@ -11,7 +12,7 @@ City CreateFilmCity(int east)
     for (int x = 56; x <= east; x += 8)
         city.addZone(World.world.GetTileSimple(x, y).zone);
     city.recalculateNeighbourZones();
-    var windmill = World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(69, 70));
+    var windmill = World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(69, windmillY));
     Check(windmill != null && windmill.isAlive(), "复用城域场地的原版城区和建筑");
     return city;
 }

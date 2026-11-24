@@ -14,16 +14,20 @@ async Task Shot(string name) { await Frames(); Screen.Capture(Path.Combine(folde
 object Get(object o, string n) => o.GetType().GetProperty(n, F)?.GetValue(o) ?? o.GetType().GetField(n, F)?.GetValue(o);
 void Call(object o, string name, params object[] values) => o.GetType().GetMethod(name, F).Invoke(o, values);
 void Set(object o, string name, object v) { var property = o.GetType().GetProperty(name, F); if (property != null) property.SetValue(o, v); else o.GetType().GetField(name, F).SetValue(o, v); }
-var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
-object mod = external.GetProperty("Instance", F).GetValue(null);
-Call(mod, "ViewForTest", false);
-Call(mod, "SetGodView", false);
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F)?.GetValue(null);
+if (mod == null && recordView != "native") throw new InvalidOperationException("该视角对照需要已加载的 Worldfall");
+if (mod != null)
+{
+    Call(mod, "ViewForTest", false);
+    Call(mod, "SetGodView", false);
+}
 ControllableUnit.clear(false);
-await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") &&
+if (mod != null) await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") &&
     (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600);
 World.world.console.Hide();
 foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
-Set(Get(mod, "Settings"), "TimeMode", 1);
+if (mod != null) Set(Get(mod, "Settings"), "TimeMode", 1);
 
 void Camera(float x) { World.world.camera.transform.position = new Vector3(x, 72, 0); MoveCamera.instance.forceZoom(17); }
 async Task NearWave(AbilityDefinition attack, int pulse)
@@ -65,6 +69,7 @@ try
 {
     if (recordView.Length != 0)
     {
+        City city = cityFilm ? CreateFilmCity(64, settlerY: 68, windmillY: 68) : null;
         Camera(70);
         if (recordView == "worldfall")
         {
@@ -75,9 +80,10 @@ try
         }
         await Frames();
         var ability = Attack("test.visuals.film");
-        float before = source.GetExtend().GetCultisys<Xian>().wakan;
+        int before = source.getMana();
         Check(Fire(source, target, ability), "录像使用正式施放入口");
-        float paid = before - source.GetExtend().GetCultisys<Xian>().wakan;
+        int paid = before - source.getMana();
+        Check(paid == ability.Cost, "循水连雷从原法力通道支付实际报价");
         string images = Path.Combine(folder, "frames");
         Directory.CreateDirectory(images);
         const double duration = 1.84;
@@ -95,6 +101,7 @@ try
             }
             if (time >= next)
             {
+                WorldTip.hideNow();
                 Screen.Capture(Path.Combine(images, times.Count.ToString("00000") + ".png"));
                 times.Add(time);
                 next = time + .035;
@@ -107,7 +114,26 @@ try
         Check(rounds.Length == 4 && rounds[0].Targets.Contains(target.id) &&
             rounds.Skip(1).All(w => !w.Targets.Contains(target.id) && w.Route.All(v => v.x < 71f)) && Meshes().Length == 0,
             "原速录像记下实际命中、结冰截断和退场");
-        return new { passed = true, scene = "construction", view = recordView, resource = "wakan", paid, times, duration,
+        var cityRoute = cityFilm ? new
+        {
+            inner = rounds[0].Route.Count(point => IsInFilmCity(city, point)),
+            outer = rounds[0].Route.Count(point => !IsInFilmCity(city, point)),
+            near = new { middle.id, point = middle.current_position.ToString(), inCity = IsInFilmCity(city, middle.current_position) },
+            far = new { target.id, point = target.current_position.ToString(), inCity = IsInFilmCity(city, target.current_position) },
+            route = rounds[0].Route.Select(point => new { point.x, point.y, point.z }).ToArray(),
+            health = rounds[0].Targets.Select((id, index) => new { id, lost = rounds[0].HealthBefore[index] - rounds[0].HealthAfter[index] }).ToArray()
+        } : null;
+        if (cityFilm)
+        {
+            File.WriteAllText(Path.Combine(folder, "city-route.json"), JsonConvert.SerializeObject(cityRoute, Formatting.Indented));
+            File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(ability, Formatting.Indented));
+            Check(cityRoute.inner > 0 && cityRoute.outer > 0 && cityRoute.near.inCity && !cityRoute.far.inCity &&
+                cityRoute.health.Any(hit => hit.id == middle.id && hit.lost > 0) &&
+                cityRoute.health.Any(hit => hit.id == target.id && hit.lost > 0),
+                "同一波沿实际水道跨城区并扣除城内外两名对手生命");
+            Write();
+        }
+        return new { passed = true, scene = "construction", view = recordView, resource = ability.Resource, paid, times, duration, cityRoute,
             frames = times.Count, previewFrame = times.FindIndex(t => t >= .31),
             rounds = rounds.Select(w => new { w.Pulse, at = w.WorldTime - start, cells = w.Route.Length, w.Targets }).ToArray() };
     }
@@ -183,6 +209,6 @@ catch (Exception error) { Write(error.ToString()); throw; }
 finally
 {
     ConstructedAbilityService.ConductionConfirmed -= Wave;
-    Call(mod, "SetGodView", false);
+    if (mod != null) Call(mod, "SetGodView", false);
     Config.paused = true;
 }

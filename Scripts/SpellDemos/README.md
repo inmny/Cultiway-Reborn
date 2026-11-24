@@ -3428,3 +3428,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 `verify_sky_whale.py --section native --city` 在天鲸原版录像中启用复用城区，读取原术实际分流的水量、越界坐标和人物接触。其余天鲸入口继续使用原场地。
 
 `verify_sky_furnace.py --section native --city` 和 `verify_hanging_tree.py --section native --city` 共用原版城区。前者记录熔流的实际触地与城区两侧峰值熔料，后者记录实际根尖触地以及城区内外两名原对练对象的抓持与解除。
+
+原版城区冰、雷可分别用 `verify_frost_flower.py --section film --view native --city` 和 `verify_conduction_visuals.py --section native --record native --city` 复验。两条入口分别保留真实霜面、冻结和碎片位置，以及到达水格、城区两侧的实际伤害和结冰断路。

@@ -1,18 +1,21 @@
 // 9.33 C3：从付费出手到清场连续录制，镜头不改变共同数值时间。
+City city = cityFilm ? CreateFilmCity(64) : null;
 var flank = Make(74.88f);
 flank.setKingdom(target.kingdom);
 Place(flank, 74.88f, 72.5f);
 ConstructedAbilityService.NotifyActorChanged(flank);
 if (recordView == "worldfall") await WaitForWorldfallDraw();
 var type = WorldfallType();
-var mod = type.GetProperty("Instance", F).GetValue(null);
-var god = type.GetProperty("GodShown", F);
-var firstPerson = type.GetProperty("IsFirstPerson", F);
-var gpu = type.GetField("_gpuShown", F);
+var mod = type?.GetProperty("Instance", F)?.GetValue(null);
+var god = type?.GetProperty("GodShown", F);
+var firstPerson = type?.GetProperty("IsFirstPerson", F);
+var gpu = type?.GetField("_gpuShown", F);
 var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
     .GetProperty("LastDrawCount", F);
 var samples = new List<object>();
 float next = 0f;
+Vector2 frozenAt = Vector2.zero;
+var frostCells = new HashSet<Vector2Int>();
 bool stable = true, drew = recordView == "native", frost = false, closed = false, bloomed = false, fractured = false, settled = false, hitFlank = false;
 try
 {
@@ -21,13 +24,23 @@ try
     float duration = definition.Lifetime + .35f;
     var times = await Film(duration, () =>
     {
-        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
+        if (mod != null) stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
             (recordView != "worldfall" || (bool)gpu.GetValue(mod));
         if (cast.Age < next) return;
         next = cast.Age + .07f;
         var flowers = Flower(cast);
         bool surface = views.Any(view => view.Layer != null);
         frost |= surface;
+        if (cityFilm)
+        {
+            if (frozenAt == Vector2.zero && Frozen()) frozenAt = target.current_position;
+            foreach (var layer in views.Where(view => view.Layer != null).Select(view => view.Layer))
+            for (int y = 0; y < layer.Cells; y++)
+            for (int x = 0; x < layer.Cells; x++)
+                if (layer.Depth(x, y) > layer.DryDepth)
+                    frostCells.Add(new Vector2Int((int)(layer.Origin.x + (x + .5f) * layer.Cell),
+                        (int)(layer.Origin.y + (y + .5f) * layer.Cell)));
+        }
         bool solid = flowers.Length == 1 && cast.Matter(petals).State == "solid";
         closed |= solid && Frozen();
         bloomed |= closed && !solid && flowers.Length == 1 && cast.Age > 2.55f;
@@ -35,14 +48,27 @@ try
         fractured |= pieces == 16 && Enumerable.Range(5, 16).Any(i => cast.Velocity(i).sqrMagnitude > .5f);
         settled |= pieces > 0 && Enumerable.Range(5, 16).All(i => cast.Velocity(i).sqrMagnitude < .001f);
         hitFlank |= contacts.Any(hit => hit.TargetId == flank.id && hit.Node > petals && hit.TargetHealthAfter < hit.TargetHealthBefore);
-        drew |= flowers.Length > 0 && (int)lastDraw.GetValue(null) > 0;
+        if (recordView == "worldfall") drew |= flowers.Length > 0 && (int)lastDraw.GetValue(null) > 0;
         samples.Add(new { age = cast.Age, surface, solid, ice = flowers.Length, pieces, frozen = Frozen(), hitFlank });
     });
     File.WriteAllText(Path.Combine(folder, "timeline.json"), JsonConvert.SerializeObject(new { samples, duration, times }, Formatting.Indented));
     Check(stable && drew && frost && closed && bloomed && fractured && settled && hitFlank && !Frozen() && Live() == null && endings.Count == 1,
         "常速同一施放确实经过薄霜、闭合冻结、盛放、碎片命中、落稳和清场",
         new { stable, drew, frost, closed, bloomed, fractured, settled, hitFlank, frames = times.Count });
-    return new { passed = true, times, duration, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.93)),
+    var cityFrost = cityFilm ? new
+    {
+        frozen = frozenAt.ToString(),
+        innerCells = frostCells.Count(cell => IsInFilmCity(city, (Vector2)cell)),
+        outerCells = frostCells.Count(cell => !IsInFilmCity(city, (Vector2)cell)),
+        cells = frostCells.OrderBy(cell => cell.x).ThenBy(cell => cell.y).Select(cell => new { cell.x, cell.y }).ToArray(),
+        shards = contacts.Where(hit => hit.TargetId == flank.id && hit.Node > petals && hit.Damage.HealthLost > 0)
+            .Select(hit => new { hit.Age, hit.Damage.HealthLost, point = hit.Position.ToString(),
+                inCity = IsInFilmCity(city, hit.Position) }).ToArray()
+    } : null;
+    if (cityFilm) Check(frozenAt != Vector2.zero && IsInFilmCity(city, frozenAt) &&
+        cityFrost.innerCells > 0 && cityFrost.outerCells > 0 && cityFrost.shards.Any(hit => !hit.inCity),
+        "真实薄霜越过城区，城内目标冻结且城外目标被碎片命中", cityFrost);
+    return new { passed = true, times, duration, cityFrost, previewFrame = Math.Max(0, times.FindIndex(t => t >= 2.93)),
         view = recordView, scene = "construction", resource = "wakan", paid = definition.Cost, checks };
 }
 finally
