@@ -144,28 +144,29 @@ internal static class FormWorldfallRenderer
     private static void AddDraw(in FormVisualInstance instance, int part, Matrix4x4 transform, Vector3 shift = default)
     {
         var surface = surfaces.Get(instance.Resource, instance.SurfaceFor(part), instance.IsTranslucent);
-        Mesh mesh = instance.Geometry ?? instance.Resource.Meshes[part];
+        // 动态薄面只发布格网范围，不读取原资源里不存在的静态部件。
+        Mesh mesh = instance.Layer == null ? instance.Geometry ?? instance.Resource.Meshes[part] : null;
+        FormPartDescription description = instance.DynamicGeometry ? null : instance.Resource.Description.Parts[part];
+        bool skinned = instance.Skin != null && description?.Skin == true;
         bool opaque = !surface.Transparent && !instance.IsTranslucent;
         var draw = new DrawEntry
         {
             Resource = instance.Resource,
             Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength),
+                description?.HasBuildData == true ? 1f : 0f, instance.Feedback.Strength),
             Contact = instance.Feedback.Region(shift),
-            Mesh = instance.Layer == null ? mesh : null,
+            Mesh = mesh,
             Transform = transform,
             Material = surface.Material,
             Tint = BodyWorldfallRenderer.ResolveTint(in instance) ?? surface.Color,
             Dye = instance.Dye,
-            Skin = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
-            ClosedVolume = !instance.DynamicGeometry && instance.Resource.Description.Parts[part].HasSurfaceData,
+            Skin = skinned ? instance.Skin : null,
+            ClosedVolume = description?.HasSurfaceData == true,
             Part = part,
             Dynamic = instance.DynamicGeometry,
             Layer = instance.Layer,
             Bounds = instance.Layer != null ? instance.Layer.Bounds :
-                instance.Skin != null && instance.Resource.Description.Parts[part].Skin
-                ? instance.PoseBounds ?? mesh.bounds
-                : mesh.bounds
+                skinned ? instance.PoseBounds ?? mesh.bounds : mesh.bounds
         };
         (opaque ? solids : transparent).Add(draw);
     }

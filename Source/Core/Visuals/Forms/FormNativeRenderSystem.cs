@@ -100,27 +100,28 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 view.Part = part;
                 view.Dynamic = instance.DynamicGeometry;
                 view.Layer = instance.Layer;
-                Mesh mesh = instance.Geometry ?? instance.Resource.Meshes[part];
+                // 动态薄面没有预置网格，由相机确认可见后再取得真实网格。
+                Mesh mesh = view.Layer == null ? instance.Geometry ?? instance.Resource.Meshes[part] : null;
                 var surface = surfaces.Get(instance.Resource, instance.SurfaceFor(part), instance.IsTranslucent);
-                FormPartDescription description = instance.Resource.Description.Parts[part];
+                FormPartDescription description = view.Dynamic ? null : instance.Resource.Description.Parts[part];
                 Matrix4x4 transform = instance.PartTransform(part);
                 transform.m03 += bodyOffset.x;
                 transform.m13 += bodyOffset.y;
-                bool skinned = !view.Dynamic && instance.Skin != null && description.Skin;
+                bool skinned = instance.Skin != null && description?.Skin == true;
                 view.Draw = new FormDrawItem
                 {
                     Resource = instance.Resource,
-                    Mesh = view.Layer == null ? mesh : null,
+                    Mesh = mesh,
                     Material = surface.Material,
                     Transform = transform,
                     Skin = skinned ? instance.Skin : null,
                     Tint = instance.Tint ?? surface.Color,
                     Dye = instance.Dye ?? Color.white,
                     Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                        !view.Dynamic && description.HasBuildData ? 1f : 0f, instance.Feedback.Strength),
+                        description?.HasBuildData == true ? 1f : 0f, instance.Feedback.Strength),
                     Contact = instance.Feedback.Region(new Vector3(bodyOffset.x, bodyOffset.y, 0f)),
                     Anchor = new Vector4(anchorHeight, anchored ? 1 : 0, 0, 0),
-                    ClosedVolume = !view.Dynamic && description.HasSurfaceData,
+                    ClosedVolume = description?.HasSurfaceData == true,
                     Terrain = terrainTexture,
                     TerrainSize = terrainSize
                 };
