@@ -1,9 +1,5 @@
 using Cultiway.Core;
-using Cultiway.Core.Components;
 using Cultiway.Content.Visuals;
-using Cultiway.Core.SkillLibV3;
-using Cultiway.Core.SkillLibV3.Components;
-using Friflo.Engine.ECS;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Visuals;
 using Cultiway.Utils.Extension;
@@ -14,34 +10,6 @@ namespace Cultiway.Content.Combat;
 /// <summary>只在最终伤害为正数时显示接触碎屑，碰撞尝试不冒充受伤。</summary>
 internal static class CombatImpactVisuals
 {
-    /// <summary>接入屏障实际消耗通知。</summary>
-    internal static void Initialize()
-    {
-        SkillHitResolver.BarrierContactResolved += OnBarrierContact;
-    }
-
-    /// <summary>只有实际耐久损耗才在局部出现短亮屑，避免把整面护盾闪白。</summary>
-    /// <param name="entity">实际防护执行体。</param><param name="point">真实接触处。</param><param name="damage">真实吸收量。</param>
-    private static void OnBarrierContact(Entity entity, Vector2 point, float damage)
-    {
-        if (damage <= 0) return;
-        float size = Mathf.Clamp(Mathf.Sqrt(damage) * .02f, .08f, .3f);
-        Color color = entity.GetComponent<SkillEntity>().VfxElement.AccentColor;
-        color = Color.Lerp(color, Color.white, .5f);
-        Vector3 center = entity.GetComponent<Position>().value;
-        Vector2 outward = (point - (Vector2)center).normalized;
-        Vector2 tangent = new(-outward.y, outward.x);
-        SpatialCombatFeedback.Sound(entity.GetComponent<SkillEntity>().VfxElement.ImpactSound,
-            new Vector3(point.x, point.y, center.z + .18f));
-        for (int i = -1; i <= 1; i++)
-        {
-            Vector2 velocity = outward * .46f + tangent * (i * .35f);
-            SpatialVisualEffects.Particle(new Vector3(point.x, point.y, center.z + .18f),
-                new Vector3(velocity.x, velocity.y, .58f), color, size, .24f - Mathf.Abs(i) * .04f,
-                SpatialParticleMaterial.Fragment, -2f);
-        }
-    }
-
     /// <summary>只有原版结算明确返回格挡或偏转时才出现冷色接触纹。</summary>
     /// <param name="target">真实防守者。</param><param name="attacker">真实来袭者。</param>
     internal static void OnDefended(BaseSimObject target, Actor attacker)

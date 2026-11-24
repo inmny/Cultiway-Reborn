@@ -65,7 +65,6 @@ Check(Signatures(learner).SequenceEqual(new[] { signature }), "从原阅读入�
 var starts = new List<ConstructedCastStarted>();
 var worldHits = new List<ConstructedWorldContact>();
 var debits = new List<double>();
-int legacy = 0;
 const long replayCorrelation = 101352;
 void Started(ConstructedCastStarted fact)
 {
@@ -76,13 +75,8 @@ void WorldHit(ConstructedWorldContact fact)
 {
     if (starts.Any(start => start.CastId == fact.CastId) && fact.Result.Changed) worldHits.Add(fact);
 }
-void Old(Entity execution)
-{
-    if (execution.GetComponent<SkillContext>().RuntimeData.CorrelationId == replayCorrelation) legacy++;
-}
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.WorldContactConfirmed += WorldHit;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
 var originalEmission = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var paymentField = typeof(SkillEmission).GetField("Payment", F);
 Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
@@ -100,7 +94,7 @@ Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
 try
 {
     await Advance(.2f);
-    Check(starts.Count == 0 && legacy == 0, "恢复世界不会重放已经结束的施放");
+    Check(starts.Count == 0, "恢复世界不会重放已经结束的施放");
     // 与原恢复复验使用相同的空地，避免老世界已抬升或被建筑占用的地块没有可改变项。
     for (int x = 63; x <= 73; x++)
     for (int y = 67; y <= 77; y++)
@@ -120,8 +114,8 @@ try
     Check(source.getMana() == before, "排队等待期间没有预扣两发费用");
     await Advance(2.1f);
     Check(debits.Count == 2 && Math.Abs(debits.Sum() - price) < .001d, "实际两发合计支付与保存前报价一致", debits.ToArray());
-    Check(starts.Count == 2 && worldHits.Count > 0 && legacy == 0, "多发实改地形，只产生共同执行",
-        new { started = starts.Count, changed = worldHits.Count, legacy, ground = centre.main_type.id });
+    Check(starts.Count == 2 && worldHits.Count > 0, "多发实改地形，只产生共同执行",
+        new { started = starts.Count, changed = worldHits.Count, ground = centre.main_type.id });
     string resave = Path.Combine(folder, "resave");
     SaveManager.saveWorldToDirectory(resave);
     World.world.save_manager.loadWorld(resave);
@@ -138,6 +132,5 @@ finally
 {
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmission;
 }

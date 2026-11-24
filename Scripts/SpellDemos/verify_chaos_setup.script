@@ -3,7 +3,7 @@ const string section="all";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
 var emissions=new List<object>();var samples=new List<(float Force,float Speed,float Angle)>();var damageEvents=new List<GetHitEvent>();
-var definitions=new List<AbilityDefinition>();var observations=new List<(bool Passed,string Name,object Data)>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+var definitions=new List<AbilityDefinition>();var observations=new List<(bool Passed,string Name,object Data)>();bool invalidate=false,scopeValid=true;
 SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
@@ -44,7 +44,7 @@ Entity Build(float damage=.5f,float angle=12f,float speed=.4f,bool salvo=false,b
 Vector3 Vector(float[] value)=>new(value[0],value[1],value[2]);
 void ResetPeople()
 {
-    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();definitions.Clear();samples.Clear();damageEvents.Clear();oldExecutions=0;
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();definitions.Clear();samples.Clear();damageEvents.Clear();
     Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
     target.setHealth(target.getMaxHealth());foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
@@ -68,8 +68,7 @@ async Task WaitCasts(int count)
     throw new InvalidOperationException("两秒内未出现约定的真实发射");
 }
 void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.ChaosSetup");
 ChaosSetupProbe.Before=definition=>definitions.Add(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition)));
 ChaosSetupProbe.Damage=e=>{if(e.AttackerID==source.id)damageEvents.Add(e);};
@@ -149,7 +148,7 @@ try
             Check(Use(skill),"已学混沌按实际预算正式受理");await WaitCasts(expectedCount);await Advance(.15f);
         }
         await Advance(.7f);
-        Check(accepted.Count==expectedCount&&expectedCount>=3&&starts.Count==expectedCount&&oldExecutions==0&&samples.Select(x=>x.Force).Distinct().Count()>=3&&samples.Select(x=>x.Speed).Distinct().Count()>=3,"各发分别抽取且没有旧执行");
+        Check(accepted.Count==expectedCount&&expectedCount>=3&&starts.Count==expectedCount&&samples.Select(x=>x.Force).Distinct().Count()>=3&&samples.Select(x=>x.Speed).Distinct().Count()>=3,"各发分别抽取");
         Check(contacts.Any(c=>c.TargetId==target.id)&&damageEvents.Any(e=>e.TargetID==target.id)&&target.data.health<hp&&!contacts.Any(c=>c.TargetId==outside.id),"波动后的新主体真实命中且侧外安全");
         Check(damageEvents.All(e=>samples.Any(s=>Math.Abs(s.Force-e.Damage)<.001f)),"伤害直接使用各发已经确定的本体量");
         Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"逐发随机不改变原计划费用",new{cost});
@@ -159,12 +158,12 @@ try
     {
         current=SkillEntities.Tornado;ResetPeople();Check(Use(Build()),"推进领域携带混沌正式受理");await WaitCasts(1);
         var cast=accepted.Single();Vector3 before=cast.ContactOrigin(0);await Advance(.3f);Vector3 after=cast.ContactOrigin(0);
-        Check((after-before).sqrMagnitude>.01f&&cast.RemainingForce(0)>0&&oldExecutions==0,"推进领域按抽取速度偏角实际运动",new{before=new[]{before.x,before.y,before.z},after=new[]{after.x,after.y,after.z}});
+        Check((after-before).sqrMagnitude>.01f&&cast.RemainingForce(0)>0,"推进领域按抽取速度偏角实际运动",new{before=new[]{before.x,before.y,before.z},after=new[]{after.x,after.y,after.z}});
         cast.Cancel();ResetPeople();current=SkillEntities.SpiritBolt;float balance=owner.GetCultisys<Xian>().wakan;invalidate=true;
         Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排发射时真实边界失效");await Advance(.3f);invalidate=false;
         Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-balance)<.001f&&damageEvents.Count==0,"拒绝后原值退款且无随机残留伤害");
         scopeValid=true;ResetPeople();Check(Use(Build()),"失败后同一来源重新受理");await WaitCasts(1);await Advance(.7f);
-        Check(contacts.Any(c=>c.TargetId==target.id)&&oldExecutions==0,"恢复后新主体正常命中");
+        Check(contacts.Any(c=>c.TargetId==target.id),"恢复后新主体正常命中");
     }
     return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }
@@ -173,7 +172,7 @@ finally
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     File.WriteAllText(Path.Combine(folder,"actual-definitions.json"),JsonConvert.SerializeObject(definitions,Formatting.Indented));
     foreach(var cast in allCasts)cast.Cancel();ChaosSetupProbe.Before=null;ChaosSetupProbe.Damage=null;hook.UnpatchSelf();
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.paused=true;
 }

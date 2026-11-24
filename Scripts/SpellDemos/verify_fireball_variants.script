@@ -16,7 +16,6 @@ await Advance(.2f);
 
 var casts = new Dictionary<long, AbilityCast>();
 var recordings = new List<object>();
-int oldExecutions = 0;
 
 void Started(ConstructedCastStarted fact)
 {
@@ -24,11 +23,6 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(value => (long)Field(value, "Id") == fact.CastId);
     casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
-}
-
-void LegacyExecution(Entity entity)
-{
-    if (entity.GetComponent<SkillEntity>().Asset == asset) oldExecutions++;
 }
 
 Entity Learn(int index, bool tracking, bool miss)
@@ -103,7 +97,7 @@ async Task Play(int index)
     source.updateStats();
     await Advance(.10f);
 
-    Check(casts.Count == previous + 1 && oldExecutions == 0, "只进入共同执行一次", index);
+    Check(casts.Count == previous + 1, "只进入共同执行一次", index);
     var live = casts.Last();
     var cast = live.Value;
     var initial = Views(cast).Single();
@@ -219,7 +213,7 @@ async Task VerifySwitch(int index)
     {
         if (emission.Source != source) return original(emission);
         attempted++;
-        return SkillEmissionResult.Unhandled;
+        return SkillEmissionResult.Rejected;
     };
     SkillCastPayment.Committed += Paid;
     try
@@ -232,10 +226,10 @@ async Task VerifySwitch(int index)
         CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
         source.updateStats();
         await Advance(.20f);
-        Check(attempted == 1 && payments == 0 && oldExecutions == 0 && casts.Count == 0 &&
+        Check(attempted == 1 && payments == 0 && casts.Count == 0 &&
               before == owner.GetCultisys<Xian>().wakan && target.data.health == beforeHealth,
-            "共同入口未接管时结束发射，无旧执行、实扣或伤害",
-            new { attempted, payments, oldExecutions, casts = casts.Count, before,
+            "共同入口拒绝发射，未扣费且目标无伤",
+            new { attempted, payments, casts = casts.Count, before,
                 after = owner.GetCultisys<Xian>().wakan, beforeHealth, afterHealth = target.data.health });
     }
     finally
@@ -246,7 +240,7 @@ async Task VerifySwitch(int index)
 }
 
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+
 try
 {
     if (caseName == "official-switch") await VerifySwitch(chosenVariants[0]);
@@ -256,7 +250,7 @@ try
 finally
 {
     File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;

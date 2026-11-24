@@ -4,7 +4,7 @@ var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts = new List<ConstructedCastStarted>();
 var accepted = new List<AbilityCast>();
 var emissions = new List<object>();
-int old = 0; bool invalidate = false, scopeValid = true;
+bool invalidate = false, scopeValid = true;
 SkillEmissionResult? lastResult = null;
 Actor source = Make(64), target = Make(70), along = Make(67), outside = Make(67), wolf = Make(12,"wolf");
 foreach (Actor a in new[] { target, along, outside }) a.setKingdom(wolf.kingdom);
@@ -45,8 +45,7 @@ List<FormVisualInstance> Views(AbilityCast cast){var result=new List<FormVisualI
 /// <summary>只记录本批正式开始。</summary><param name="fact">真实事件。</param>
 void Started(ConstructedCastStarted fact){if(Ours(manager.SkillLib.get(fact.AbilityId)))starts.Add(fact);}
 /// <summary>发现旧执行就是双执行缺陷。</summary><param name="execution">旧实例。</param>
-void Old(Entity execution){if(Ours(execution.GetComponent<SkillEntity>().Asset))old++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 /// <summary>复用同一场景，远处人物不作为范围内样本。</summary>
 void ResetPeople()
 {
@@ -124,21 +123,21 @@ try
             (solar?(i==1||targetHits.Length>=3)&&targetHits.Zip(targetHits.Skip(1),(a,b)=>b.Age-a.Age).All(t=>t>=.119f):targetHits.Length==1&&alongHits.Length==1),
             "真实沿线人物受伤、外侧无伤，单次或原间隔不被多片模型重复结算",new{targetLoss=hp-target.data.health,alongLoss=alongHp-along.data.health,outsideLoss=outsideHp-outside.data.health,times=targetHits.Select(c=>c.Age).ToArray()});
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(skill)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
-        Check(actual.Length==1&&old==0&&known==Learned().Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&
+        Check(actual.Length==1&&known==Learned().Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&
             actual.All(s=>endings.Any(e=>e.Fact.CastId==s.CastId&&!e.Fact.Cancelled)),"仅新执行、收费一次，原寿命自然结束清理",new{cost,balance,after=owner.GetCultisys<Xian>().wakan});
     }
     ResetPeople();int initialStarts=starts.Count;float beforeFailure=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(skills[0],new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实受理边界失效的光束");await Advance(.2f);invalidate=false;
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==initialStarts&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f,"受理失败没有新旧执行并撤销本发费用",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan,lastResult});
     scopeValid=true;ResetPeople();Check(Use(skills[1]),"失效恢复后可重新使用原光束");await Advance(1f);
-    Check(accepted.All(c=>c.Finished)&&old==0&&!BodyControlState.IsBusy(source.id),"恢复后有限结束且人物控制正常");
+    Check(accepted.All(c=>c.Finished)&&!BodyControlState.IsBusy(source.id),"恢复后有限结束且人物控制正常");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }
 finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
-    ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;
     ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     Config.paused=true;ControllableUnit.clear(false);
 }

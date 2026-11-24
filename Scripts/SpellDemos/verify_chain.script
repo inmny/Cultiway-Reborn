@@ -7,7 +7,7 @@ var emissions = new List<object>();
 var rawDamage = new List<(long Target,float Damage)>();
 var beforeField = typeof(ActorExtend).GetField("action_before_be_attacked",F);
 var beforeHandler = (ActorExtend.ActionBeforeBeAttacked)beforeField.GetValue(null);
-int old = 0; bool invalidate = false, scopeValid = true;
+bool invalidate = false, scopeValid = true;
 SkillEmissionResult? lastResult = null;
 Actor source = Make(64), target = Make(70), second = Make(73), third = Make(75), fourth = Make(78), fifth = Make(80), along = Make(67), outside = Make(67), wolf = Make(12,"wolf");
 foreach (Actor a in new[] { target, second, third, fourth, fifth, along, outside }) a.setKingdom(wolf.kingdom);
@@ -54,8 +54,7 @@ List<FormVisualInstance> Views(AbilityCast cast){var result=new List<FormVisualI
 /// <summary>只记录本批正式开始。</summary><param name="fact">真实事件。</param>
 void Started(ConstructedCastStarted fact){if(Ours(manager.SkillLib.get(fact.AbilityId)))starts.Add(fact);}
 /// <summary>发现旧执行就是双执行缺陷。</summary><param name="execution">旧实例。</param>
-void Old(Entity execution){if(Ours(execution.GetComponent<SkillEntity>().Asset))old++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 /// <summary>复用同一场景，远处人物不作为范围内样本。</summary>
 void ResetPeople()
 {
@@ -123,7 +122,7 @@ try
         Check(rawDamage.Count==hits.Length&&Enumerable.Range(0,rawDamage.Count).All(i=>Math.Abs(rawDamage[i].Damage-rawDamage[i/4*4].Damage*Math.Pow(.8,i%4))<.001f),
             "真实受击力量逐跳乘0.8，各人继续按原抗性扣血而不重取初始力量",rawDamage.Select(d=>new{d.Target,d.Damage}).ToArray());
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(skill)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
-        Check(actual.Length>0&&old==0&&known==Learned().Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost*actual.Length)<.001f&&live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&
+        Check(actual.Length>0&&known==Learned().Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost*actual.Length)<.001f&&live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&
             actual.All(s=>endings.Any(e=>e.Fact.CastId==s.CastId&&!e.Fact.Cancelled)),"仅新执行、逐发支付一次，有限结束后各段全部清理",new{cost,casts=actual.Length,balance,after=owner.GetCultisys<Xian>().wakan});
     }
     ResetPeople();foreach(Actor a in new[]{second,third,fourth,fifth,along,outside}){Place(a,85,85);ConstructedAbilityService.NotifyActorChanged(a);}
@@ -134,7 +133,7 @@ try
     Check(Use(skills[0],new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实受理边界失效的连锁");await Advance(.2f);invalidate=false;
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==initialStarts&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f,"受理失败没有新旧执行并撤销本发费用",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan,lastResult});
     scopeValid=true;ResetPeople();Check(Use(skills[0],point:true),"失效恢复后可重新向选中地点施放连锁");await Advance(Convert(skills[0],out _).Lifetime+.15f);
-    Check(accepted.All(c=>c.Finished)&&old==0&&!BodyControlState.IsBusy(source.id)&&contacts.Any(),"恢复后的点选连锁正常命中并有限结束，人物控制正常");
+    Check(accepted.All(c=>c.Finished)&&!BodyControlState.IsBusy(source.id)&&contacts.Any(),"恢复后的点选连锁正常命中并有限结束，人物控制正常");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }
 finally
@@ -142,7 +141,7 @@ finally
     beforeField.SetValue(null,beforeHandler);
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
-    ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;
     ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     Config.paused=true;ControllableUnit.clear(false);
 }

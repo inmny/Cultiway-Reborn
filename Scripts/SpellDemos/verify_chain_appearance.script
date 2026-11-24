@@ -56,7 +56,6 @@ finally
     beforeField.SetValue(null, beforeHandler);
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
     ConstructedAbilityService.CastStarted -= Started;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;
     Config.paused = true;

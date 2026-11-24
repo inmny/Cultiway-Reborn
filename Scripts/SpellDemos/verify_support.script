@@ -2,7 +2,7 @@
 var manager = Cultiway.ModClass.I.SkillV3;
 var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts = new List<ConstructedCastStarted>(); var accepted = new List<object>(); var emissions = new List<object>();
-var old = new List<int>(); bool invalidate = false, scopeValid = true; int rejectAfterStarts = int.MaxValue;
+bool invalidate = false, scopeValid = true; int rejectAfterStarts = int.MaxValue;
 SkillEmissionResult? lastResult = null;
 Actor source = Make(64), target = Make(70), edge = Make(65), outside = Make(79), late = Make(84), enemy = Make(70, "wolf");
 foreach (Actor a in new[] { target, edge, outside, late }) a.setKingdom(source.kingdom);
@@ -38,8 +38,7 @@ AbilityDefinition Convert(Entity skill, float scale = 1f) => (AbilityDefinition)
 });
 AbilityCast Cast(object running) => (AbilityCast)Field(running, "Cast");
 void Started(ConstructedCastStarted fact) { if (IsObserved(manager.SkillLib.get(fact.AbilityId))) starts.Add(fact); }
-void Old(Entity execution) { if (IsObserved(execution.GetComponent<SkillEntity>().Asset)) old.Add(execution.Id); }
-ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+ConstructedAbilityService.CastStarted += Started;
 try
 {
     Entity healing = Build(SkillEntities.HealingLight), enhanced = Build(SkillEntities.HealingLight, true);
@@ -115,7 +114,7 @@ try
         var facts=starts.Skip(first).ToArray();var hits=contacts.Where(c=>facts.Any(s=>s.CastId==c.CastId)).ToArray();
         Check(target.data.health-hp==(skill==enhanced?60:35)&&edge.data.health==other&&enemy.data.health==hostile&&source.data.health==own&&hits.All(c=>c.TargetId==target.id&&!c.DamageAttempted),
             "治疗光追踪移动友军且只恢复选中对象，沿途友军、本人和敌人没有额外作用",new{hp,after=target.data.health,hits=hits.Select(h=>new{h.TargetId,h.Age}).ToArray()});
-        Check(facts.Length==plan.Steps.Count&&old.Count==0&&balance-source.getMana()==cost&&accepted.All(r=>Cast(r).Finished),
+        Check(facts.Length==plan.Steps.Count&&balance-source.getMana()==cost&&accepted.All(r=>Cast(r).Finished),
             "原治疗只执行新构造、逐发收费一次并结束",new{balance,after=source.getMana(),cost});
     }
     ResetPeople();Place(edge,70.8f);contacts.Clear();int regenHp=target.data.health,enemyHp=enemy.data.health,outsideHp=outside.data.health;
@@ -192,14 +191,14 @@ try
     scopeValid=true;target.setKingdom(source.kingdom);ResetPeople();int beforeRetry=source.getMana();Check(Use(healing),"失败后可重新正常施放");await Advance(1.5f);
     double retryCost=SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculateStepDemand(healing)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,healing)));
     Check(source.getMana()==beforeRetry-retryCost,"恢复后正常单发只收费一次",new{beforeRetry,after=source.getMana(),retryCost});
-    Check(accepted.All(r=>Cast(r).Finished)&&old.Count==0&&!BodyControlState.IsBusy(source.id),"所有支持法术结束并归还控制，没有新旧双执行");
+    Check(accepted.All(r=>Cast(r).Finished)&&!BodyControlState.IsBusy(source.id),"所有支持法术结束并归还控制");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }
 finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
-    ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.CastStarted-=Started;
     ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     Config.paused=true;ControllableUnit.clear(false);
 }

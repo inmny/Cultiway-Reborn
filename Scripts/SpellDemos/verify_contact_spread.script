@@ -3,7 +3,6 @@ const string section = "all";
 var allCasts = new List<AbilityCast>();
 var spreads = new List<ConstructedSpread>();
 var damageEvents = new List<(long Target, long Attacker, float Amount, int Before, int After)>();
-int oldExecutions = 0;
 float conversionForce = 0;
 Actor source = Make(64), target = Make(70), neighbor = Make(70), outside = Make(70), friendly = Make(70), high = Make(70), wolf = Make(12, "wolf");
 foreach (var a in new[] { target, neighbor, outside, high }) a.setKingdom(wolf.kingdom);
@@ -64,10 +63,9 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
     allCasts.Add((AbilityCast)Field(running, "Cast"));
 }
-void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
 void Spread(ConstructedSpread fact) { if (fact.OwnerId == source.id) spreads.Add(fact); }
 ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.SpreadConfirmed += Spread;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+
 SpreadProbe.Damaged = (damage, before) =>
 {
     if (damage.AttackerID != source.id) return;
@@ -140,8 +138,8 @@ try
         {
         Check(!target.hasHealth() && spread.ContactId == target.id && spread.Actors.Contains(neighbor.id) && !spread.Actors.Contains(target.id),
             "主伤害致死仍向真实近邻分送", new { spread.ContactId, actors = spread.Actors, health = target.data.health });
-        Check(neighbor.data.health < hp && damageEvents.Single(d => d.Target == neighbor.id).Amount == 50 && spread.OwnerId == source.id && oldExecutions == 0,
-            "近邻承受实际50伤害并保留来源且没有旧执行体", new { hp, after = neighbor.data.health });
+        Check(neighbor.data.health < hp && damageEvents.Single(d => d.Target == neighbor.id).Amount == 50 && spread.OwnerId == source.id,
+            "近邻承受实际50伤害并保留来源", new { hp, after = neighbor.data.health });
         Check(outside.data.health == safe && friendly.data.health == friendHp && high.data.health == sky && !spread.Actors.Contains(high.id),
             "范围外和友方安全且高空身体不被平面投影误伤", new { high.position_height, spread.Radius });
         }
@@ -193,7 +191,7 @@ try
 finally
 {
     foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); SpreadProbe.Damaged = null;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started;
+ ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.SpreadConfirmed -= Spread; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
     ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
     File.WriteAllText(Path.Combine(folder, "spreads.json"), JsonConvert.SerializeObject(spreads.Select(s => new { s.CastId, s.ContactId, s.OwnerId, s.Node, s.Index, Center = new[] { s.Center.x, s.Center.y, s.Center.z }, s.Radius, s.WorldTime, s.Actors, s.Buildings }), Formatting.Indented));

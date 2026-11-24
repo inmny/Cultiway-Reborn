@@ -76,10 +76,8 @@ public struct SkillEmission
 /// <summary>执行接管与实际受理分别说明，拒绝不能落回另一套执行。</summary>
 public enum SkillEmissionResult
 {
-    /// <summary>当前实现不能处理，由通用来源继续执行。</summary>
-    Unhandled,
     /// <summary>已经识别但实际条件失效，不生成另一个执行体。</summary>
-    Rejected,
+    Rejected = 1,
     /// <summary>真实执行已经受理。</summary>
-    Accepted
+    Accepted = 2
 }

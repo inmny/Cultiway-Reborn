@@ -2,7 +2,7 @@
 var manager = Cultiway.ModClass.I.SkillV3;
 var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts = new List<ConstructedCastStarted>(); var accepted = new List<object>(); var emissions = new List<object>();
-var old = new List<int>(); bool invalidate = false, scopeValid = true;
+bool invalidate = false, scopeValid = true;
 SkillEmissionResult? lastResult = null;
 Actor source = Make(64), target = Make(70), edge = Make(71), outside = Make(78), gap = Make(74), wolf = Make(12, "wolf");
 foreach (Actor actor in new[] { target, edge, outside, gap }) actor.setKingdom(wolf.kingdom);
@@ -38,8 +38,7 @@ AbilityCast Numeric(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache
     inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f), force: 40);
 AbilityCast Cast(object running) => (AbilityCast)Field(running, "Cast");
 void Started(ConstructedCastStarted fact) { if (IsField(manager.SkillLib.get(fact.AbilityId))) starts.Add(fact); }
-void Old(Entity execution) { if (IsField(execution.GetComponent<SkillEntity>().Asset)) old.Add(execution.Id); }
-ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+ConstructedAbilityService.CastStarted += Started;
 try
 {
     Entity pool = Build(SkillEntities.PoisonPool), enhanced = Build(SkillEntities.PoisonPool, true);
@@ -140,7 +139,7 @@ try
         Place(edge, 80); ConstructedAbilityService.NotifyActorChanged(edge);
         await Advance(definition.Lifetime + .3f);
         var actual = starts.Skip(first).ToArray(); var hits = contacts.Where(c => actual.Any(s => s.CastId == c.CastId) && c.TargetId == target.id).ToArray();
-        Check(actual.Length == plan.Steps.Count && old.Count == 0 && Learned().Count == known &&
+        Check(actual.Length == plan.Steps.Count && Learned().Count == known &&
             Math.Abs(balance - owner.GetCultisys<Xian>().wakan - cost) < .001,
             "领域只产生新构造且逐发收费一次", new { count = actual.Length, cost, balance, after = owner.GetCultisys<Xian>().wakan });
         Check(target.data.health < hp && outside.data.health == outsideHp && gap.data.health == gapHp && hits.Length >= 3 &&
@@ -204,7 +203,7 @@ finally
 {
     File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    ConstructedAbilityService.CastStarted -= Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
     Config.paused = true; ControllableUnit.clear(false);
 }

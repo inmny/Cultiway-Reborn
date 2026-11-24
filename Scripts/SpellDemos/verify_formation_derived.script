@@ -24,7 +24,6 @@ await Advance(.22f);
 var started = new List<ConstructedCastStarted>();
 var resultRows = new List<object>();
 var spends = new List<float>();
-var legacy = new List<string>();
 var matrix = typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F);
 var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
 object previousMutations = mutationField.GetValue(null);
@@ -32,17 +31,11 @@ void Started(ConstructedCastStarted fact)
 {
     if (fact.SourceId == source.id) started.Add(fact);
 }
-void LegacyStarted(Entity execution)
-{
-    string id = execution.GetComponent<SkillEntity>().Asset.id;
-    if (chosenAssets.Contains(id)) legacy.Add(id);
-}
 void Observe(ActorExtend actor, in WakanMutation mutation)
 {
     if (actor == owner && mutation.Kind == WakanMutationKind.Spend) spends.Add(-mutation.Delta);
 }
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyStarted;
 WakanResourceService.RegisterMutationCommitted(Observe);
 
 Cultiway.Content.Libraries.CoreFormationResolvedEffect Install(Cultiway.Content.Libraries.CoreFormationAtomAsset atom,
@@ -98,8 +91,8 @@ async Task FinishCue(string name, int currentHealth)
 {
     await Advance(.16f);
     var casts = started.Where(fact => fact.AbilityId == Id(name)).ToArray();
-    Check(casts.Length == 1 && !legacy.Contains(Id(name)), name + "共用路径只显形一次",
-        new { common = casts.Length, old = legacy.Count(id => id == Id(name)) });
+    Check(casts.Length == 1, name + "共用路径只显形一次",
+        new { common = casts.Length });
     await Advance(.87f);
     var ended = endings.Single(row => row.Fact.CastId == casts[0].CastId).Fact;
     Check(!ended.Cancelled && contacts.All(hit => hit.CastId != ended.CastId) &&
@@ -356,7 +349,7 @@ try
                 enemy.data.health == health && enemy.current_position.x > x + .02f &&
                 hits.All(hit => hit.TargetId != outside.id) &&
                 hits.Where(hit => hit.TargetId == ally.id).All(hit => !hit.ForceApplied && hit.StaggerSeconds == 0) &&
-                !legacy.Contains(Id(row.Item2)) && spends.Count == paid,
+                spends.Count == paid,
                 row.Item2 + "只眩晕震退敌人，不额外伤害或花费",
                 new { distance = enemy.current_position.x - x, targets = hits.Select(hit => hit.TargetId).ToArray() });
             await Advance(.89f);
@@ -387,7 +380,7 @@ try
             var element = emission.RuntimeData.ResolveElement(asset.Element);
             int phase = Enumerable.Range(0, Cultiway.Const.ElementIndex.Count).Single(i => element[i] > 0f);
             Check(hit.TargetId == target.id && hit.SourceId == source.id && hit.Damage.SettledCount == 1 &&
-                hit.Damage.HealthLost > 0 && !legacy.Contains(Id(name)) &&
+                hit.Damage.HealthLost > 0 &&
                 emission.RuntimeData.DamageOrigin == Cultiway.Core.Combat.DamageOrigin.Reaction &&
                 (elementPhase < 0 || phase == elementPhase),
                 name + "以本次反应元素只命中原点名人物",
@@ -484,7 +477,7 @@ try
                 Strike(source, enemy, 180);
             await Advance(.20f);
             var reaction = started.Where(x => x.AbilityId == Id(name)).ToArray();
-            Check(reaction.Length == previous + 1 && !legacy.Contains(Id(name)), name + "原攻击只触发一次共用反应",
+            Check(reaction.Length == previous + 1, name + "原攻击只触发一次共用反应",
                 new { before = previous, after = reaction.Length });
             var contact = contacts.Single(x => x.CastId == reaction.Last().CastId);
             Check(contact.SourceId == source.id && contact.TargetId == enemy.id, name + "只接触点名敌人");
@@ -643,7 +636,7 @@ try
                 await Advance(.061f);
             }
             var casts = started.Where(row => row.AbilityId == Id(name)).ToArray();
-            Check(casts.Length == previous + 1 && !legacy.Contains(Id(name)) &&
+            Check(casts.Length == previous + 1 &&
                 contacts.All(row => row.CastId != casts.Last().CastId),
                 name + "由真实攻击启动飞行，尚未碰到目标");
             Vector3 center = FlyingPosition();
@@ -849,7 +842,7 @@ try
                     Check(!SkillCooldownService.IsReady(owner, body.Definition.CooldownSkill), "真实近战受击触发反打");
                     await Advance(.24f);
                     var casts = started.Where(row => row.AbilityId == Id(variant.Item2)).ToArray();
-                    Check(casts.Length == expected && !legacy.Contains(Id(variant.Item2)), "真实近战只启动一次共同反打");
+                    Check(casts.Length == expected, "真实近战只启动一次共同反打");
                     var contact = contacts.Single(row => row.CastId == casts.Last().CastId);
                     var emission = emissions.Last(step => step.SkillContainer.GetComponent<SkillContainer>().Asset.id == Id(variant.Item2));
                     Check(contact.TargetId == enemy.id && contact.SourceId == source.id &&
@@ -951,7 +944,7 @@ try
             var cast = started.Single(row => row.AbilityId == Id(name));
             var contact = contacts.Single(row => row.CastId == cast.CastId);
             var circle = spreads.Single(row => row.CastId == cast.CastId);
-            Check(!legacy.Contains(Id(name)) && contact.TargetId == enemy.id && contact.Damage.SettledCount == 0 &&
+            Check(contact.TargetId == enemy.id && contact.Damage.SettledCount == 0 &&
                 circle.GroundPlane && Math.Abs(circle.Radius - radius) < .001f &&
                 circle.ContactId == enemy.id && circle.Actors.Contains(enemy.id) &&
                 !circle.Actors.Contains(ally.id) && circle.Buildings.Length == 0,
@@ -989,7 +982,7 @@ try
                 enemy.checkDeath();
                 await Advance(.7f);
                 Check(!enemy.isAlive() && started.All(row => row.AbilityId != Id("FireEmberBurst")) &&
-                    !legacy.Contains(Id("FireEmberBurst")) && spreads.Count == 0 && CircleVisuals().Length == 0,
+                    spreads.Count == 0 && CircleVisuals().Length == 0,
                     "原目标在排入后、接触前实际死亡，没有爆发、伤害面或画面");
             }
             else
@@ -1084,7 +1077,7 @@ try
             var cast = started.Single(row => row.AbilityId == Id(name));
             var contact = contacts.Single(row => row.CastId == cast.CastId);
             int restored = contact.TargetHealthAfter.GetValueOrDefault() - contact.TargetHealthBefore;
-            Check(!legacy.Contains(Id(name)) && contact.TargetId == source.id && restored == expected &&
+            Check(contact.TargetId == source.id && restored == expected &&
                 contact.Damage.SettledCount == 0 && ally.data.health == bystanderHealth &&
                 CombatStatusEffects.HasStatus(ally, StatusEffects.Weaken, ally), name + "只恢复原人物且按来源倍率",
                 new { restored, expected, contact.TargetId });
@@ -1185,7 +1178,6 @@ finally
     Cultiway.Const.GeneralSettings.SwitchNaturalHealthRestore(ambientHealing);
     mutationField.SetValue(null, previousMutations);
     ConstructedAbilityService.CastStarted -= Started;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyStarted;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;
 }

@@ -1,7 +1,7 @@
 // B2—B12：共用真实旧已学来源、普通构造接管和原逐发支付；周期模式另外检查路径。
 var manager = Cultiway.ModClass.I.SkillV3;
 var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
-var oldExecutions = new List<int>(); var starts = new List<ConstructedCastStarted>(); var observed = new List<object>();
+var starts = new List<ConstructedCastStarted>(); var observed = new List<object>();
 var snapObserved = new List<AbilityCast>();
 var groundObserved = new List<AbilityCast>();
 var arcObserved = new List<AbilityCast>();
@@ -111,10 +111,8 @@ try
     Actor pathTarget = periodicMode || vortexMode || boomerangMode || descentMode || snapMode ? Make(74) : target; pathTarget.setKingdom(foe.kingdom);
     // 捕获原来源的真实逐发输入，原钩子仍只调用一次。
     var births = new List<(bool Passed, object Data)>();
-    void Old(Entity execution) { if (execution.GetComponent<SkillEntity>().Asset == SkillEntities.FlyingSword &&
-        execution.GetComponent<SkillContext>().SourceObj == source) oldExecutions.Add(execution.Id); }
     void Started(ConstructedCastStarted fact) { if (fact.AbilityId == SkillEntities.FlyingSword.id) starts.Add(fact); }
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old; ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.CastStarted += Started;
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
     {
         if (request.SkillContainer.GetComponent<SkillContainer>().Asset != SkillEntities.FlyingSword) return original(request);
@@ -205,13 +203,13 @@ try
                 "实际受理的各发按原报价扣费", new { expected, before, after = owner.GetCultisys<Xian>().wakan });
             Check(actual.Length == expectedPlan.Steps.Count && actual.All(fact => fact.CorrelationId == 930 &&
                 (descentMode && SkillBlueprintTrajectory.ResolveEffectiveId(skill) == SkillTrajectories.RainFall.id || contacts.Count(contact => contact.CastId == fact.CastId && (contact.TargetId == target.id || contact.TargetId == pathTarget.id)) == 1) &&
-                endings.Any(end => end.Fact.CastId == fact.CastId)) && target.data.health + (periodicMode || vortexMode || boomerangMode || descentMode ? pathTarget.data.health : 0) < hp && oldExecutions.Count == 0 && Learned().Count == knownBefore && !owner.E.HasComponent<ConstructedKnowledge>(),
-                "原入口每个计划步骤各产生一次实际构造，命中结束且无旧执行体", new { trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill), expected,
+                endings.Any(end => end.Fact.CastId == fact.CastId)) && target.data.health + (periodicMode || vortexMode || boomerangMode || descentMode ? pathTarget.data.health : 0) < hp && Learned().Count == knownBefore && !owner.E.HasComponent<ConstructedKnowledge>(),
+                "原入口每个计划步骤各产生一次实际构造，命中结束", new { trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill), expected,
                     planned = expectedPlan.Steps.Count,
                     hp, health = target.data.health + (periodicMode || vortexMode || boomerangMode || descentMode ? pathTarget.data.health : 0), animation = skill.GetComponent<SkillContainer>().AnimationIndex,
                     actual = actual.Select(fact => new { fact.CastId, fact.CorrelationId }).ToArray(),
                     hits = contacts.Select(contact => new { contact.CastId, contact.TargetId, contact.Age }).ToArray(),
-                    ended = endings.Select(end => new { end.Fact.CastId, end.Fact.Cancelled }).ToArray(), legacy = oldExecutions.ToArray(),
+                    ended = endings.Select(end => new { end.Fact.CastId, end.Fact.Cancelled }).ToArray(),
                     arc = arcMode ? arcObserved.Select(cast => new { cast.Age, cast.Finished, position = XYZ(Position(cast)), goal = XYZ((Vector3)Field(State(cast), "FlightTarget")),
                         phase = cast.Phase.ToString(), alive = Field(cast, "aliveNodes"), progress = Field(State(cast), "PathProgress"), stopped = Field(State(cast), "MovementStopped"), ended = Field(State(cast), "FlightEnded") }).ToArray() : null });
         }
@@ -222,34 +220,34 @@ try
         var plan = Plan(boosted); double total = Cost(boosted, plan); Check(Use(boosted), "原放大、加速、强化、熟练及多发能力受理");
         await Advance(1.5f);
         Check(Math.Abs(boostedBalance - owner.GetCultisys<Xian>().wakan - total) < .001, "多发逐发受理后的费用等于原计划报价");
-        Check(plan.Steps.Count > 1 && starts.Count - boostedInitial == plan.Steps.Count && oldExecutions.Count == 0 && Learned().Count == known &&
+        Check(plan.Steps.Count > 1 && starts.Count - boostedInitial == plan.Steps.Count && Learned().Count == known &&
             !owner.E.HasComponent<ConstructedKnowledge>(), "原序列逐发接管，未增加重复知识或生成第二执行体", new { steps = plan.Steps.Count, total });
         Entity extra = Build(SkillTrajectories.TowardsTarget.id, burn: true); Ready(source); Place(source, 64); Place(target, 70);
-        boostedInitial = starts.Count; int formerExecutions = oldExecutions.Count, burningSteps = Plan(extra).Steps.Count;
+        boostedInitial = starts.Count; int burningSteps = Plan(extra).Steps.Count;
         Check(Use(extra), "附加燃烧的飞剑由原入口受理"); await Advance(.8f);
-        Check(starts.Count - boostedInitial == burningSteps && oldExecutions.Count == formerExecutions &&
+        Check(starts.Count - boostedInitial == burningSteps &&
               CombatStatusEffects.HasStatus(target, StatusEffects.Burn), "飞剑真实命中仍附加燃烧且只用共同执行");
         }
-        int initial = starts.Count, oldCount = oldExecutions.Count; float balance = owner.GetCultisys<Xian>().wakan;
+        int initial = starts.Count; float balance = owner.GetCultisys<Xian>().wakan;
         Entity rejected = Build(snapMode ? SkillTrajectories.LightningSnap.id : groundMode ? SkillTrajectories.GroundCrawl.id : descentMode ? SkillTrajectories.FallingStrike.id : arcMode ? SkillTrajectories.ArcToPosition.id : boomerangMode ? SkillTrajectories.Boomerang.id : orbitMode ? SkillTrajectories.OrbitTarget.id : vortexMode ? SkillTrajectories.SlowVortex.id : spiralMode ? SkillTrajectories.SpiralHoming.id : steeringMode ? SkillTrajectories.DriftHoming.id : periodicMode ? SkillTrajectories.SineWave.id : SkillTrajectories.TowardsPosition.id, animation: 1); Ready(source); Place(source, 64); Place(target, 70);
-        initial = starts.Count; oldCount = oldExecutions.Count; balance = owner.GetCultisys<Xian>().wakan;
+        initial = starts.Count; balance = owner.GetCultisys<Xian>().wakan;
         scopeValid = true; invalidate = true; var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
         bool queued = manager.StartSkillSequence(owner, rejected, Plan(rejected), SkillContext.DefaultStrength,
             owner.GetPowerLevel(), runtime_data: new SkillCastRuntimeData { CorrelationId = 930, WorldScope = scope },
             options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission });
         await Advance(.1f); invalidate = false;
         Check(queued && lastResult == SkillEmissionResult.Rejected && !scopeValid && starts.Count == initial &&
-            oldExecutions.Count == oldCount && Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan) < .001f,
+            Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan) < .001f,
             "逐发序列实际受理时边界失效，撤销本步支付且不生成旧执行体",
-            new { queued, scopeValid, starts = starts.Count - initial, legacy = oldExecutions.Count - oldCount,
+            new { queued, scopeValid, starts = starts.Count - initial,
                 before = balance, after = owner.GetCultisys<Xian>().wakan, emission = observed.Last() });
         scopeValid = true; Ready(source); Place(source, 64); Place(target, 70);
         Check(Use(rejected), "拒绝后原来源释放占用，可重新施放"); await Advance(orbitMode || boomerangMode ? 1.6f : .7f);
-        Check(starts.Count - initial == Plan(rejected).Steps.Count && oldExecutions.Count == oldCount &&
+        Check(starts.Count - initial == Plan(rejected).Steps.Count &&
             starts.Skip(initial).All(fact => endings.Any(end => end.Fact.CastId == fact.CastId)),
-            "拒绝后重新施放正常结束，没有旧执行体残留", new { planned = Plan(rejected).Steps.Count,
+            "拒绝后重新施放正常结束残留", new { planned = Plan(rejected).Steps.Count,
                 actual = starts.Skip(initial).Select(fact => new { fact.CastId, fact.CorrelationId }).ToArray(),
-                ended = endings.Select(end => end.Fact.CastId).ToArray(), oldCount, legacy = oldExecutions.Count });
+                ended = endings.Select(end => end.Fact.CastId).ToArray() });
         // PERIODIC_EDITOR
         // SNAP_LIVE
         // GROUND_LIVE
@@ -270,7 +268,7 @@ try
         File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(observed, Formatting.Indented));
         return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
     }
-    finally { Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started; }
+    finally {ConstructedAbilityService.CastStarted -= Started; }
 }
 finally
 {

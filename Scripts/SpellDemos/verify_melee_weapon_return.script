@@ -44,7 +44,10 @@ bool DrawingInHand() => source.checkHasRenderedItem();
 object[] Models(object flight) => ((IEnumerable)visuals.GetValue(null)).Cast<object>()
     .Where(mesh => ReferenceEquals(Field(mesh, "Model"), Field(flight, "model"))).ToArray();
 var payments = new List<float>();
-var strokes = new List<(Entity Entity, object Flight, double Time, float Duration)>();
+var strokes = new List<(Entity Entity, object Flight, double Time, float Duration, SkillCastRuntimeData Runtime)>();
+var completed = new List<int>();
+bool scopeValid = true;
+var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
 var damage = new List<float>();
 var contactsDuringStrike = new List<object>();
 var stateType = service.Assembly.GetType("Cultiway.Content.Systems.Logic.WeaponControlStrike");
@@ -62,10 +65,12 @@ void Paid(ActorExtend actor, in WakanMutation mutation)
 }
 void Emitted(Entity entity)
 {
-    if (entity.GetComponent<SkillContext>().SourceObj != source) return;
+    var context = entity.GetComponent<SkillContext>();
+    if (context.SourceObj != source) return;
     object[] args = { null };
     getMotion.Invoke(entity, args);
-    strokes.Add((entity, Flight(), World.world.getCurWorldTime(), (float)Field(Field(args[0], "Motion"), "Duration")));
+    strokes.Add((entity, Flight(), World.world.getCurWorldTime(),
+        (float)Field(Field(args[0], "Motion"), "Duration"), context.RuntimeData));
 }
 void Contact(Entity execution, BaseSimObject victim)
 {
@@ -90,12 +95,26 @@ void Use()
     Place(source, 64.35f);
     Place(target, targetX);
     source.attack_timer = 0;
-    Check(DrawingInHand() && ActiveAbilityService.TryUse(owner, handle,
-        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
-        Flight() == null && DrawingInHand(), "正式请求排队时仍握着原兵器");
+    var request = new ActiveAbilityTarget(target, target.GetSimPos(), worldScope: scope);
+    int paid = payments.Count;
+    if (longThrust && strokes.Count == 0)
+    {
+        scopeValid = false;
+        Check(!ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) &&
+            Flight() == null && payments.Count == paid, "失效任务拒绝排队，未扣费或借出原物");
+        scopeValid = true;
+    }
+    Check(DrawingInHand() && ActiveAbilityService.TryUse(owner, handle, request, ActiveAbilityUseOrigin.Script) &&
+        Flight() == null && DrawingInHand() && payments.Count == paid, "正式请求排队时仍握着原兵器且未扣费");
     source.attack_timer = 999f;
 }
 
+var completeField = typeof(ActorExtend).GetField("action_on_skill_cast_completed", F);
+var previousComplete = completeField.GetValue(null);
+ActorExtend.RegisterActionOnSkillCastCompleted((actor, skill, count, _) =>
+{
+    if (actor == owner && skill == handle.Source) completed.Add(count);
+});
 WakanResourceService.RegisterMutationCommitted(Paid);
 ActorExtend.RegisterActionOnDamageResolved(LoseLife);
 Action<Entity> onStrike = Emitted;
@@ -194,6 +213,11 @@ try
         new { fees = payments.ToArray(), strokes = strokes.Count, damage = damage.ToArray(),
             health, remaining = target.data.health, closest, closestTip = closestTip.ToString(),
             target = target.GetSimPos().ToString(), contacts = contactsDuringStrike.ToArray() });
+    Check(completed.SequenceEqual(new[] { strokes.Count }) && strokes.All(stroke =>
+            stroke.Runtime.Origin == ActiveAbilityUseOrigin.Script &&
+            stroke.Runtime.CorrelationId > 0 && stroke.Runtime.CorrelationId == first.Runtime.CorrelationId &&
+            ReferenceEquals(stroke.Runtime.WorldScope, scope)),
+        "每次真实出枪沿用调用来源、任务边界和同一会话，整段只完成一次");
     Vector3 returnFrom = Point(flight);
     Place(source, 64.85f);
     await Advance(.08f);
@@ -227,6 +251,7 @@ finally
     started.GetRemoveMethod(true).Invoke(null, new object[] { onStrike });
     SkillHitResolver.ContactResolved -= Contact;
     mutationField.SetValue(null, previousMutations);
+    completeField.SetValue(null, previousComplete);
     damageField.SetValue(null, previousDamage);
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

@@ -24,9 +24,6 @@ namespace Cultiway.Core.SkillLibV3;
 
 public class Manager
 {
-    /// <summary>旧迁移复验脚本的观测接口，随探索脚本清理时移除。</summary>
-    public static event Action<Entity> ExecutionConfigured;
-
     /// <summary>按原收费和步骤安排提交给共同执行。只有实际受理才推进本次发射。</summary>
     public static Func<SkillEmission, SkillEmissionResult> ConstructionEmission;
 

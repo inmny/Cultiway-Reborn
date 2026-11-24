@@ -2,7 +2,6 @@
 const string section = "all";
 var allCasts = new List<AbilityCast>();
 var damageEvents = new List<(long Target, float Amount, string Element, int Before, int After)>();
-int oldExecutions = 0;
 Actor source = Make(64), target = Make(70), safe = Make(74), wolf = Make(12, "wolf");
 target.setKingdom(wolf.kingdom); safe.setKingdom(wolf.kingdom); Place(safe, 74, 77);
 var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 0;
@@ -55,8 +54,7 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
     allCasts.Add((AbilityCast)Field(running, "Cast"));
 }
-void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
-ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+ConstructedAbilityService.CastStarted += Started;
 NatureProbe.Damaged = (damage, before) =>
 {
     if (damage.AttackerID == source.id) damageEvents.Add((damage.TargetID, damage.Damage, damage.Element.ToString(), before,
@@ -117,7 +115,7 @@ try
         for (int i = 0; i < 40 && allCasts.Count == 0; i++) await Advance(.01f);
         Check(allCasts.Count == 1, "真实逐发步骤已经发射一次");
         var cast = allCasts.Last(); float initialWakan = owner.GetCultisys<Xian>().wakan; float initialForce = cast.RemainingForce(0);
-        Check(cast.Matter(0).Id == "water" && cast.Matter(0).State == "liquid" && oldExecutions == 0, "实际材料为液态水且没有旧执行体");
+        Check(cast.Matter(0).Id == "water" && cast.Matter(0).State == "liquid", "实际材料为液态水");
         double expectedCost = SkillCastResources.Wakan.Quote(owner, SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
         Check(Math.Abs(source.stats[BaseStatses.MaxWakan.id] * .8f - initialWakan - expectedCost) < .01f, "原逐发费用只提交一次", new { expectedCost, initialWakan });
         await Advance(.025f);
@@ -128,13 +126,13 @@ try
         for (int i = 0; i < 80 && !damageEvents.Any(d => d.Target == target.id); i++) await Advance(.025f);
         var damage = damageEvents.Single(d => d.Target == target.id);
         Check(damage.Element == ElementComposition.Static.Water.ToString() && damage.After < damage.Before &&
-            Math.Abs(damage.Amount - initialForce) < .01f && safe.data.health == safeHp && oldExecutions == 0,
+            Math.Abs(damage.Amount - initialForce) < .01f && safe.data.health == safeHp,
             "真实命中使用水伤害和一次本体量，侧外安全", new { damage.Amount, damage.Before, damage.After, damage.Element });
         foreach (var active in allCasts) active.Cancel(); await Advance(.1f); int count = damageEvents.Count;
         await Advance(.3f); Check(damageEvents.Count == count && !FormVisualScene.Instances.Any(v => v.Resource.Description.Id == "spirit_bolt"), "取消后停伤并清理显示");
         var disabled = Build(SkillEntities.SpiritBolt, "water", false);
         Check(Use(disabled), "关闭接触的同性质来源仍可正常施放"); await Advance(1f);
-        Check(damageEvents.Count == count && oldExecutions == 0, "关闭接触保留纯显示，不提交伤害");
+        Check(damageEvents.Count == count, "关闭接触保留纯显示，不提交伤害");
         foreach (var active in allCasts) active.Cancel(); await Advance(.1f);
         Place(source, 64); Place(target, 70); Check(Use(skill), "结束后同一已学来源恢复施放");
         for (int i = 0; i < 80 && damageEvents.Count == count; i++) await Advance(.025f);
@@ -145,7 +143,7 @@ try
 finally
 {
     foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); NatureProbe.Damaged = null;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started;
+ ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
     ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
     File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damageEvents.Select(d => new { d.Target, d.Amount, d.Element, d.Before, d.After }), Formatting.Indented));

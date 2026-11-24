@@ -967,7 +967,7 @@ python3 Scripts/SpellDemos/verify_view_switch.py --quit
 
 ## 实际序列受理与封存物品
 
-`python3 Scripts/SpellDemos/verify_sequence_admission.py`检查开始拒绝、预付和逐发支付、等待和跳过、取消、明确拒绝、真实初始化异常、完成通知顺序、符箓及卷轴消费、排队输入和正常游戏推进，再运行相关支付、构造及功能法术检查。结果在`artifacts/skill_rebuild/sequence-admission/`，结束后使用上面的`verify_view_switch.py --quit`退出独立游戏。覆盖边界见[实际发射与序列受理](../../Doc/技能系统全面重构/实际发射与序列受理.md)。
+`python3 Scripts/SpellDemos/verify_sequence_admission.py`检查开始拒绝、预付和逐发支付、等待和跳过、取消、明确拒绝、发射入口异常时退费、完成通知顺序、符箓及卷轴消费、排队输入和正常游戏推进，再运行相关支付、构造及功能法术检查。结果在`artifacts/skill_rebuild/sequence-admission/`，结束后使用上面的`verify_view_switch.py --quit`退出独立游戏。覆盖边界见[实际发射与序列受理](../../Doc/技能系统全面重构/实际发射与序列受理.md)。
 
 ## 身体关系的并行占用专项
 
@@ -1385,6 +1385,8 @@ python3 Scripts/SpellDemos/verify_piercing.py
 # 5.05 B27：七种普通投射的默认轨迹、真实首击结束、费用和土材料
 python3 Scripts/SpellDemos/verify_projectiles.py
 ```
+
+普通投射只验证投射物。灵光束沿用上面的光束专用复验入口。
 
 七种原已学来源分别检查自身普通/强化资料、实际主体、默认追踪/直射/抛弧、首次100伤害后结束及一次支付。强化连发、受灵材料修正影响的一次原灵光束对照、一次直射改追踪和受理失败退款恢复用共享段验证，不重新跑飞剑所有轨迹。另仅核对地刺与土墙的土材料转换及一次地刺真实土系伤害。加`--section sources`、`--section common`或`--section soil`分别只运行对应段，结果独立写入`artifacts/skill_rebuild/trajectories/projectiles/<分段>/`；不带参数写入该目录根。完整编辑、自主创作、正式冷启动和集中连续录像继续5.05 C。
 

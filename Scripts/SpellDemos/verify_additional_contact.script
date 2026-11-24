@@ -4,7 +4,7 @@ var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var allCasts=new List<AbilityCast>();var emissions=new List<object>();
 var choices=new List<(float Chance,int Count,int Selected)>();
 var damageEvents=new List<(long Target,long Attacker,float Amount,ElementComposition Element,int Before,int After,bool Alive)>();
-int oldExecutions=0;float conversionForce=0;SkillEntityAsset current=SkillEntities.SpiritBolt;
+float conversionForce=0;SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
 var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
@@ -43,7 +43,7 @@ CompiledConstructionImpact FirstImpact(CompiledAbility plan)
 Entity[] States(Cultiway.Core.Libraries.StatusEffectAsset type)=>target.GetExtend().GetStatuses().Where(s=>s.GetComponent<StatusComponent>().Type==type).ToArray();
 void ResetPeople()
 {
-    foreach(var cast in allCasts)cast.Cancel();starts.Clear();contacts.Clear();choices.Clear();damageEvents.Clear();oldExecutions=0;
+    foreach(var cast in allCasts)cast.Cancel();starts.Clear();contacts.Clear();choices.Clear();damageEvents.Clear();
     Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.setHealth(target.getMaxHealth());
     foreach(var type in statusTypes)CombatStatusEffects.RemoveStatus(target,type);target.updateStats();target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
@@ -66,8 +66,7 @@ void Started(ConstructedCastStarted fact)
     var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==fact.CastId);
     allCasts.Add((AbilityCast)Field(running,"Cast"));
 }
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.AdditionalContact");
 AdditionalContactProbe.Selected=(group,outcome)=>{if(group!=null)choices.Add((group.Chance,group.Outcomes.Count,outcome==null?-1:Enumerable.Range(0,group.Outcomes.Count).Single(i=>ReferenceEquals(group.Outcomes[i],outcome))));};
 AdditionalContactProbe.Damaged=(damage,before)=>{if(damage.TargetID!=target.id||damage.AttackerID!=source.id)return;damageEvents.Add((damage.TargetID,damage.AttackerID,damage.Damage,damage.Element,before,target.data.health,target.isAlive()));};
@@ -135,7 +134,7 @@ try
         Check(chosen switch{0=>States(StatusEffects.Daze).Length==1,1=>States(StatusEffects.Burn).Length==1,2=>States(StatusEffects.Poison).Length==1,
             3=>damageEvents.Any(d=>Math.Abs(d.Amount-20)<.001f),4=>States(StatusEffects.ArmorBreak).Length==1,5=>contacts.Any(c=>c.TargetId==target.id&&c.ForceApplied),_=>false},"选中结果复用实际状态伤害或受力");
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
-        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&oldExecutions==0&&!contacts.Any(c=>c.TargetId==outside.id),"原逐发费用归属及侧外安全保留",new{cost});
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&!contacts.Any(c=>c.TargetId==outside.id),"原逐发费用归属及侧外安全保留",new{cost});
         foreach(var cast in allCasts)cast.Cancel();int draws=choices.Count;await Advance(4.2f);
         Check(choices.Count==draws&&!target.under_forces&&!BodyControlState.IsBusy(target.id),"取消后不再抽取且有限运动归还控制");
     }
@@ -156,7 +155,7 @@ try
 finally
 {
     foreach(var cast in allCasts)cast.Cancel();hook.UnpatchSelf();AdditionalContactProbe.Selected=null;AdditionalContactProbe.Damaged=null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));

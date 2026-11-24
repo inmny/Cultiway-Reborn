@@ -158,7 +158,6 @@ finally
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
     ControllableUnit.clear(false);
     camera.orthographicSize = oldSize;
     camera.transform.position = oldCamera;

@@ -2,7 +2,7 @@
 const string section="all";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
-var emissions=new List<object>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+var emissions=new List<object>();bool invalidate=false,scopeValid=true;
 SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
@@ -39,7 +39,7 @@ Entity[] States(Actor actor,Cultiway.Core.Libraries.StatusEffectAsset type)=>act
 void ClearStates(Actor actor){foreach(var type in statusTypes)CombatStatusEffects.RemoveStatus(actor,type);actor.updateStats();}
 void ResetPeople()
 {
-    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();oldExecutions=0;
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();
     Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);ClearStates(target);ClearStates(outside);
     target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
@@ -63,8 +63,7 @@ async Task WaitContact(int before)
     throw new InvalidOperationException("实际目标未在两秒内接触");
 }
 void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 try
 {
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
@@ -117,7 +116,7 @@ try
         current=SkillEntities.SpiritBolt;ResetPeople();var skill=Build();float balance=owner.GetCultisys<Xian>().wakan;
         var plan=SkillCastPlanner.CreatePlan(owner,skill,target,SkillCastCost.GetAffordableStepLimit(owner,skill),explicitTargetsOnly:true);
         Check(Use(skill),"带三个接触词条的原灵弹受理");await WaitContact(0);
-        Check(starts.Count==1&&oldExecutions==0&&contacts.Any(c=>c.TargetId==target.id),"实际新主体命中，没有旧执行");
+        Check(starts.Count==1&&contacts.Any(c=>c.TargetId==target.id),"实际新主体命中");
         Check(statusTypes.All(t=>States(target,t).Length==1)&&statusTypes.All(t=>States(outside,t).Length==0),"真实目标获得三个原状态，侧外人物没有状态");
         var firstDaze=States(target,StatusEffects.Daze).Single();var dazeId=firstDaze.Id;
         Check(Math.Abs(States(target,StatusEffects.Slow).Single().GetComponent<StatusOverwriteStats>().stats[S.multiplier_speed]+.35f)<.001f&&
@@ -133,7 +132,7 @@ try
         CombatStatusEffects.ApplyStatus(target,hold,10000,target);target.updateStats();
         current=SkillEntities.YinField;ResetPeople();var field=Build();Check(Use(field),"带状态的原领域受理");await Advance(1f);
         int fieldHits=contacts.Count(c=>c.TargetId==target.id);
-        Check(fieldHits>=2&&States(target,StatusEffects.Slow).Length==fieldHits&&States(target,StatusEffects.Freeze).Length==fieldHits&&States(target,StatusEffects.Daze).Length==1&&oldExecutions==0,"领域每次真实间隔接触叠加两种状态并刷新一次硬直",new{fieldHits});
+        Check(fieldHits>=2&&States(target,StatusEffects.Slow).Length==fieldHits&&States(target,StatusEffects.Freeze).Length==fieldHits&&States(target,StatusEffects.Daze).Length==1,"领域每次真实间隔接触叠加两种状态并刷新一次硬直",new{fieldHits});
         await Advance(5f);Check(statusTypes.All(t=>States(target,t).Length==0)&&accepted.All(c=>c.Finished),"领域结束后状态自然到期，无残留");
         ResetPeople();var harmless=Build(false);Check(Use(harmless),"关闭人物作用仍受理领域");await Advance(2.7f);
         Check(statusTypes.All(t=>States(target,t).Length==0)&&accepted.All(c=>c.Finished),"关闭人物作用不施加任何接触状态");
@@ -155,7 +154,7 @@ finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     foreach(var cast in allCasts)cast.Cancel();ClearStates(target);ClearStates(outside);owner.SetPowerLevel(0);target.GetExtend().SetPowerLevel(0);
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.paused=true;
 }

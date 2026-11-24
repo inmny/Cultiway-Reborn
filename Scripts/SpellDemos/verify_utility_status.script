@@ -28,7 +28,6 @@ var point = new Vector3(68, 72, 0);
 var starts = new List<ConstructedCastStarted>();
 var results = new List<ConstructedWorldContact>();
 var ended = new List<ConstructedCastEnded>();
-var legacy = new List<long>();
 var payment = new List<object>();
 var owned = new List<Entity>();
 bool IsTest(long correlation) => correlation >= 101321 && correlation <= 101338;
@@ -46,11 +45,6 @@ void WorldHit(ConstructedWorldContact hit)
 void Finished(ConstructedCastEnded cast)
 {
     if (starts.Any(start => start.CastId == cast.CastId)) ended.Add(cast);
-}
-void Legacy(Entity execution)
-{
-    long correlation = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
-    if (IsTest(correlation)) legacy.Add(correlation);
 }
 
 Entity Learn(SkillEntityAsset asset, bool field, bool damage = false, Action<SkillBlueprint> configure = null)
@@ -123,7 +117,6 @@ Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.WorldContactConfirmed += WorldHit;
 ConstructedAbilityService.CastEnded += Finished;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
 try
 {
     WorldTile tile = World.world.GetTileSimple(68, 72);
@@ -463,13 +456,12 @@ try
         }
     }
 
-    Check(legacy.Count == 0 && payment.Count == starts.Count, "实际发射全部走共同执行且没有旧实体");
-    return new { passed = true, section, checks, starts, ended, results, payment, legacy };
+    Check(payment.Count == starts.Count, "实际发射全部走共同执行");
+    return new { passed = true, section, checks, starts, ended, results, payment };
 }
 finally
 {
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emit;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
     ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Finished;

@@ -2,7 +2,7 @@
 const string section="all";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
-var emissions=new List<object>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+var emissions=new List<object>();bool invalidate=false,scopeValid=true;
 SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
@@ -46,7 +46,7 @@ Entity[] States(Actor actor,Cultiway.Core.Libraries.StatusEffectAsset type)=>act
 void ClearStates(Actor actor){foreach(var type in statusTypes)CombatStatusEffects.RemoveStatus(actor,type);actor.updateStats();}
 void ResetPeople()
 {
-    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();oldExecutions=0;
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();
     Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);ClearStates(target);ClearStates(outside);
     target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
@@ -82,8 +82,7 @@ async Task WaitContact(int before)
     throw new InvalidOperationException("实际目标未在两秒内接触");
 }
 void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 try
 {
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
@@ -131,7 +130,7 @@ try
         Check(Use(skill),"已学灵弹携带复合诅咒受理");await WaitContact(0);target.updateStats();
         var curse=States(target,StatusEffects.EternalCurse).Single();int id=curse.Id;
         float raw=JObject.FromObject(emissions.Last())["Strength"].Value<float>();
-        Check(oldExecutions==0&&starts.Count==1&&States(outside,StatusEffects.EternalCurse).Length==0&&
+        Check(starts.Count==1&&States(outside,StatusEffects.EternalCurse).Length==0&&
             Math.Abs(curse.GetComponent<StatusTickState>().Value-raw*.8f/3.2f)<.001f&&
             Math.Abs(curse.GetComponent<StatusOverwriteStats>().stats[S.damage]+damage*.25f)<.001f&&Math.Abs(curse.GetComponent<StatusOverwriteStats>().stats[S.armor]+armor*.25f)<.001f&&
             target.stats[S.damage]<damage&&target.stats[S.armor]<armor,"真实新主体同时造成周期与攻防削弱，侧外安全",new{raw,damage,armor,afterDamage=target.stats[S.damage],afterArmor=target.stats[S.armor],tick=curse.GetComponent<StatusTickState>().Value});
@@ -164,7 +163,7 @@ try
     if(section is "all" or "common")
     {
         current=SkillEntities.YinField;ResetPeople();var field=Build();Check(Use(field),"原领域接入复合诅咒");await Advance(1.3f);
-        Check(contacts.Count(c=>c.TargetId==target.id)>=2&&States(target,StatusEffects.EternalCurse).Length==1&&States(target,StatusEffects.EternalCurse).Single().GetComponent<AliveTimer>().value<.55f&&oldExecutions==0,"领域真实间隔接触刷新同类而不重复创建");
+        Check(contacts.Count(c=>c.TargetId==target.id)>=2&&States(target,StatusEffects.EternalCurse).Length==1&&States(target,StatusEffects.EternalCurse).Single().GetComponent<AliveTimer>().value<.55f,"领域真实间隔接触刷新同类而不重复创建");
         foreach(var cast in accepted)cast.Cancel();ClearStates(target);ResetPeople();float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
         Check(Use(field,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排复合作用来源的真实边界失效");await Advance(.3f);invalidate=false;
         Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&States(target,StatusEffects.EternalCurse).Length==0,"拒绝后原值退款且无复合状态残留");
@@ -181,7 +180,7 @@ finally
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     foreach(var cast in allCasts)cast.Cancel();ClearStates(target);ClearStates(outside);owner.SetPowerLevel(0);target.GetExtend().SetPowerLevel(0);
     CombatStatusEffects.RemoveStatus(target,targetBuff);
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.paused=true;
 }

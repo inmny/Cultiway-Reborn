@@ -4,7 +4,7 @@ var manager=Cultiway.ModClass.I.SkillV3;var original=Cultiway.Core.SkillLibV3.Ma
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var activeCasts=new List<AbilityCast>();
 var emissions=new List<object>();var damageEvents=new List<GetHitEvent>();var forceAfterHit=new List<float>();
 SkillEntityAsset currentAsset=SkillEntities.GoldenNeedle;bool invalidate=false,scopeValid=true,moveOnEmission=false;
-SkillEmissionResult? lastResult=null;int oldExecutions=0;
+SkillEmissionResult? lastResult=null;
 Actor source=Make(64),target=Make(70),other=Make(74),outside=Make(71),wolf=Make(12,"wolf");
 foreach(var actor in new[]{target,other,outside})actor.setKingdom(wolf.kingdom);
 // 使用初阶修士：原规则普通单发，显式连发词条提供第二发；不修改游戏的发射预算。
@@ -39,7 +39,6 @@ AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
 /// <summary>记录本批真正开始的来源。</summary><param name="fact">正式受理事实。</param>
 void Started(ConstructedCastStarted fact){if(fact.AbilityId==currentAsset.id)starts.Add(fact);}
 /// <summary>任何旧执行体都表示本批双执行缺陷。</summary><param name="entity">原实例。</param>
-void Old(Entity entity){if(entity.GetComponent<SkillEntity>().Asset==currentAsset)oldExecutions++;}
 /// <summary>在真实接触之后记录仍可用于防御的本体量。</summary><param name="contact">已经结算的真实接触。</param>
 void AfterContact(ConstructedContact contact){if(contact.AbilityId==currentAsset.id)forceAfterHit.Add(accepted.Last().RemainingForce(0));}
 /// <summary>复用原人物、位置和资源准备，不放宽实际来源规则。</summary>
@@ -61,7 +60,7 @@ List<FormVisualInstance> Views(AbilityCast cast){var views=new List<FormVisualIn
 /// <summary>读取同一实际接触。</summary><param name="cast">真实施放。</param>
 List<AbilityCapsule> Shapes(AbilityCast cast){var shapes=new List<AbilityCapsule>();cast.AppendContacts(shapes);return shapes;}
 ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=AfterContact;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.Piercing");
 PiercingDamage.AfterDamage=e=>{if(e.AttackerID==source.id)damageEvents.Add(e);};
 hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),
@@ -88,7 +87,7 @@ try
         (Asset:SkillEntities.WaterArrow,Form:"water_arrow",Matter:"water",State:"liquid"),
         (Asset:SkillEntities.WoodSpear,Form:"wood_spear",Matter:"wood",State:"solid")})
     {
-        currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+        currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
         var normal=Build();var boosted=Build(true);
         float duration=.9f;
         if(entry.Asset==SkillEntities.WaterArrow||entry.Asset==SkillEntities.GoldenNeedle||entry.Asset==SkillEntities.LightningSpear||entry.Asset==SkillEntities.IceLance||entry.Asset==SkillEntities.StoneCone||entry.Asset==SkillEntities.WoodSpear||entry.Asset==SkillEntities.PoisonNeedle)
@@ -112,7 +111,7 @@ try
         Check(Convert(Build(extra:true),out _)!=null,entry.Form+"燃烧附加作用由共同构造接管");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.12f);
-        var live=accepted.Single();Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
+        var live=accepted.Single();Check(starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,
             entry.Form+"只运行自身新主体且无旧执行");await Shot(entry.Form);
         await Advance(duration+.1f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
@@ -126,7 +125,7 @@ try
         Check(live.Finished&&Views(live).Count==0&&Shapes(live).Count==0&&!BodyControlState.IsBusy(source.id),entry.Form+"原寿命结束后显示接触与控制恢复");
     }
     // 加速、范围和强化后两次逐发只验证共用路径；同时覆盖合击与齐射的单发衰减。
-    currentAsset=SkillEntities.GoldenNeedle;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+    currentAsset=SkillEntities.GoldenNeedle;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
     // 连发按原境界预算计算；使用原第一阶段预算，普通发射为1，带连发词条的实际计划为2。
     owner.GetCultisys<Xian>().level=1;owner.MarkCultiwayStatsDirty();source.setStatsDirty();source.updateStats();
     ResetPeople();var enhanced=Build(true);float enhancedBalance=owner.GetCultisys<Xian>().wakan;
@@ -134,7 +133,7 @@ try
     Check(emissionPlan.Steps.Count==2,"原境界预算与连发词条形成两发计划",new{steps=emissionPlan.Steps.Count});
     Check(Use(enhanced),"强化贯穿的两次逐发受理");await Advance(1.8f);
     double stepCost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(enhanced)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enhanced)));
-    Check(starts.Count==2&&oldExecutions==0&&accepted.All(c=>c.Finished)&&
+    Check(starts.Count==2&&accepted.All(c=>c.Finished)&&
         Math.Abs(enhancedBalance-owner.GetCultisys<Xian>().wakan-stepCost*2)<.001f&&
         damageEvents.Count==4&&damageEvents.All(e=>Math.Abs(e.Damage-79.56f)<.01f),
         "强化、合击和齐射倍率保留，两发分别收费和贯穿",new{casts=starts.Count,stepCost,damages=damageEvents.Select(e=>e.Damage).ToArray()});
@@ -149,13 +148,13 @@ try
     // 一次真正受理失败、原值退款和恢复。
     ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排贯穿投射实际受理失败");await Advance(.25f);invalidate=false;
-    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldExecutions==0,
-        "实际受理失败原值退款且无新旧残留");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(tracking.Lifetime+.15f);
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f,
+        "实际受理失败原值退款且未启动法术");scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(tracking.Lifetime+.15f);
     Check(accepted.All(c=>c.Finished),"恢复后正常结束");
     // 原飞剑仅核对受本次共用转换调整影响的正常路径，不重跑全部旧轨迹。
-    currentAsset=SkillEntities.FlyingSword;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;ResetPeople();
+    currentAsset=SkillEntities.FlyingSword;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();
     var sword=Build();Check(Use(sword),"原飞剑共同转换对照受理");await Advance(1.2f);
-    Check(starts.Count==1&&oldExecutions==0&&accepted.Single().Finished&&damageEvents.Count==1&&
+    Check(starts.Count==1&&accepted.Single().Finished&&damageEvents.Count==1&&
         damageEvents[0].TargetID==target.id&&Math.Abs(damageEvents[0].Damage-100f)<.01f,
         "原飞剑仍在一次真实命中后结束，强度和原规则未改变");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
@@ -164,7 +163,7 @@ finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     foreach(var cast in activeCasts)cast.Cancel();PiercingDamage.AfterDamage=null;hook.UnpatchSelf();
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=AfterContact;
     ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;ControllableUnit.clear(false);Config.paused=true;
 }

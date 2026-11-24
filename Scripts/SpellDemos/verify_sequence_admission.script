@@ -115,17 +115,22 @@ Entity Sequence(Entity s) => Cultiway.ModClass.I.W.Query<SkillCastSequence>().En
 void Tick(Entity e, float seconds = .5f) => typeof(LogicSkillCastSequenceSystem).GetMethod("Advance", F)
     .Invoke(null, new object[] { e, e.GetComponent<SkillCastSequence>(), seconds });
 
-var configured = new List<Entity>();
-void Configured(Entity e) => configured.Add(e.GetComponent<SkillEntity>().SkillContainer);
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Configured;
-var completed = new List<(Entity Skill, int Count, int Configured)>();
+var acceptedSteps = new List<Entity>();
+var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+SkillEmissionResult ObserveEmission(SkillEmission request)
+{
+    var result = originalEmitter(request);
+    if (result == SkillEmissionResult.Accepted) acceptedSteps.Add(request.SkillContainer);
+    return result;
+}
+Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = ObserveEmission;
+var completed = new List<(Entity Skill, int Count, int Accepted)>();
 var completeField = typeof(ActorExtend).GetField("action_on_skill_cast_completed", F);
 var originalComplete = completeField.GetValue(null);
 ActorExtend.RegisterActionOnSkillCastCompleted((caster, s, count, source) =>
 {
-    if (caster == owner) completed.Add((s, count, configured.Count(x => x == s)));
+    if (caster == owner) completed.Add((s, count, acceptedSteps.Count(x => x == s)));
 });
-var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts = new List<ConstructedCastStarted>();
 bool committed = true;
 
@@ -162,7 +167,7 @@ try
     Tick(sequence);
     Check(hooks.Result.HasValue && hooks.Result.Value.EmittedCount == 3 && Near(balance, 10000 - cost * 3),
         "受理后修改原计划及策略不会漏发或逐发再次收费");
-    Check(completed.Any(c => c.Skill == skill && c.Count == 3 && c.Configured == 3), "完成通知只在三个真实执行体已经配置之后发布");
+    Check(completed.Any(c => c.Skill == skill && c.Count == 3 && c.Accepted == 3), "完成通知只在三次真实发射均已受理之后发布");
     Check(!SkillCastPayment.IsPending(owner), "预付受理和结束不遗留支付占用");
     skill = Container();
     balance = 10000;
@@ -205,7 +210,7 @@ try
     balance = 10000;
     hooks = new SequenceAdmissionHooks();
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
-        request.SkillContainer == skill ? SkillEmissionResult.Rejected : originalEmitter(request);
+        request.SkillContainer == skill ? SkillEmissionResult.Rejected : ObserveEmission(request);
     Check(
         manager.StartSkillSequence(owner, skill, Plan(1), 1,
             options: new SkillCastSequenceOptions
@@ -213,19 +218,20 @@ try
     Tick(Sequence(skill));
     Check(
         hooks.Result.Value.Reason == SkillCastSequenceEndReason.ExecutionRejected &&
-        hooks.Result.Value.EmittedCount == 0 && Near(balance, 10000) && !configured.Contains(skill),
-        "明确拒绝撤销本步扣费，不落回旧执行，也不增加发射计数");
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+        hooks.Result.Value.EmittedCount == 0 && Near(balance, 10000) && !acceptedSteps.Contains(skill),
+        "明确拒绝撤销本步扣费且不增加发射计数");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = ObserveEmission;
     skill = Container();
     balance = 10000;
     hooks = new SequenceAdmissionHooks();
-    var setup = skill.GetComponent<SkillContainer>().OnSetup;
-    skill.GetComponent<SkillContainer>().OnSetup =
-        _ => throw new InvalidOperationException("test.admission.setup");
+    int startsBeforeFailure = starts.Count;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+        request.SkillContainer == skill ? throw new InvalidOperationException("test.admission.emission")
+            : ObserveEmission(request);
     Check(
         manager.StartSkillSequence(owner, skill, Plan(1), 1,
             options: new SkillCastSequenceOptions
-                { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "真实初始化异常场景正常受理序列");
+                { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "发射入口异常场景先受理序列");
     sequence = Sequence(skill);
     bool failed = false;
     try
@@ -234,19 +240,18 @@ try
     }
     catch (TargetInvocationException error)
     {
-        failed = error.InnerException.Message == "test.admission.setup";
+        failed = error.InnerException.Message == "test.admission.emission";
     }
 
     Check(
         failed && Near(balance, 10000) &&
         hooks.Result.Value.Reason == SkillCastSequenceEndReason.ExecutionRejected &&
         hooks.Result.Value.EmittedCount == 0 && !SkillCastPayment.IsPending(owner),
-        "真实初始化异常保留原错误，撤销未受理费用并解除序列占用");
+        "发射异常保留原错误，撤销未受理费用并解除序列占用");
     Check(
-        !Cultiway.ModClass.I.W.Query<SkillEntity>().Entities.Any(e =>
-            !e.Tags.Has<TagRecycle>() && e.GetComponent<SkillEntity>().SkillContainer == skill),
-        "初始化异常没有留下仍可运行的半配置执行体");
-    skill.GetComponent<SkillContainer>().OnSetup = setup;
+        starts.Count == startsBeforeFailure && !acceptedSteps.Contains(skill),
+        "发射异常没有发布开始或记录受理");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = ObserveEmission;
     skill = Container();
     balance = 10000;
     bool live = true;
@@ -365,7 +370,7 @@ try
     balance = 10000;
     Check(manager.StartSkillSequence(owner, skill, Plan(1), 1), "正常游戏推进场景受理");
     await Advance(.3f);
-    Check(completed.Count(c => c.Skill == skill) == 1 && configured.Count(x => x == skill) == 1,
+    Check(completed.Count(c => c.Skill == skill) == 1 && acceptedSteps.Count(x => x == skill) == 1,
         "实际游戏系统推进只发射一次且只通知一次完成");
     var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
     File.WriteAllText(Path.Combine(folder, "checks.json"),
@@ -375,7 +380,6 @@ try
 finally
 {
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Configured;
     completeField.SetValue(null, originalComplete);
     ConstructedAbilityService.CastStarted -= Started;
     SimGlobals.m.mana_change = manaChange;

@@ -11,12 +11,8 @@ namespace Cultiway.Core.SkillLibV3;
 
 public static class SkillHitResolver
 {
-    /// <summary>旧迁移脚本的范围观测接口，随脚本清理移除。</summary>
-    public static event System.Action<Entity, Vector3, float> AreaResolved;
     /// <summary>一次真实对象接触的结果通知；订阅者只能在离开当前查询后安排额外作用。</summary>
     public static event System.Action<Entity, BaseSimObject> ContactResolved;
-    /// <summary>旧迁移脚本的屏障观测接口，随脚本清理移除。</summary>
-    public static event System.Action<Entity, Vector2, float> BarrierContactResolved;
 
     /// <summary>实际刃面命中后应用法宝伤害与元素反馈。</summary>
     internal static void HitArtifact(SkillEntityAsset asset, ref SkillContext context,

@@ -5,7 +5,7 @@ var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>
 var emissions=new List<object>();var placements=new List<(long Actor,Vector2 Before,Vector2 Destination,Vector2 After,float Wait)>();
 var attempts=new List<object>();
 var releases=new List<(long Actor,bool BusyBefore,bool BusyAfter,bool Released)>();var order=new List<string>();
-int oldExecutions=0;SkillEntityAsset current=SkillEntities.SpiritBolt;
+SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),middle=Make(67),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);
 var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=0;
@@ -40,7 +40,7 @@ CompiledConstructionImpact FirstImpact(CompiledAbility plan)
 }
 void ResetPeople()
 {
-    foreach(var cast in allCasts)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();placements.Clear();releases.Clear();order.Clear();oldExecutions=0;
+    foreach(var cast in allCasts)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();placements.Clear();releases.Clear();order.Clear();
     Ready(source);Place(source,64.2f,72.3f);Place(target,70.65f,72.4f);Place(middle,67.4f,72.35f);
     target.setHealth(target.getMaxHealth());target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
@@ -64,8 +64,7 @@ void Started(ConstructedCastStarted fact)
     var running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==fact.CastId);
     allCasts.Add((AbilityCast)Field(running,"Cast"));
 }
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.ContactExchange");
 ContactExchangeProbe.Attempted=(controller,actor,exchange,result,strength)=>{var caster=(Actor)Field(controller,"Actor");attempts.Add(new{source=caster.id,target=actor.id,sourceHeight=caster.position_height,targetHeight=actor.position_height,sourcePosition=new[]{caster.current_position.x,caster.current_position.y},targetPosition=new[]{actor.current_position.x,actor.current_position.y},exchange?.Chance,result=result.ToString(),strength,sourceAlive=caster.isAlive(),targetAlive=actor.isAlive(),sameTile=caster.current_tile==actor.current_tile});};
 hook.Patch(service.GetMethod("ApplyContactExchange",F),prefix:new HarmonyLib.HarmonyMethod(typeof(ContactExchangeProbe).GetMethod("AttemptPrefix")));
@@ -129,7 +128,7 @@ try
             (source.current_position-beforeTarget).sqrMagnitude<.000001f&&(target.current_position-beforeSource).sqrMagnitude<.000001f,"真实接触完整交换双方连续位置并短暂停步",
             new{source=new[]{source.current_position.x,source.current_position.y},target=new[]{target.current_position.x,target.current_position.y}});
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
-        Check(target.data.health<hp&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&oldExecutions==0,"换位保留原费用及实际伤害且无旧执行体",new{cost,hp,hpAfter=target.data.health});
+        Check(target.data.health<hp&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"换位保留原费用及实际伤害",new{cost,hp,hpAfter=target.data.health});
         Check(source.GetExtend().E.HasComponent<Cultiway.Content.Components.PreciseActorPosition>()&&target.GetExtend().E.HasComponent<Cultiway.Content.Components.PreciseActorPosition>(),"双方位置沿用正式精确坐标保存标记");
         foreach(var cast in accepted)cast.Cancel();await Advance(.35f);
         Check((source.current_position-beforeTarget).sqrMagnitude<.000001f&&(target.current_position-beforeSource).sqrMagnitude<.000001f&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),"结束后旧行动不拉回双方且控制归还");
@@ -171,7 +170,7 @@ try
 finally
 {
     foreach(var cast in allCasts)cast.Cancel();hook.UnpatchSelf();ContactExchangeProbe.Attempted=null;ContactExchangeProbe.Placed=null;ContactExchangeProbe.Released=null;ContactExchangeProbe.Forced=null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
     File.WriteAllText(Path.Combine(folder,"attempts.json"),JsonConvert.SerializeObject(attempts,Formatting.Indented));

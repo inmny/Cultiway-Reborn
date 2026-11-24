@@ -39,7 +39,7 @@ Check(test.isActiveAndEnabled && test.interactable, "实际编辑窗口的试放
 var starts = new List<ConstructedCastStarted>();
 var ends = new List<ConstructedCastEnded>();
 var worldContacts = new List<ConstructedWorldContact>();
-int legacy = 0, returns = 0;
+int returns = 0;
 var pavilion = WanfaPavilionService.Instance;
 void Started(ConstructedCastStarted cast)
 {
@@ -52,12 +52,6 @@ void FinishedPreview(ConstructedCastEnded cast)
 void Contact(ConstructedWorldContact hit)
 {
     if (starts.Any(initial => initial.CastId == hit.CastId) && hit.Result.Changed) worldContacts.Add(hit);
-}
-void Legacy(Entity execution)
-{
-    var context = execution.GetComponent<SkillContext>();
-    if (context.SourceObj == source && execution.GetComponent<SkillEntity>().Asset == asset)
-        legacy++;
 }
 int Learned() => ((IReadOnlyList<Entity>)owner.GetType().GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null)).Count;
 int Uses() => owner.E.TryGetComponent(out ConstructedUseHistory history) ? history.Uses : 0;
@@ -72,7 +66,6 @@ async Task SelectSource()
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.CastEnded += FinishedPreview;
 ConstructedAbilityService.WorldContactConfirmed += Contact;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
 pavilion.TestCastCompleted += Returned;
 try
 {
@@ -131,7 +124,7 @@ try
             SkillBlueprintSignature.Build((SkillBlueprint)Field(editor, "_draft")) == signature,
             "实际运行结束后回到同一草稿，可继续试放");
     }
-    Check(legacy == 0, "试放只由共同执行提交");
+
     for (int frame = 0; frame < 12; frame++) await Game.NextFrame();
     string screenshot = Screen.Capture(Path.Combine(folder, "试放后回到原草稿.png"));
     return new { passed = true, screenshot, checks };
@@ -141,6 +134,5 @@ finally
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= FinishedPreview;
     ConstructedAbilityService.WorldContactConfirmed -= Contact;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
     pavilion.TestCastCompleted -= Returned;
 }

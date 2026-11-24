@@ -6,7 +6,6 @@ var birth = new Vector3(60, 72, 0);
 var starts = new Dictionary<long, (ConstructedCastStarted Event, AbilityCast Cast)>();
 var ends = new List<ConstructedCastEnded>();
 var hits = new List<ConstructedWorldContact>();
-var legacy = new List<long>();
 var containers = new List<Entity>();
 
 bool IsTest(long correlation) => correlation >= 101341 && correlation <= 101349;
@@ -24,11 +23,6 @@ void Finished(ConstructedCastEnded fact)
 void Contact(ConstructedWorldContact fact)
 {
     if (starts.Values.Any(value => value.Event.CastId == fact.CastId)) hits.Add(fact);
-}
-void Legacy(Entity execution)
-{
-    long correlation = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
-    if (IsTest(correlation)) legacy.Add(correlation);
 }
 
 Entity FieldSkill(TrajectoryAsset trajectory, float duration, bool chaos = false, bool gravity = false)
@@ -79,7 +73,6 @@ bool EndedNormally(long correlation) => ends.Any(end => end.CastId == starts[cor
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.CastEnded += Finished;
 ConstructedAbilityService.WorldContactConfirmed += Contact;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
 try
 {
     if (section is "advance" or "all")
@@ -262,7 +255,7 @@ try
         Check(EndedNormally(101349) && enemy.position_height <= .01f && !enemy.under_forces,
             "瞬时引力结束后归还普通运动");
     }
-    Check(legacy.Count == 0, "本次真实发射都只使用共同构造执行");
+
     return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id, checks };
 }
 finally
@@ -270,7 +263,6 @@ finally
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Finished;
     ConstructedAbilityService.WorldContactConfirmed -= Contact;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
     foreach (Entity skill in containers)
         if (!skill.IsNull) SkillOwnershipService.Forget(owner, skill);
 }

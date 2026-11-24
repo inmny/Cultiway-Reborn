@@ -75,7 +75,6 @@ owner.LearnSkillV3(field);
 var starts = new List<ConstructedCastStarted>();
 var ends = new List<ConstructedCastEnded>();
 var contacts = new List<ConstructedWorldContact>();
-var legacy = new List<string>();
 var charges = new List<object>();
 bool charged = false;
 var constructionEmission = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
@@ -94,11 +93,6 @@ SkillEmissionResult ObserveEmission(SkillEmission emission)
 void Started(ConstructedCastStarted cast) => starts.Add(cast);
 void Ended(ConstructedCastEnded cast) => ends.Add(cast);
 void Contact(ConstructedWorldContact contact) => contacts.Add(contact);
-void Legacy(Entity execution)
-{
-    var correlation = execution.GetComponent<SkillContext>().RuntimeData.CorrelationId;
-    if (correlation >= 101301 && correlation <= 101304) legacy.Add(execution.GetComponent<SkillEntity>().Asset.id);
-}
 
 Entity Emit(Entity skill, long correlation, ConstructionWorldScope scope, params SkillCastStep[] steps)
 {
@@ -129,7 +123,6 @@ void Pollute(WorldTile tile)
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.CastEnded += Ended;
 ConstructedAbilityService.WorldContactConfirmed += Contact;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Legacy;
 Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = ObserveEmission;
 try
 {
@@ -199,8 +192,8 @@ try
             ends.Any(end => end.CastId == repeated.CastId && !end.Cancelled), "再次使用按原周期兑现并自然结束");
     }
     Check(!charged && charges.Count == starts.Count && charges.Count > 0, "排队和逐次实际发射均不扣调度人物法力");
-    Check(legacy.Count == 0, "同批世界步骤没有另建旧执行体");
-    return new { passed = true, section, checks, starts, ends, contacts, charges, legacy };
+
+    return new { passed = true, section, checks, starts, ends, contacts, charges };
 }
 finally
 {
@@ -208,7 +201,6 @@ finally
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.WorldContactConfirmed -= Contact;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Legacy;
     SkillBlueprintCompiler.Recycle(raise);
     owner.ForgetSkillV3(field);
     SkillBlueprintCompiler.Recycle(field);

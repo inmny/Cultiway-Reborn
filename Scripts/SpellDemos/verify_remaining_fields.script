@@ -4,7 +4,7 @@ const string appearanceForm="both";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var activeCasts=new List<AbilityCast>();
 var emissions=new List<object>();var damageEvents=new List<GetHitEvent>();var forceAfterHit=new List<float>();
-SkillEntityAsset currentAsset=SkillEntities.Tornado;bool invalidate=false,scopeValid=true;int oldExecutions=0;
+SkillEntityAsset currentAsset=SkillEntities.Tornado;bool invalidate=false,scopeValid=true;
 SkillEmissionResult? lastResult=null;
 Actor source=Make(64),target=Make(70),edge=Make(71),outside=Make(70),wolf=Make(12,"wolf");
 foreach(var actor in new[]{target,edge,outside})actor.setKingdom(wolf.kingdom);
@@ -38,12 +38,11 @@ AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
     var definition=(AbilityDefinition)converter.Invoke(null,args);damage=(GetHitEvent)args[1];return definition;
 }
 void Started(ConstructedCastStarted fact){if(fact.AbilityId==currentAsset.id)starts.Add(fact);}
-void Old(Entity entity){if(entity.GetComponent<SkillEntity>().Asset==currentAsset)oldExecutions++;}
 void AfterContact(ConstructedContact contact){if(contact.AbilityId==currentAsset.id)forceAfterHit.Add(accepted.Last().RemainingForce(0));}
 /// <summary>复用人物，固定源及场内、侧外位置。</summary>
 void ResetPeople()
 {
-    starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+    starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
     Ready(source);Place(source,64);Place(target,70);Place(edge,70,section=="appearance"?73.85f:72.8f);Place(outside,70,section=="appearance"?75f:78f);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
     foreach(var actor in new[]{source,target,edge,outside})ConstructedAbilityService.NotifyActorChanged(actor);
@@ -74,7 +73,7 @@ void Pose(AbilityCast cast,string name)
 /// <summary>每个真实施放对同一人的重复接触都遵守原0.4秒间隔。</summary>
 bool Intervals()=>contacts.GroupBy(c=>(c.CastId,c.TargetId)).All(g=>g.Zip(g.Skip(1),(a,b)=>b.Age-a.Age).All(t=>t>=.399f));
 ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=AfterContact;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.RemainingFields");
 RemainingFieldDamage.AfterDamage=e=>{if(e.AttackerID==source.id)damageEvents.Add(e);};
 hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),postfix:new HarmonyLib.HarmonyMethod(typeof(RemainingFieldDamage).GetMethod("Postfix")));
@@ -111,7 +110,7 @@ try
         if(section!="visuals"&&section!="appearance")Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射作用保留原入口");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health;var plan=SkillCastPlanner.CreatePlan(owner,normal,target,SkillCastCost.GetAffordableStepLimit(owner,normal),explicitTargetsOnly:true);
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.15f);var live=accepted.Single();
-        Check(starts.Count==1&&oldExecutions==0&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
+        Check(starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
         var front=Views(live).Single();Vector3 before=front.Transform.GetColumn(3);
         var skin=(Matrix4x4[])front.Skin.Clone();Pose(live,entry.Form+"前段");
         if(section=="appearance")
@@ -153,7 +152,7 @@ try
         var plan=SkillCastPlanner.CreatePlan(owner,enhanced,target,SkillCastCost.GetAffordableStepLimit(owner,enhanced),explicitTargetsOnly:true);
         Check(Use(enhanced),"强化龙卷原入口受理");await Advance(2.7f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(enhanced,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enhanced)));
-        Check(starts.Count==plan.Steps.Count&&oldExecutions==0&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&
+        Check(starts.Count==plan.Steps.Count&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&
             damageEvents.Count>=2&&damageEvents.All(e=>Math.Abs(e.Damage-23.4f)<.001f)&&forceAfterHit.All(f=>Math.Abs(f-93.6f)<.001f)&&Intervals(),"强化范围加速及合击齐射修正保留，人物输入23.4与本体量93.6分离，原逐发费用正确",new{steps=plan.Steps.Count,cost});
         var liveWind=accepted.Where(c=>!c.Finished).ToArray();
         if(liveWind.Length!=0)await Advance(liveWind.Max(c=>c.Plan.Lifetime-c.Age)+.05f);
@@ -167,7 +166,7 @@ try
         Check(damageEvents.Count==0&&owner.GetCultisys<Xian>().wakan<harmlessBalance&&accepted.All(c=>c.Finished),"装饰领域仍收费、无伤并正常结束");
         ResetPeople();var failed=Build();float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
         Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排领域实际受理失败");await Advance(.3f);invalidate=false;
-        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&oldExecutions==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f,"实际受理失败原值退款且没有新旧残留");
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f,"实际受理失败原值退款且未启动法术");
         scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一领域恢复受理");await Advance(Convert(failed,out _).Lifetime+.05f);Check(accepted.All(c=>c.Finished)&&damageEvents.Count>=2,"恢复后实际作用与结束正常");
     }
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
@@ -176,7 +175,7 @@ finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     foreach(var cast in activeCasts)cast.Cancel();RemainingFieldDamage.AfterDamage=null;hook.UnpatchSelf();
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=AfterContact;
     ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;ControllableUnit.clear(false);Config.paused=true;
 }

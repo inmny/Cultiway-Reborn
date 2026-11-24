@@ -1,4 +1,4 @@
-// 4.01：由真实游戏系统驱动御器及煞风会话，核对受理、逐发费用和结束。
+// 4.01：由真实游戏系统驱动煞风会话，核对受理、九波接触和结束。
 using System;
 using System.IO;
 using System.Linq;
@@ -6,15 +6,11 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Friflo.Engine.ECS;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Skills;
-using Cultiway.Core.SkillLibV3;
-using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Combat;
@@ -37,15 +33,6 @@ object runner = rt.GetProperty("Instance").GetValue(null);
 
 async Task Boundary() =>
     await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 1800);
-
-async Task Advance(float seconds)
-{
-    Config.paused = false;
-    double until = World.world.getCurWorldTime() + seconds;
-    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 1800);
-    Config.paused = true;
-    await Boundary();
-}
 
 Game.Resume();
 Config.paused = true;
@@ -85,81 +72,8 @@ ActorExtend Make(int x, int level)
     return ae;
 }
 
-var owner = Make(64, 4);
-var enemy = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(66, 72), pAdultAge: true);
-enemy.addTrait("super_health");
-CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
-enemy.setStatsDirty();
-enemy.updateStats();
-enemy.restoreHealth(enemy.getMaxHealth());
-owner.Base.addAggro(enemy);
-enemy.addAggro(owner.Base);
-await Advance(.1f);
-var weaponAsset =
-    AssetManager.items.list.First(a => a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
-owner.Base.createNewWeapon(weaponAsset.id);
-var handles = new List<ActiveAbilityHandle>();
-ActiveAbilityService.Collect(owner, handles);
-var handle = handles.Single(h => h.ProviderId == "content.weapon_control");
-var service =
-    typeof(ActorExtend).Assembly.GetType("Cultiway.Content.WeaponControl.WeaponControlRuntimeService");
-bool Casting() => (bool)service.GetMethod("IsCasting", F).Invoke(null, new object[] { owner });
-var mutations = new List<float>();
-var executions = new List<SkillContext>();
-var completed = new List<int>();
-var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
-var oldMutation = mutationField.GetValue(null);
-
-void Paid(ActorExtend a, in WakanMutation mutation)
-{
-    if (a == owner && mutation.Kind == WakanMutationKind.Spend) mutations.Add(-mutation.Delta);
-}
-
-var completeField = typeof(ActorExtend).GetField("action_on_skill_cast_completed", F);
-var oldComplete = completeField.GetValue(null);
-ActorExtend.RegisterActionOnSkillCastCompleted((a, skill, count, source) =>
-{
-    if (a == owner && skill == handle.Source) completed.Add(count);
-});
-
-void Configured(Entity e)
-{
-    var context = e.GetComponent<SkillContext>();
-    if (e.GetComponent<SkillEntity>().SkillContainer == handle.Source) executions.Add(context);
-}
-
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Configured;
-WakanResourceService.RegisterMutationCommitted(Paid);
 try
 {
-    bool valid = false;
-    var scope = new ConstructionWorldScope(() => valid, (_, tile) => true);
-    var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos(), worldScope: scope);
-    Check(
-        !ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && !Casting() &&
-        mutations.Count == 0, "失效的实际任务不能排入御器请求、扣费或占用武器");
-    valid = true;
-    Check(
-        ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && !Casting() &&
-        mutations.Count == 0, "正式御器请求仅入队，实际受理前不收费或占用武器");
-    await Advance(.15f);
-    Check(
-        executions.Count > 0 && executions.All(c =>
-            c.RuntimeData.Origin == ActiveAbilityUseOrigin.Script &&
-            ReferenceEquals(c.RuntimeData.WorldScope, scope) && c.RuntimeData.CorrelationId > 0),
-        "真实御器执行体保留调用来源、任务边界与会话身份");
-    double deadline = World.world.getCurWorldTime() + 15;
-    while (Casting() && World.world.getCurWorldTime() < deadline)
-    {
-        enemy.restoreHealth(enemy.getMaxHealth());
-        await Advance(.2f);
-    }
-
-    Check(
-        !Casting() && completed.Count == 1 && completed[0] == executions.Count &&
-        mutations.Count == executions.Count, "真实御器逐发支付，全部受理后完成一次并解除武器占用",
-        new { emissions = executions.Count, fees = mutations, completed });
-    Check(owner.Base.getWeaponAsset() == weaponAsset, "御器结束仍持有原装备，不销毁借用武器");
     // 渡劫只核对实际会话；逐帧治疗用于让测试人物承受全部九波，不改变风、碰撞或结算。
     var tribulation = Make(80, 3);
     tribulation.AddComponent(new Yuanying { formation = new CoreFormationSnapshot { refinement = 9 } });
@@ -169,7 +83,7 @@ try
     Check(
         (bool)start.Invoke(null, new object[] { tribulation }) &&
         !(bool)start.Invoke(null, new object[] { tribulation }), "真实煞风会话正式开始一次，重复启动被拒绝");
-    deadline = World.world.getCurWorldTime() + 40;
+    double deadline = World.world.getCurWorldTime() + 40;
     Config.paused = false;
     while (!Passed() && World.world.getCurWorldTime() < deadline)
     {
@@ -201,9 +115,6 @@ try
 finally
 {
     Config.paused = true;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Configured;
-    mutationField.SetValue(null, oldMutation);
-    completeField.SetValue(null, oldComplete);
     File.WriteAllText(Path.Combine(folder, "partial.json"),
         JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
 }

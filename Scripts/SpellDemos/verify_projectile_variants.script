@@ -124,7 +124,6 @@ var casts = new Dictionary<long, AbilityCast>();
 var recordings = new List<object>();
 var fieldFailures = new List<object>();
 var scatterCenters = new List<Vector2>();
-int oldExecutions = 0;
 
 void Started(ConstructedCastStarted fact)
 {
@@ -132,11 +131,6 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(value => (long)Field(value, "Id") == fact.CastId);
     casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
-}
-
-void LegacyExecution(Entity entity)
-{
-    if (chosenAssets.Contains(entity.GetComponent<SkillEntity>().Asset.id)) oldExecutions++;
 }
 
 FormVisualInstance[] Views(AbilityCast cast)
@@ -198,7 +192,7 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
     CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
     source.updateStats();
     await Advance(.065f);
-    Check(casts.Count == count + 1 && oldExecutions == 0, "地刺进入共同执行", index);
+    Check(casts.Count == count + 1, "地刺进入共同执行", index);
     var live = casts.Last();
     var cast = live.Value;
     if (rise > 0f)
@@ -304,7 +298,7 @@ async Task PlayWall(SkillEntityAsset asset, string form, int index)
     CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
     source.updateStats();
     await Advance(.30f);
-    Check(casts.Count == previous + 1 && oldExecutions == 0, "实体墙只进入共同执行一次", form);
+    Check(casts.Count == previous + 1, "实体墙只进入共同执行一次", form);
     var live = casts.Last();
     var cast = live.Value;
     var view = Views(cast).Single();
@@ -398,7 +392,7 @@ async Task PlayShield(SkillEntityAsset asset, string form, int index)
     int previous = casts.Count, hp = source.data.health;
     UseShield();
     await Advance(.07f);
-    Check(casts.Count == previous + 1 && oldExecutions == 0, "护盾只进入共同执行一次", model);
+    Check(casts.Count == previous + 1, "护盾只进入共同执行一次", model);
     var live = casts.Last();
     var cast = live.Value;
     var forming = Views(cast).Single();
@@ -513,7 +507,7 @@ async Task PlayLegacyChannel(SkillEntityAsset asset, string form, int index)
 
     var live = casts.Skip(previous).First();
     var cast = live.Value;
-    Check(oldExecutions == 0 && cast.Age < appearance && ShapeCount(cast) == 0 &&
+    Check(cast.Age < appearance && ShapeCount(cast) == 0 &&
           Views(cast).Any(view => view.Resource.Description.Id == form) &&
           placed.All(actor => actor.data.health == healthBefore[actor.id]),
         "旧成形时有实际画面且没有接触或伤害", new { form, cast.Age, appearance });
@@ -603,7 +597,6 @@ async Task PlayField(SkillEntityAsset asset, string form, int index)
     async Task<KeyValuePair<long, AbilityCast>> Use()
     {
         int prior = casts.Count;
-        int previousLegacy = oldExecutions;
         Ready(source);
         Place(source, 64);
         ConstructedAbilityService.NotifyActorChanged(source);
@@ -615,7 +608,7 @@ async Task PlayField(SkillEntityAsset asset, string form, int index)
         CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
         source.updateStats();
         await Advance(.04f);
-        Check(casts.Count == prior + 1 && oldExecutions == previousLegacy, "本次只产生共同领域", model);
+        Check(casts.Count == prior + 1, "本次只产生共同领域", model);
         return casts.Last();
     }
 
@@ -731,7 +724,7 @@ async Task PlayRift(string form)
     CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
     source.updateStats();
     await Advance(.06f);
-    Check(casts.Count == before + 1 && oldExecutions == 0, "只生成一次共同墟隙", empty);
+    Check(casts.Count == before + 1, "只生成一次共同墟隙", empty);
     var live = casts.Last();
     var cast = live.Value;
     await Stage(cast, strike * .53f);
@@ -859,7 +852,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
     source.updateStats();
     await Advance(sky ? .026f : .08f);
 
-    Check(casts.Count == previous + 1 && oldExecutions == 0, "只进入共同执行一次", model);
+    Check(casts.Count == previous + 1, "只进入共同执行一次", model);
     var live = casts.Last();
     var cast = live.Value;
     if (sky) await Stage(cast, .04f);
@@ -1051,7 +1044,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
 }
 
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+
 try
 {
     foreach (var entry in catalog)
@@ -1083,7 +1076,7 @@ try
 finally
 {
     File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;

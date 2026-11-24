@@ -54,7 +54,7 @@ bool TryUse(in ActiveAbilityTarget target)
     return accepted;
 }
 SkillEntityAsset asset = payload.GetComponent<SkillContainer>().Asset;
-int startedCount = 0, oldExecutions = 0;
+int startedCount = 0;
 var hits = new List<ConstructedContact>();
 void HitPaper(ConstructedContact fact)
 {
@@ -69,16 +69,11 @@ void Started(ConstructedCastStarted fact)
     consumedAtStart = !Owns();
     observedOrigin = fact.Origin;
 }
-void Old(Entity execution)
-{
-    if (execution.GetComponent<SkillEntity>().Asset == asset) oldExecutions++;
-}
 var oldManaChange = SimGlobals.m.mana_change;
 SimGlobals.m.mana_change = 0;
 source.setMana(0, false);
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.ContactConfirmed += HitPaper;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
 try
 {
     if (natural)
@@ -90,9 +85,9 @@ try
         await Advance(.24f);
         Check(startedCount == 1 && observedOrigin == ActiveAbilityUseOrigin.Autonomous && consumedAtStart && !Owns() &&
               hits.Count == 1 && hits[0].TargetId == ally.id && hits[0].TargetHealthAfter - hits[0].TargetHealthBefore == 35 &&
-              oldExecutions == 0 && source.getMana() == 0,
+              source.getMana() == 0,
             "自然战斗只耗用一次原卷，按封存资料治愈原友方且没有从人物再付法力",
-            new { startedCount, origin = observedOrigin.ToString(), consumedAtStart, owns = Owns(), oldExecutions,
+            new { startedCount, origin = observedOrigin.ToString(), consumedAtStart, owns = Owns(),
                 mana = source.getMana(), hits = hits.Select(hit => new { hit.TargetId, hit.TargetHealthBefore, hit.TargetHealthAfter }).ToArray() });
         return new { passed = true, section, process = System.Diagnostics.Process.GetCurrentProcess().Id };
     }
@@ -105,24 +100,24 @@ try
         Check(TryUse(Aim(ally)) && Owns() && !TryUse(Aim(ally)), "施放卷轴先占用原纸张，阻止重复受理");
         Place(ally, 104f, 72f);
         await Advance(.14f);
-        Check(Owns() && startedCount == 0 && oldExecutions == 0, "目标在出手前移出射程，原卷保留");
+        Check(Owns() && startedCount == 0, "目标在出手前移出射程，原卷保留");
         Place(ally, 68f, 72f);
         ConstructedAbilityService.NotifyActorChanged(ally);
         Check(TryUse(Aim(ally)) && Owns(), "原友方进入射程后可用同一卷再次施法",
             new { source = source.id, ally = ally.id, hostile = hostile.id, health, hostileHealth, item = item.Id });
         await Advance(.90f);
-        Check(startedCount == 1 && consumedAtStart && !Owns() && oldExecutions == 0 && source.getMana() == 0 &&
+        Check(startedCount == 1 && consumedAtStart && !Owns() && source.getMana() == 0 &&
             ally.data.health > health && hostile.data.health == hostileHealth &&
             hits.Count == 1 && hits[0].TargetId == ally.id,
             "第一发共同构造消耗原卷，只治疗所选友方，不再扣法力",
-            new { startedCount, consumedAtStart, oldExecutions, health, healed = ally.data.health, mana = source.getMana(), hitIds = hits.Select(hit => hit.TargetId).ToArray() });
+            new { startedCount, consumedAtStart, health, healed = ally.data.health, mana = source.getMana(), hitIds = hits.Select(hit => hit.TargetId).ToArray() });
     }
     else
     {
         int health = hostile.data.health;
         Check(TryUse(Aim(hostile)) && Owns(), "带有当前构造不支持轨迹的原符进入出手检查");
         await Advance(.15f);
-        Check(Owns() && startedCount == 0 && oldExecutions == 0 && hostile.data.health == health &&
+        Check(Owns() && startedCount == 0 && hostile.data.health == health &&
               ActiveAbilityService.CanUse(owner, handle, Aim(hostile)),
             "构造正式拒绝发射后不转旧执行，解除占用并保留同一张符箓");
     }
@@ -133,6 +128,5 @@ finally
     SimGlobals.m.mana_change = oldManaChange;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.ContactConfirmed -= HitPaper;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
     Config.paused = true;
 }

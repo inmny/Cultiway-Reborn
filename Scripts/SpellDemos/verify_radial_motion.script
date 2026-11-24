@@ -3,7 +3,7 @@ const string section="all";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
 var emissions=new List<object>();var forces=new List<(long Target,Vector3 Force,float Slide,double Time,Vector2 Position,Vector3 Centre,float Scale)>();
-int oldExecutions=0;bool invalidate=false,scopeValid=true;SkillEmissionResult? lastResult=null;
+bool invalidate=false,scopeValid=true;SkillEmissionResult? lastResult=null;
 SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
@@ -42,7 +42,7 @@ CompiledConstructionRadialMotion FirstField(CompiledAbility plan)
 }
 void ResetPeople()
 {
-    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();forces.Clear();oldExecutions=0;
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();forces.Clear();
     Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;target.setHealth(target.getMaxHealth());
     foreach(var actor in new[]{source,target,outside})ConstructedAbilityService.NotifyActorChanged(actor);
@@ -67,8 +67,7 @@ async Task EndMotion()
     Check(forces.Count==count&&(target.current_position-position).magnitude<.0001f,"结束后不再施加牵引且人物不继续滑动");
 }
 void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 Actor friend=Make(70),air=Make(71),fixedTarget=Make(69);
 friend.setKingdom(source.kingdom);air.setKingdom(wolf.kingdom);fixedTarget.setKingdom(wolf.kingdom);
 foreach(var actor in new[]{outside,friend,air}){CombatStatusEffects.RemoveStatus(actor,hold);CombatStatusEffects.ApplyStatus(actor,still,10000,source);actor.updateStats();}
@@ -133,7 +132,7 @@ try
         Check(!forces.Any(f=>f.Target==outside.id||f.Target==friend.id||f.Target==air.id||f.Target==fixedTarget.id||f.Target==source.id),"侧外友方离地与不能移动人物不受牵引");
         Check(actual.Zip(actual.Skip(1),(a,b)=>Math.Abs(b.Time-a.Time-.1d)<.00002d).All(x=>x)&&actual.All(f=>Math.Abs(f.Slide-.1f)<.000001f),"实际运动按固定世界间隔重新受理而不按帧叠速");
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
-        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&oldExecutions==0,"牵引保留原逐发费用且没有旧旅行执行体",new{cost,oldExecutions});
+        Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"牵引保留原逐发费用",new{cost});
         await EndMotion();
         current=SkillEntities.PoisonMist;ResetPeople();Check(Use(Build(contact:false)),"移动领域及持续引力正式受理");await WaitStart();await Advance(.5f);
         actual=forces.Where(f=>f.Target==target.id).ToArray();
@@ -152,14 +151,14 @@ try
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;invalidate=true;Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实发射边界失败");await Advance(.3f);invalidate=false;
         Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==0&&forces.Count==0&&Math.Abs(owner.GetCultisys<Xian>().wakan-balance)<.001f,"边界拒绝没有范围作用并按原值退款");
         scopeValid=true;ResetPeople();Check(Use(Build(contact:false)),"失败恢复后同一来源重新受理");await WaitStart();Place(target,72);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.25f);
-        Check(forces.Any(f=>f.Target==target.id)&&oldExecutions==0,"恢复后普通范围运动正常执行");await EndMotion();
+        Check(forces.Any(f=>f.Target==target.id),"恢复后普通范围运动正常执行");await EndMotion();
     }
     return new{passed=true,section,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }
 finally
 {
     foreach(var cast in allCasts)cast.Cancel();RadialMotionProbe.Applied=null;hook.UnpatchSelf();
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);Config.paused=true;
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));

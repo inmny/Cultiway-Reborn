@@ -16,7 +16,6 @@ await Advance(.2f);
 var forms = new[] { "fire_blade", "fire_blade_fork", "fire_blade_bright", "fire_blade_hook" };
 var casts = new Dictionary<long, AbilityCast>();
 var recordings = new List<object>();
-int oldExecutions = 0;
 
 void Started(ConstructedCastStarted fact)
 {
@@ -24,11 +23,6 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(value => (long)Field(value, "Id") == fact.CastId);
     casts.Add(fact.CastId, (AbilityCast)Field(running, "Cast"));
-}
-
-void LegacyExecution(Entity entity)
-{
-    if (entity.GetComponent<SkillEntity>().Asset == asset) oldExecutions++;
 }
 
 Entity Learn(int index, string trajectory)
@@ -90,7 +84,7 @@ async Task Play(int index, string trajectory = null)
     source.updateStats();
     await Advance(.10f);
 
-    Check(casts.Count == prior + 1 && oldExecutions == 0, "一发只进入共同执行一次", index);
+    Check(casts.Count == prior + 1, "一发只进入共同执行一次", index);
     var live = casts.Last();
     var cast = live.Value;
     float runtime = asset.ImpactProfile.Lifetime * asset.ImpactTuning.LifetimeMultiplier;
@@ -147,7 +141,7 @@ async Task Play(int index, string trajectory = null)
 }
 
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
+
 try
 {
     foreach (int index in chosenVariants.Distinct()) await Play(index);
@@ -157,7 +151,7 @@ try
 finally
 {
     File.WriteAllText(Path.Combine(folder, "variants.json"), JsonConvert.SerializeObject(recordings, Formatting.Indented));
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
+
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;

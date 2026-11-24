@@ -4,7 +4,6 @@ var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var allCasts = new List<AbilityCast>();
 var damageEvents = new List<(long Target, long Attacker, float Amount, ElementComposition Element, bool Ignore, int Before, int After, bool Alive)>();
 var emissions = new List<object>();
-int oldExecutions = 0;
 float conversionForce = 0;
 SkillEntityAsset current = SkillEntities.SpiritBolt;
 Actor source = Make(64), target = Make(70), outside = Make(70), wolf = Make(12, "wolf");
@@ -44,7 +43,7 @@ CompiledConstructionImpact FirstImpact(CompiledAbility plan)
 }
 void ResetPeople()
 {
-    foreach (var cast in allCasts) cast.Cancel(); contacts.Clear(); damageEvents.Clear(); oldExecutions = 0;
+    foreach (var cast in allCasts) cast.Cancel(); contacts.Clear(); damageEvents.Clear();
     Ready(source); Place(source, 64); Place(target, 70); Place(outside, 70, 78);
     CombatStatusEffects.RemoveStatus(target, StatusEffects.DeathSentence); CombatStatusEffects.RemoveStatus(target, guard);
     target.updateStats(); target.setHealth(target.getMaxHealth()); source.setHealth(source.getMaxHealth() - 500);
@@ -70,8 +69,7 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
     allCasts.Add((AbilityCast)Field(running, "Cast"));
 }
-void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
-ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+ConstructedAbilityService.CastStarted += Started;
 ConditionalContactProbe.Damaged = (damage, before) =>
 {
     if (damage.TargetID != target.id && damage.TargetID != source.id) return;
@@ -155,7 +153,7 @@ try
         Check(Use(skill), "同一已学灵弹低生命分支受理"); await WaitContact();
         for (int i = 0; i < 20 && target.isAlive(); i++) await Advance(.025f);
         var execute = damageEvents.Single(d => d.Ignore);
-        Check(!target.isAlive() && execute.Attacker == source.id && execute.Amount >= execute.Before + 1f && execute.Element.entropy == 1f && oldExecutions == 0,
+        Check(!target.isAlive() && execute.Attacker == source.id && execute.Amount >= execute.Before + 1f && execute.Element.entropy == 1f,
             "低生命按真实生命忽略减伤执行且归属正确", new { execute.Amount, execute.Before, execute.After });
         foreach (var cast in allCasts) cast.Cancel(); int count = damageEvents.Count; await Advance(.3f);
         Check(damageEvents.Count == count, "结束后不补发条件伤害");
@@ -175,7 +173,7 @@ try
         ResetPeople(); target.setHealth(130); health = source.data.health;
         Check(Use(skill), "同一已学轮回灵弹实际击杀受理"); await WaitContact();
         for (int i = 0; i < 20 && target.isAlive(); i++) await Advance(.025f);
-        Check(!target.isAlive() && damageEvents.Count == 2 && damageEvents.All(d => d.Target == target.id && d.Attacker == source.id) && source.data.health - health == 24 && oldExecutions == 0,
+        Check(!target.isAlive() && damageEvents.Count == 2 && damageEvents.All(d => d.Target == target.id && d.Attacker == source.id) && source.data.health - health == 24,
             "本条试练真正击杀才返生且不再反噬", new { recovered = source.data.health - health });
         foreach (var cast in allCasts) cast.Cancel(); int count = damageEvents.Count; await Advance(.3f);
         Check(damageEvents.Count == count && !contacts.Any(c => c.TargetId == outside.id), "结束后不重复试练且侧外人物安全");
@@ -194,7 +192,7 @@ try
 finally
 {
     foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); ConditionalContactProbe.Damaged = null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
     ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
     ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
     File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(emissions, Formatting.Indented));

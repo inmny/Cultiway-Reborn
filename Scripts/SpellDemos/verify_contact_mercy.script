@@ -3,7 +3,7 @@ const string section="all";
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var allCasts=new List<AbilityCast>();
 var restorations=new List<(long Target,float Amount,int Before,int After)>();
-var emissions=new List<object>();int oldExecutions=0;bool invalidate=false,scopeValid=true;
+var emissions=new List<object>();bool invalidate=false,scopeValid=true;
 SkillEmissionResult? lastResult=null;SkillEntityAsset current=SkillEntities.SpiritBolt;
 Actor source=Make(64),target=Make(70),outside=Make(70),wolf=Make(12,"wolf");
 target.setKingdom(wolf.kingdom);outside.setKingdom(wolf.kingdom);Place(outside,70,78);
@@ -44,7 +44,7 @@ CompiledConstructionImpact FirstImpact(CompiledAbility plan)
 }
 void ResetPeople()
 {
-    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();oldExecutions=0;
+    foreach(var cast in accepted)cast.Cancel();accepted.Clear();starts.Clear();contacts.Clear();
     restorations.Clear();Ready(source);Place(source,64);Place(target,70);Place(outside,70,78);
     target.GetExtend().SetPowerLevel(0);owner.SetPowerLevel(0);
     owner.GetCultisys<Xian>().wakan=source.stats[BaseStatses.MaxWakan.id]*.8f;
@@ -64,8 +64,7 @@ async Task WaitContact(int before)
     throw new InvalidOperationException("实际目标未在两秒内接触");
 }
 void Started(ConstructedCastStarted fact){if(fact.SourceId==source.id)starts.Add(fact);}
-void Old(Entity entity){if(entity.GetComponent<SkillContext>().SourceObj==source)oldExecutions++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.ContactMercy");
 MercyRestorationProbe.After=(actor,amount,before)=>{if(actor==source||actor==target||actor==soulCarrier)restorations.Add((actor.id,amount,before,actor.data.health));};
 hook.Patch(typeof(CombatResourceEffects).GetMethod("RestoreHealth"),
@@ -129,7 +128,7 @@ try
         float initial=accepted.Single().RemainingForce(0);float raw=JObject.FromObject(emissions.Last())["Strength"].Value<float>();
         Check(Math.Abs(initial-raw*.6f*current.ImpactProfile.DamageMultiplier*current.ImpactTuning.DamageMultiplier)<.001f,"真实本体只减强一次",new{raw,initial});
         await WaitContact(0);int expected=Mathf.RoundToInt(raw*.6f*.25f);
-        Check(restorations.Count==1&&restorations[0].Target==source.id&&restorations[0].After-restorations[0].Before==expected&&target.data.health<victim&&outside.data.health==side&&oldExecutions==0&&starts.Count==1,
+        Check(restorations.Count==1&&restorations[0].Target==source.id&&restorations[0].After-restorations[0].Before==expected&&target.data.health<victim&&outside.data.health==side&&starts.Count==1,
             "真实命中治疗施法者而非目标，侧外安全且无旧执行",new{before=hp,after=source.data.health,expected,victimAfter=target.data.health});
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,plan)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));
         Check(Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f,"慈悲仅支付原逐发费用",new{cost});
@@ -150,7 +149,7 @@ try
         Check(restorations.Count==1&&restorations[0].Target==source.id&&restorations[0].After-restorations[0].Before==Mathf.RoundToInt(remaining*ratio)&&restorations[0].Amount<Mathf.RoundToInt(before*ratio),"真实余力减半后只按余力恢复",new{before,remaining,ratio,restored=source.data.health-hp});
         current=SkillEntities.YinField;ResetPeople();hp=source.data.health;Check(Use(Build()),"领域慈悲正式受理");await Advance(1.3f);
         int hits=contacts.Count(c=>c.TargetId==target.id);float raw=JObject.FromObject(emissions.Last())["Strength"].Value<float>();
-        Check(hits>=2&&restorations.Count==hits&&restorations.All(x=>x.Target==source.id&&x.After-x.Before==Mathf.RoundToInt(raw*.6f*.25f))&&oldExecutions==0,"领域只随真实间隔接触恢复",new{hits,restored=source.data.health-hp});
+        Check(hits>=2&&restorations.Count==hits&&restorations.All(x=>x.Target==source.id&&x.After-x.Before==Mathf.RoundToInt(raw*.6f*.25f)),"领域只随真实间隔接触恢复",new{hits,restored=source.data.health-hp});
         foreach(var c in accepted)c.Cancel();int count=restorations.Count;await Advance(.7f);Check(restorations.Count==count,"领域取消后停止恢复");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;hp=source.data.health;invalidate=true;
         Check(Use(Build(),new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排发射受理时的真实边界失效");await Advance(.3f);invalidate=false;
@@ -186,7 +185,7 @@ finally
     MercyRestorationProbe.After=null;hook.UnpatchSelf();
     foreach(var cast in allCasts)cast.Cancel();
     if(soulCarrier!=null)YuanshenTravelService.CompleteReturn(owner,soulCarrier);
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.paused=true;
 }

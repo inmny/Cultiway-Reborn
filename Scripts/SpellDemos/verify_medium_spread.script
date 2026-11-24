@@ -3,7 +3,6 @@ const string section = "all";
 var allCasts = new List<AbilityCast>();
 var relays = new List<ConstructedMediumSpread>();
 var damages = new List<(long Target, float Amount, string Element)>();
-int oldExecutions = 0;
 Actor source = Make(64), target = Make(70), first = Make(70), second = Make(71), third = Make(71), fourth = Make(72),
     friendly = Make(69), outside = Make(74), high = Make(70), wolf = Make(12, "wolf");
 foreach (var actor in new[] { target, first, second, third, fourth, outside, high }) actor.setKingdom(wolf.kingdom);
@@ -72,10 +71,9 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
     allCasts.Add((AbilityCast)Field(running, "Cast"));
 }
-void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
 void Relay(ConstructedMediumSpread fact) { if (fact.OwnerId == source.id) relays.Add(fact); }
 ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.MediumSpreadConfirmed += Relay;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+
 MediumProbe.Damaged = damage => { if (damage.AttackerID == source.id) damages.Add((damage.TargetID, damage.Damage, damage.Element.ToString())); };
 var hook = new HarmonyLib.Harmony("Cultiway.Verify.MediumSpread");
 var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
@@ -143,7 +141,7 @@ try
             relay.Targets.All(id => damages.Count(d => d.Target == id) == 1) && damages.All(d => d.Element == SkillSettingsCompiler.Element("lightning").ToString()),
             "真实本体及额外四分之一雷伤各结算一次", damages.Select(d => new { d.Target, d.Amount, d.Element }).ToArray());
         Check(new[] { first, second, third }.All(a => CombatStatusEffects.HasStatus(a, Cultiway.Content.StatusEffects.Daze)), "介质接收者继承原眩晕附加作用");
-        Check(new[] { fourth, friendly, outside, high }.All(a => damages.All(d => d.Target != a.id)) && oldExecutions == 0, "第四目标、友方、范围外和高空安全，没有旧执行体");
+        Check(new[] { fourth, friendly, outside, high }.All(a => damages.All(d => d.Target != a.id)), "第四目标、友方、范围外和高空安全");
         Check(FormVisualScene.Instances.Count(v => v.Resource.Description.Id == "thunder_channel") == 3, "共同画面发布三个实际端点雷通道");
         World.world.camera.transform.position = new Vector3(70, 72.8f, 0); MoveCamera.instance.forceZoom(4f); World.world.console.Hide(); Tooltip.hideTooltipNow();
         await Game.NextFrame(); Screen.Capture(Path.Combine(folder, "native.png"));
@@ -153,7 +151,7 @@ try
         Check(relays.Count == before, "介质移除后同一已学雷法不再传递");
         foreach (var active in allCasts) active.Cancel(); await Advance(.1f);
         Place(source, 64); Place(target, 70); await StartWater(); await Use(skill); await WaitRelay(before);
-        Check(oldExecutions == 0, "取消后重建介质及已学雷法可恢复正常分送");
+        Check(relays.Count > before, "取消后重建介质及已学雷法可恢复正常分送");
     }
     if (section is "all" or "common")
     {
@@ -191,7 +189,7 @@ finally
 {
     foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); MediumProbe.Damaged = null;
     ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.MediumSpreadConfirmed -= Relay;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+ ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
     ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
     File.WriteAllText(Path.Combine(folder, "relays.json"), JsonConvert.SerializeObject(relays.Select(r => new { r.CastId, r.ContactId, r.OwnerId, r.MediumCastId, r.Node, r.MediumNode, r.Channel, r.WorldTime, r.Targets, r.Buildings, Points = r.Points.Select(p => new { p.x, p.y, p.z }).ToArray() }), Formatting.Indented));
     File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damages.Select(d => new { d.Target, d.Amount, d.Element }), Formatting.Indented));

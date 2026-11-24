@@ -2,7 +2,7 @@
 var manager=Cultiway.ModClass.I.SkillV3;
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();
-var emissions=new List<object>();bool invalidate=false,scopeValid=true;int oldWalls=0;
+var emissions=new List<object>();bool invalidate=false,scopeValid=true;
 SkillEmissionResult? lastResult=null;
 Actor source=Make(70),target=Make(64),friend=Make(64),wolf=Make(12,"wolf");target.setKingdom(wolf.kingdom);
 var owner=source.GetExtend();owner.NewCultisys(Cultisyses.Xian);owner.GetCultisys<Xian>().level=2;
@@ -32,8 +32,7 @@ AbilityDefinition Convert(Entity skill,out GetHitEvent damage)
 /// <summary>只记录本批原土墙正式运行。</summary><param name="fact">实际施放。</param>
 void Started(ConstructedCastStarted fact){if(fact.AbilityId==SkillEntities.EarthWall.id)starts.Add(fact);}
 /// <summary>原土墙一旦生成旧执行体即为双执行缺陷。</summary><param name="e">原实例。</param>
-void Old(Entity e){if(e.GetComponent<SkillEntity>().Asset==SkillEntities.EarthWall)oldWalls++;}
-ConstructedAbilityService.CastStarted+=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+ConstructedAbilityService.CastStarted+=Started;
 /// <summary>复用现有位置和支付准备。</summary>
 void ResetPeople()
 {
@@ -96,7 +95,7 @@ try
     Check(Use(normal),"原已学土墙正式受理");await Advance(.25f);
     var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
     double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(normal)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,normal)));
-    Check(oldWalls==0&&starts.Count>0&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost*starts.Count)<.001&&
+    Check(starts.Count>0&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost*starts.Count)<.001&&
         Math.Abs(center.x-66.4f)<.03f&&Shapes(live).Count>0&&!BodyControlState.IsBusy(source.id),
         "真实原入口只运行新墙，逐发支付一次并在两点间建立",new{initial,center=new[]{center.x,center.y,center.z},cost});
     await Shot("migrated-wall");
@@ -203,11 +202,11 @@ try
     Place(target,64);Check(Block(target,new Vector2(70,72)).x==70,"自然结束后人物正常通过，没有隐藏阻挡");
     ResetPeople();int count=starts.Count;float beforeFailure=owner.GetCultisys<Xian>().wakan;invalidate=true;
     Check(Use(normal,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排真实受理边界失效的土墙");await Advance(.25f);invalidate=false;
-    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f&&oldWalls==0,
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f,
         "受理失败撤销本发费用，不产生新旧墙",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan});
     scopeValid=true;ResetPeople();Check(Use(boosted),"失败恢复后带词条的原土墙正常受理");await Advance(.25f);
     var boostedWall = accepted.Last();
-    Check(boostedWall.RemainingForce(0)>0&&oldWalls==0,"带范围与强度词条的真实原墙运行");
+    Check(boostedWall.RemainingForce(0)>0,"带范围与强度词条的真实原墙运行");
     await Advance(Mathf.Max(0f, boostedWall.Plan.Lifetime - boostedWall.Age) + .05f);
     Check(accepted.All(c=>c.Finished)&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),"自然退出并恢复人物控制");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
@@ -216,7 +215,7 @@ finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     foreach(var cast in activeCasts)cast.Cancel();
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
     ControllableUnit.clear(false);Config.paused=true;
 }

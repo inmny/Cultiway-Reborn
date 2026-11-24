@@ -4,7 +4,7 @@ var manager=Cultiway.ModClass.I.SkillV3;var original=Cultiway.Core.SkillLibV3.Ma
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();var activeCasts=new List<AbilityCast>();
 var emissions=new List<object>();var damageEvents=new List<GetHitEvent>();var forceAfterHit=new List<float>();
 SkillEntityAsset currentAsset=SkillEntities.EarthRidge;bool invalidate=false,scopeValid=true,moveOnEmission=false;
-SkillEmissionResult? lastResult=null;int oldExecutions=0;
+SkillEmissionResult? lastResult=null;
 Actor source=Make(64),target=Make(70),other=Make(74),outside=Make(71),wolf=Make(12,"wolf");
 foreach(var actor in new[]{target,other,outside})actor.setKingdom(wolf.kingdom);
 // 使用初阶修士：原地面波预算始终一发，强化仍遵守同一预算。
@@ -41,7 +41,6 @@ AbilityDefinition Convert(Entity skill,out GetHitEvent damage,SkillCastRuntimeDa
 /// <summary>记录本批真正开始的来源。</summary><param name="fact">正式受理事实。</param>
 void Started(ConstructedCastStarted fact){if(fact.AbilityId==currentAsset.id)starts.Add(fact);}
 /// <summary>任何旧执行体都表示本批双执行缺陷。</summary><param name="entity">原实例。</param>
-void Old(Entity entity){if(entity.GetComponent<SkillEntity>().Asset==currentAsset)oldExecutions++;}
 /// <summary>在真实接触之后记录仍可用于防御的本体量。</summary><param name="contact">已经结算的真实接触。</param>
 void AfterContact(ConstructedContact contact){if(contact.AbilityId==currentAsset.id)forceAfterHit.Add(accepted.Last().RemainingForce(0));}
 /// <summary>复用原人物、位置和资源准备，不放宽实际来源规则。</summary>
@@ -94,7 +93,7 @@ void Pose(AbilityCast cast,string name)
     Check(same&&bottom>=-.001f&&bottom<.12f,name+"同一骨架姿态驱动显示与真实接触，实际底部贴地",new{bottom,contacts=shapes.Count});
 }
 ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=AfterContact;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+
 var hook=new HarmonyLib.Harmony("Cultiway.Verify.GroundWaves");
 GroundWaveDamage.AfterDamage=e=>{if(e.AttackerID==source.id)damageEvents.Add(e);};
 hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve",F),
@@ -118,7 +117,7 @@ try
     {
         if(section=="tidal"&&entry.Asset!=SkillEntities.TidalWave||section=="earth"&&entry.Asset!=SkillEntities.EarthRidge)continue;
         bool ridge=entry.Asset==SkillEntities.EarthRidge;
-        currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;
+        currentAsset=entry.Asset;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();
         var normal=Build();
         var container=normal.GetComponent<SkillContainer>();var animation=entry.Asset.GetAnimation(container.AnimationIndex);
         float PhaseSeconds(SkillEntityAnimationClip clip)=>clip.Frames.Length*clip.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
@@ -154,7 +153,7 @@ try
         if(section=="tidal"){Place(outside,70,67);ConstructedAbilityService.NotifyActorChanged(outside);}
         float balance=owner.GetCultisys<Xian>().wakan;int hp=target.data.health,hp2=other.data.health,outsideHp=outside.data.health;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(rise+.08f);var live=accepted.Single();
-        Check(oldExecutions==0&&starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
+        Check(starts.Count==1&&Views(live).Single().Resource.Description.Id==entry.Form,entry.Form+"只运行自身新主体");
         float Lip()
         {
             var front=Shapes(live).Last();Vector3 point=(front.A+front.B)*.5f;
@@ -216,12 +215,12 @@ try
     }
     if(section=="all"||section=="common")
     {
-        currentAsset=SkillEntities.EarthRidge;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();oldExecutions=0;ResetPeople();
+        currentAsset=SkillEntities.EarthRidge;starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();
         var enhanced=Build(true);float balance=owner.GetCultisys<Xian>().wakan;
         var emissionPlan=SkillCastPlanner.CreatePlan(owner,enhanced,target,SkillCastCost.GetAffordableStepLimit(owner,enhanced),explicitTargetsOnly:true);
         Check(emissionPlan.Steps.Count==1,"原地面波预算仍为一发，不为验证放宽规则");Check(Use(enhanced),"强化地面波受理");await Advance(.5f+Convert(enhanced,out _).Root.ActiveFrom);FollowingTargets(accepted.Single());await Advance(.8f);
         double cost=SkillCastResources.Wakan.Quote(owner,SkillCastCost.CalculateStepDemand(enhanced)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enhanced)));
-        Check(starts.Count==1&&oldExecutions==0&&accepted.Single().Finished&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&
+        Check(starts.Count==1&&accepted.Single().Finished&&Math.Abs(balance-owner.GetCultisys<Xian>().wakan-cost)<.001f&&
             damageEvents.Count==2&&damageEvents.All(e=>Math.Abs(e.Damage-74.88f)<.01f),"强化、加速、范围、合击齐射倍率及原逐发费用保留",new{cost,damages=damageEvents.Select(e=>e.Damage).ToArray()});
         starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();forceAfterHit.Clear();ResetPeople();Place(target,74);Place(other,12);moveOnEmission=true;
         var homing=Build(homing:true);Check(Use(homing),"土脊改为自由追踪受理");await Advance(1.45f);moveOnEmission=false;
@@ -231,7 +230,7 @@ try
         Check(damageEvents.Count==0&&accepted.Single().Finished&&owner.GetCultisys<Xian>().wakan<harmlessBalance,"关闭作用不伤人，仍按原规则付费并结束");
         starts.Clear();accepted.Clear();contacts.Clear();damageEvents.Clear();ResetPeople();var failed=Build();int count=starts.Count;float before=owner.GetCultisys<Xian>().wakan;invalidate=true;
         Check(Use(failed,new ConstructionWorldScope(()=>scopeValid,(_,_)=>true)),"安排地面波实际受理失败");await Advance(.25f);invalidate=false;
-        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f&&oldExecutions==0,"受理失败原值退款且无新旧残留");
+        Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-before)<.001f,"受理失败原值退款且未启动法术");
         scopeValid=true;ResetPeople();Check(Use(failed),"失败后同一来源恢复施放");await Advance(1.45f);Check(accepted.All(c=>c.Finished),"恢复后显示与接触正常退出");
         var invalidFlight=Convert(failed,out _);invalidFlight.Root.Operations.Single(operation=>operation.Kind==ConstructionOperationKind.Fly).Acceleration=new[]{1f,0f,0f};
         bool rejected=false;try{AbilityCompiler.Compile(invalidFlight,false);}catch(InvalidDataException e){rejected=e.Message.Contains("直达后继续");}
@@ -268,7 +267,7 @@ finally
 {
     File.WriteAllText(Path.Combine(folder,"emissions.json"),JsonConvert.SerializeObject(emissions,Formatting.Indented));
     foreach(var cast in activeCasts)cast.Cancel();GroundWaveDamage.AfterDamage=null;hook.UnpatchSelf();
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
     ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=AfterContact;
     ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;ControllableUnit.clear(false);Config.paused=true;
 }

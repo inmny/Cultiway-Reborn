@@ -4,7 +4,6 @@ var allCasts = new List<AbilityCast>();
 var relays = new List<ConstructedMediumSpread>();
 var damages = new List<(string Phase, long Target, float Amount, float[] Element, int Before, int After)>();
 string phase = "definitions";
-int oldExecutions = 0;
 Actor source = Make(64), target = Make(70), neighbor = Make(70), safe = Make(74), wolf = Make(12, "wolf");
 target.setKingdom(wolf.kingdom); neighbor.setKingdom(wolf.kingdom); safe.setKingdom(source.kingdom);
 Place(neighbor, 70, 72.7f); Place(safe, 74, 77);
@@ -66,10 +65,9 @@ void Started(ConstructedCastStarted fact)
     var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => (long)Field(r, "Id") == fact.CastId);
     allCasts.Add((AbilityCast)Field(running, "Cast"));
 }
-void Old(Entity entity) { if (entity.GetComponent<SkillContext>().SourceObj == source) oldExecutions++; }
 void Relay(ConstructedMediumSpread fact) { if (fact.OwnerId == source.id) relays.Add(fact); }
 ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.MediumSpreadConfirmed += Relay;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+
 DynamicProbe.Damaged = (damage, before) => { if (damage.AttackerID == source.id) damages.Add((phase, damage.TargetID, damage.Damage, damage.Element.AsArray(), before, World.world.units.get(damage.TargetID)?.data.health ?? 0)); };
 var hook = new HarmonyLib.Harmony("Cultiway.Verify.DynamicElements");
 var damageType = typeof(GetHitEvent).Assembly.GetType("Cultiway.Core.EventSystem.Systems.GetHitEventSystem");
@@ -144,7 +142,7 @@ try
             World.world.camera.transform.position = new Vector3(67, 72.5f, 0); MoveCamera.instance.forceZoom(4f); World.world.console.Hide(); Tooltip.hideTooltipNow();
             await Game.NextFrame(); Screen.Capture(Path.Combine(folder, phase + "-native.png"));
             await WaitHit(before); var damage = damages.Last();
-            Check(damage.Target == target.id && Math.Abs(damage.Amount - force) < .01f && damage.Element.SequenceEqual(sample.Element.AsArray()) && damage.After < damage.Before && oldExecutions == 0, phase + "真实命中保留完整权重及一次本体量", new { damage.Target, damage.Amount, damage.Element, damage.Before, damage.After });
+            Check(damage.Target == target.id && Math.Abs(damage.Amount - force) < .01f && damage.Element.SequenceEqual(sample.Element.AsArray()) && damage.After < damage.Before, phase + "真实命中保留完整权重及一次本体量", new { damage.Target, damage.Amount, damage.Element, damage.Before, damage.After });
             cast.Cancel(); await Advance(.3f);
         }
         Check(skill.GetComponent<SkillSettings>().NatureId == null && skill.GetComponent<SkillContainer>().VfxElement == originalVisual, "连续改本次元素不写回已学容器性质或固定表现");
@@ -162,7 +160,7 @@ try
         if (section != "runtime-lightning")
         {
         phase = "disabled"; await Use(Build(SkillEntities.SpiritBolt, contact: false), mixed); await Advance(1f);
-        Check(damages.Count == count && oldExecutions == 0, "关闭接触时动态覆盖只改变显示");
+        Check(damages.Count == count, "关闭接触时动态覆盖只改变显示");
         foreach (var cast in allCasts) cast.Cancel(); await Advance(.1f);
         phase = "recovery"; await Use(skill, ElementComposition.Static.Water); await WaitHit(count);
         Check(damages.Last().Element.SequenceEqual(ElementComposition.Static.Water.AsArray()) && damages.All(d => d.Target != safe.id), "同一来源恢复后采用本次水组成且侧外安全");
@@ -173,7 +171,7 @@ try
 finally
 {
     foreach (var cast in allCasts) cast.Cancel(); hook.UnpatchSelf(); DynamicProbe.Damaged = null;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.MediumSpreadConfirmed -= Relay;
+ ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.MediumSpreadConfirmed -= Relay;
     ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
     ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); Config.paused = true;
     File.WriteAllText(Path.Combine(folder, "damage.json"), JsonConvert.SerializeObject(damages.Select(d => new { d.Phase, d.Target, d.Amount, d.Element, d.Before, d.After }), Formatting.Indented));
