@@ -10,6 +10,15 @@ import common
 
 
 class RegisteredConstructionTests(unittest.TestCase):
+    def test_battle_keeps_independent_loadouts_without_replacing_same_id(self):
+        left = dict(id="Demo.Palm", name="飞掌", construction={"Id": "Demo.Palm", "Cost": 4})
+        right = dict(id="Demo.Legacy", name="旧术", adjustable=True)
+        case = common.battle_case([left], [right, right])
+        self.assertEqual(case["battleSides"], [[left], [{"id": right["id"], "name": right["name"]}]])
+        changed = dict(left, construction={"Id": "Demo.Palm", "Cost": 5})
+        with self.assertRaisesRegex(ValueError, "同编号能力资料不一致"):
+            common.battle_case([left], [changed])
+
     def test_catalog_filters_combine_without_losing_definition_or_unavailable_reason(self):
         definition = {"Id": "Created.Cleanse", "Creator": 42}
         created = dict(id=definition["Id"], name="净土", adjustable=False, construction=definition,

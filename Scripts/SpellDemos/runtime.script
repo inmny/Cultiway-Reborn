@@ -925,6 +925,7 @@ private IEnumerator Guarded(IEnumerator steps)
     ControllableUnit.clear(false);
     bool sceneRestored = false;
     if ((bool?)request["continueOnFailure"] == true || (string)request["action"] == "construction" ||
+        (string)request["scene"] == "battle" ||
         ((JArray)request["cases"]).Any(item => item["construction"] is JObject))
     {
         // 每批结束及失败都回到同一个现成夹具，清除临时已学、材料和未结束动作。
@@ -1086,9 +1087,13 @@ private void OnConstructedClash(ConstructedClash clash)
 {
     clashesLog.Add(new
     {
+        time = clash.WorldTime,
         leftCast = clash.LeftCast, rightCast = clash.RightCast, leftSource = clash.LeftSource,
         rightSource = clash.RightSource,
         leftNode = clash.LeftNode, rightNode = clash.RightNode, leftAge = clash.LeftAge, rightAge = clash.RightAge,
+        leftOriginal = clash.LeftOriginalSource, rightOriginal = clash.RightOriginalSource,
+        leftSpent = clash.LeftSpent, rightSpent = clash.RightSpent, leftPresent = clash.LeftPresent,
+        rightPresent = clash.RightPresent, guardShape = clash.GuardShape,
         absorbed = clash.Absorbed, leftRemaining = clash.LeftRemaining, rightRemaining = clash.RightRemaining,
         point = new[] { clash.Position.x, clash.Position.y, clash.Position.z }
     });
@@ -1944,6 +1949,8 @@ private IEnumerator LoadScene(string species = "human")
     while (loading.MoveNext()) yield return loading.Current;
     enemies.Clear();
     isolated.Clear();
+    bool battle = (string)request["scene"] == "battle";
+    if (battle && (int?)request["battleSeed"] is int seed) Randy.resetSeed(seed);
     var external = AppDomain.CurrentDomain.GetAssemblies()
         .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false))
         .FirstOrDefault(type => type != null);
@@ -1976,7 +1983,7 @@ private IEnumerator LoadScene(string species = "human")
 
     foreach (var actor in new[] { caster, friend }.Concat(enemies)) actor.addTrait("super_health");
     // 控制施法者避免自主追加其他法术；不修改全局战斗设置。
-    ControllableUnit.setControllableCreatureAndSelected(caster);
+    if (!battle) ControllableUnit.setControllableCreatureAndSelected(caster);
     if (external != null)
     {
         object view = external.GetProperty("Instance", Flags).GetValue(null);
@@ -2194,10 +2201,11 @@ private void Prepare(JObject item)
     bool yinGround = id == "Cultiway.YinField" && (bool?)request["motionTrace"] == true;
     // 掌击与动作取证共用等高对靶；后续普通法术继续使用自己的原有对靶。
     bool palm = id == "Cultiway.PalmStrike";
-    if ((enemies[0].asset.id == "human") != palm)
+    bool humanoidTarget = palm || (string)request["scene"] == "battle";
+    if ((enemies[0].asset.id == "human") != humanoidTarget)
     {
         Actor prior = enemies[0];
-        enemies[0] = CreateTarget(false, 0, palm);
+        enemies[0] = CreateTarget(false, 0, humanoidTarget);
         enemies[0].setKingdom(prior.kingdom);
     }
     artifactDetails = null;
@@ -3148,30 +3156,17 @@ private void ProbeShield(double elapsed)
 private IEnumerator RecordBattle(JObject item, string folder)
 {
     var owner = caster.GetExtend();
-    var rival = enemies[0].GetExtend();
-    if (!rival.HasCultisys<Xian>()) rival.AddComponent(new Xian());
-    rival.GetCultisys<Xian>().level = (int?)request["realm"] ?? 2;
-    rival.SetPowerLevel((float)request["power"]);
-    foreach (var participant in new[] { owner, rival })
-    {
-        foreach (string id in item["spellIds"].ToObject<string[]>())
-        {
-            var asset = Cultiway.ModClass.I.SkillV3.SkillLib.get(id);
-            var compiled = new SkillBlueprintCompiler().Compile(
-                Blueprint(asset, 0, SkillBlueprintTrajectory.ResolveDefaultId(asset)),
-                SkillBlueprintCompileMode.Runtime);
-            if (!compiled.Success) throw new InvalidOperationException("无法授予交战法术：" + id);
-            if (SkillOwnershipService.Learn(participant, compiled.Container) != SkillOwnershipResult.Added)
-                throw new InvalidOperationException("交战法术未能学会：" + id);
-            learnedForBattle.Add((participant, compiled.Container));
-        }
+    Actor enemy = enemies[0];
+    var rival = enemy.GetExtend();
+    var sides = (JArray)item["battleSides"];
+    var participants = new[] { owner, rival };
+    bool constructed = sides.SelectMany(side => side).Any(spell => spell["construction"] is JObject);
+    for (int side = 0; side < participants.Length; side++)
+        TeachBattleSide(participants[side], (JArray)sides[side]);
 
-        participant.MarkCultiwayStatsDirty();
-        participant.Base.setStatsDirty();
-        participant.Base.updateStats();
-        participant.GetCultisys<Xian>().wakan = 100000;
-        participant.Base.setMana(100000, pClamp: false);
-    }
+    Place(caster, 64, 72);
+    Place(enemy, 78, 72);
+    foreach (Actor other in enemies.Skip(1).Append(friend)) Place(other, 12, 12);
 
     string battleArtifact = (string)request["battleArtifact"];
     if (battleArtifact != null)
@@ -3182,7 +3177,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
         Config.paused = true;
     }
 
-    foreach (var participant in new[] { owner, rival })
+    foreach (var participant in participants)
     {
         foreach (Entity status in participant.GetStatuses().ToArray())
         {
@@ -3194,12 +3189,11 @@ private IEnumerator RecordBattle(JObject item, string folder)
         participant.Base.updateStats();
     }
 
-    ControllableUnit.clear(false);
-    caster.addAggro(enemies[0]);
-    enemies[0].addAggro(caster);
-    caster.setAttackTarget(enemies[0]);
-    enemies[0].setAttackTarget(caster);
-    caster.attack_timer = enemies[0].attack_timer = 0;
+    caster.addAggro(enemy);
+    enemy.addAggro(caster);
+    caster.setAttackTarget(enemy);
+    enemy.setAttackTarget(caster);
+    caster.attack_timer = enemy.attack_timer = 0;
     executionLog.Clear();
     worldContactsLog.Clear();
     worldMaterialsLog.Clear();
@@ -3212,6 +3206,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
     areasLog.Clear();
     barrierLog.Clear();
     footprints.Clear();
+    int ownerHealth = Health(caster), rivalHealth = Health(enemy);
     double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
     var times = new List<double>();
     Config.paused = false;
@@ -3237,28 +3232,99 @@ private IEnumerator RecordBattle(JObject item, string folder)
 
     Config.paused = true;
     yield return null;
-    var casts = JArray.FromObject(executionLog).OfType<JObject>()
-        .Where(row => (long?)row["source"] == caster.id).ToArray();
-    var rivalCasts = JArray.FromObject(executionLog).OfType<JObject>()
-        .Where(row => (long?)row["source"] == enemies[0].id).ToArray();
+    var autonomous = JArray.FromObject(executionLog).OfType<JObject>()
+        .Where(row => (string)row["framework"] != "construction" ||
+            (string)row["origin"] == nameof(ActiveAbilityUseOrigin.Autonomous)).ToArray();
+    var casts = autonomous.Where(row => (long?)row["source"] == caster.id).ToArray();
+    var rivalCasts = autonomous.Where(row => (long?)row["source"] == enemy.id).ToArray();
+    var leftIds = new HashSet<long>(casts.Where(row => row["cast"] != null).Select(row => (long)row["cast"]));
+    var rightIds = new HashSet<long>(rivalCasts.Where(row => row["cast"] != null).Select(row => (long)row["cast"]));
+    var pairedClashes = clashesLog.Select(JObject.FromObject).Where(row =>
+        ((float)row["absorbed"]) > 0f &&
+        (leftIds.Contains((long)row["leftCast"]) && rightIds.Contains((long)row["rightCast"]) ||
+         rightIds.Contains((long)row["leftCast"]) && leftIds.Contains((long)row["rightCast"]))).ToArray();
+    string reason = (string)request["battleEvent"] == "clash" && pairedClashes.Length == 0
+        ? "观察时间内未发生双方自主施放的相撞损耗" : null;
     bool artifactUsed = battleArtifact == null || artifact.GetComponent<ArtifactAbilityRuntime>().abilities
         .Any(entry => entry.instance_id == battleArtifact && entry.last_triggered_at >= start);
     int distinct = casts.Select(row => (string)row["id"]).Distinct().Count();
     int together = casts.GroupBy(row => (double)row["time"])
         .Select(group => group.Select(row => (string)row["id"]).Distinct().Count()).DefaultIfEmpty().Max();
+    if (reason == null && (casts.Length == 0 || rivalCasts.Length == 0))
+        reason = "观察时间内双方未各自完成自主出手";
     Write(Path.Combine(folder, "result.json"), new
     {
-        passed = distinct >= 2 && together >= 2 && rivalCasts.Length > 0 && artifactUsed && errors.Count == 0,
+        passed = (constructed ? casts.Length > 0 : distinct >= 2 && together >= 2) &&
+            rivalCasts.Length > 0 && artifactUsed && reason == null && errors.Count == 0,
+        error = reason,
         item, frames = times.Count, times,
         duration = World.world.getCurWorldTime() - start, spawned = casts.Length, distinct, together,
         rivalCasts = rivalCasts.Length, artifactUsed, artifactDetails,
         view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
         lightingState = LightingState(), scene = "battle", executionLog, contactsLog, areasLog, barrierLog,
+        participants = new[] { new { id = caster.id, before = ownerHealth, after = Health(caster) },
+            new { id = enemy.id, before = rivalHealth, after = Health(enemy) } },
+        clashesLog, pairedClashes,
         footprints = footprints.Values.ToArray(), yellowObjects,
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
         validation = "没有脚本逐帧调用施法、规划或执行；仅观察原版 AI 调度", frozen = caster.hasTag("frozen_ai"),
         rivalFrozen = enemies[0].hasTag("frozen_ai"), errors
     });
+}
+
+/// <summary>用同一正式学习入口为一方准备真实能力和所需资源。</summary>
+private void TeachBattleSide(ActorExtend participant, JArray choices)
+{
+    var definitions = choices.Where(spell => spell["construction"] is JObject)
+        .Select(spell => spell["construction"].ToObject<AbilityDefinition>()).ToArray();
+    bool vigor = definitions.Any(definition => definition.Resource == "vigor");
+    if (vigor)
+    {
+        if (choices.Count != definitions.Length || definitions.Any(definition => definition.Resource == "wakan"))
+            throw new InvalidOperationException("斗气与修士法术请分配给不同人物");
+        participant.E.RemoveComponent<Xian>();
+        participant.AddComponent(new Knight { level = 8, vigor = 10000 });
+    }
+    else if (!participant.HasCultisys<Xian>()) participant.AddComponent(new Xian());
+
+    if (!vigor) participant.GetCultisys<Xian>().level = (int?)request["realm"] ?? 2;
+    participant.SetPowerLevel((float)request["power"]);
+    string[] weaponForms = definitions.Select(definition => definition.Body?.WeaponForm)
+        .Where(form => form != null).Distinct().ToArray();
+    if (weaponForms.Length > 1) throw new InvalidOperationException("一方有多个持物要求，请选择同一兵器的构造");
+    if (weaponForms.Length == 1)
+    {
+        var weapon = DemoWeapon(weaponForms[0]) ?? throw new InvalidOperationException("未找到实际兵器：" + weaponForms[0]);
+        participant.Base.equipment.setItem(World.world.items.generateItem(weapon, pActor: participant.Base), participant.Base);
+    }
+
+    if (definitions.Length == choices.Count && participant.HasComponent<Magic>())
+        participant.E.RemoveComponent<Magic>();
+    foreach (var definition in definitions)
+    {
+        string unavailable = ConstructionSceneProblem(definition);
+        if (unavailable != null) throw new InvalidOperationException(unavailable);
+        ConstructedAbilityService.Register(definition);
+        ConstructedAbilityService.Learn(participant, definition.Id);
+    }
+    foreach (var spell in choices.Where(spell => spell["construction"] == null))
+    {
+        string id = (string)spell["id"];
+        var asset = Cultiway.ModClass.I.SkillV3.SkillLib.get(id);
+        var compiled = new SkillBlueprintCompiler().Compile(
+            Blueprint(asset, 0, SkillBlueprintTrajectory.ResolveDefaultId(asset)), SkillBlueprintCompileMode.Runtime);
+        if (!compiled.Success || SkillOwnershipService.Learn(participant, compiled.Container) != SkillOwnershipResult.Added)
+            throw new InvalidOperationException("无法授予交战法术：" + id);
+        learnedForBattle.Add((participant, compiled.Container));
+    }
+
+    participant.MarkCultiwayStatsDirty();
+    participant.Base.setStatsDirty();
+    participant.Base.updateStats();
+    participant.Base.data.health = Mathf.CeilToInt(participant.Base.stats["health"]);
+    if (!vigor) participant.GetCultisys<Xian>().wakan = participant.Base.stats[Cultiway.Content.BaseStatses.MaxWakan.id];
+    participant.Base.setMana(participant.Base.getMaxMana());
+    participant.Base.setStamina(participant.Base.getMaxStamina());
 }
 
 /// <summary>通过外部模组自身的第一人称镜头设定朝向。</summary>

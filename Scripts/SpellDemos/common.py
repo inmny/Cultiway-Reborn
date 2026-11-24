@@ -206,6 +206,24 @@ def construction_cases(entries, single_file, modes):
     return rows
 
 
+def battle_case(left, right):
+    """双方从真实目录独立取原式，保存全部构造以便重载后精确授予。"""
+    by_id = {}
+    for spell in [*left, *right]:
+        reason = spell.get("unavailable")
+        if reason or "construction" not in spell and not spell.get("adjustable"):
+            raise ValueError(f"无法用于自主交战：{spell['name']}，{reason or '需要对应的实际能力来源'}")
+        entry = {key: spell[key] for key in ("id", "name", "construction") if key in spell}
+        if by_id.setdefault(spell["id"], entry) != entry:
+            raise ValueError(f"交战两边的同编号能力资料不一致：{spell['id']}")
+    sides = [[by_id[identifier] for identifier in dict.fromkeys(spell["id"] for spell in side)]
+             for side in (left, right)]
+    names = list(dict.fromkeys(spell["name"] for side in sides for spell in side))
+    return dict(id="Cultiway.SpellDemo.Battle", key="自主交战", name="修士自主交战", group="自主交战",
+                label="自主交战", variant=0, modifiers=[], trajectory="自主选招", battleSides=sides,
+                spellIds=[spell["id"] for spell in left], spellNames=names)
+
+
 def modifier_spec(text, catalog):
     """词条写作 巨化:Value=1.8，省略参数则使用游戏默认值。"""
     name, _, parameters = text.partition(":")
@@ -429,6 +447,9 @@ def main(all_spells):
     parser.add_argument("--duration", type=float, default=3, help="每段世界秒数")
     parser.add_argument("--fps", type=int, default=20, help="每世界秒截图上限")
     parser.add_argument("--battle-artifact", help="自主交战时装备一件指定主动能力的法宝，由 AI 决定使用")
+    parser.add_argument("--battle-opponent", action="append", default=[], help="指定对手实际掌握的登记能力，可重复指定")
+    parser.add_argument("--battle-event", choices=["clash"], help="要求实际观察到双方自主施放的相撞")
+    parser.add_argument("--battle-seed", type=int, help="固定自主交战的原版随机种子")
     parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
     parser.add_argument("--motion-trace", action="store_true", help="随单招原帧记录真实外形、方向、身体姿态和阻挡")
     parser.add_argument("--diagnostics", action="store_true", help="记录大块黄色精灵及粒子的材质来源")
@@ -449,11 +470,17 @@ def main(all_spells):
     parser.add_argument("--output", type=Path, help="独立输出目录")
     args = parser.parse_args()
     if args.cases is None:
-        args.cases = "base" if args.construction else "base,modifiers,trajectory"
+        args.cases = "base" if args.construction or args.scene == "battle" else "base,modifiers,trajectory"
     if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0 or args.zoom <= 0:
         parser.error("时长、战力须大于零，截图频率须为 1～60")
-    if args.opponent_construction and not args.construction:
+    if args.opponent_construction and not args.construction and args.scene != "battle":
         parser.error("--opponent-construction 需要同时指定 --construction")
+    if (args.battle_opponent or args.battle_event or args.battle_seed is not None) and args.scene != "battle":
+        parser.error("交战对手、事件和种子参数只用于 --scene battle")
+    if args.scene == "battle" and (args.view == "firstperson" or args.cases != "base"):
+        parser.error("自主交战请用 --cases base 和原版或三维旁观镜头")
+    if args.battle_opponent and args.opponent_construction:
+        parser.error("请从登记或构造文件中选择一种对手来源")
     if (args.caster_walk or args.isolate_target) and not args.construction:
         parser.error("行走和移开旁观者只用于 --construction")
     if args.shield_break and args.scene != "shield":
@@ -478,8 +505,8 @@ def main(all_spells):
         if constructions is not None:
             if any(getattr(args, key) for key in CATALOG_FILTERS):
                 raise ValueError("四类标签来自游戏登记；本地构造文件可用 --filter 按名称或编号查找")
-            if args.resource_probe or args.inventory or args.scene != "single":
-                raise ValueError("构造演示请使用单招场景，不与资源探针或清单导出同时运行")
+            if args.resource_probe or args.inventory or args.scene not in ("single", "battle"):
+                raise ValueError("构造演示请使用单招或自主交战场景")
             if args.modifier or args.trajectory or args.variant or args.variants != "first":
                 raise ValueError("构造改造由 --cases 选择；--modifier、--trajectory 和动画变体参数用于旧法术")
             if args.list:
@@ -498,9 +525,8 @@ def main(all_spells):
                 raise ValueError("筛选后没有构造资料")
         opponent = read_constructions(args.opponent_construction) if args.opponent_construction else None
         if opponent is not None:
-            if len(opponent) != 1 or any(entry["id"] == opponent[0]["id"] for entry in constructions):
+            if len(opponent) != 1 or any(entry["id"] == opponent[0]["id"] for entry in constructions or []):
                 raise ValueError("对手构造需要独立的单份资料，编号不能与本批任何主构造重复")
-            opponent = opponent[0]["construction"]
         starting_version, _ = version_stamp()
         catalog = connect(args.launch)
         if args.inventory:
@@ -538,7 +564,10 @@ def main(all_spells):
             spells = [resolve(available, args.spell)]
         if not spells:
             parser.error("筛选后没有法术")
-        if constructions is not None:
+        if args.scene == "battle":
+            right = opponent or [resolve(catalog["spells"], name) for name in args.battle_opponent] or spells
+            cases, skipped = [battle_case(spells, right)], []
+        elif constructions is not None:
             cases, skipped = construction_cases(constructions, args.construction.is_file(), demo_modes(args.cases)), []
         elif args.resource_probe:
             cases, skipped = [dict(key="resource-probe", id="Cultiway.ResourceProbe", name="形体资源接入验证",
@@ -549,10 +578,6 @@ def main(all_spells):
             reasons = list(dict.fromkeys(row["reason"] for row in skipped))
             detail = "；".join(reasons) if reasons else "请检查 --cases 和兼容范围"
             parser.error("没有可用演示：" + detail)
-        if args.scene == "battle":
-            if any(not spell["adjustable"] for spell in spells) or args.cases != "base":
-                parser.error("自主交战请筛选基础法术并指定 --cases base；每位修士会学会筛选出的全部法术")
-            cases = [dict(cases[0], key="自主交战", name="修士自主交战", label="自主交战", spellIds=[spell["id"] for spell in spells], spellNames=[spell["name"] for spell in spells])]
         if args.scene == "shield" and args.cases != "base":
             parser.error("护盾迎击请使用 --cases base")
         output = (args.output or CONTROL / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")).resolve()
@@ -569,6 +594,8 @@ def main(all_spells):
         if not (fixture / "map.wbox").is_file():
             raise ValueError(f"缺少演示测试存档：{fixture}")
         manifest = dict(version=version, fixture=str(fixture), motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        if args.scene == "battle":
+            manifest.update(battleEvent=args.battle_event, battleSeed=args.battle_seed)
         if any(case["mode"] in CONSTRUCTION_ONLY for case in cases if "construction" in case):
             manifest["editOptions"] = dict(form=args.edit_form, matter=args.edit_matter, child=args.edit_child)
         if args.shield_break:
@@ -584,8 +611,8 @@ def main(all_spells):
         if constructions is not None:
             manifest["casterWalk"] = args.caster_walk
             manifest["isolateTarget"] = args.isolate_target
-            if opponent is not None:
-                manifest["opponentConstruction"] = opponent
+            if opponent is not None and args.scene == "single":
+                manifest["opponentConstruction"] = opponent[0]["construction"]
         if (output / "manifest.json").exists():
             previous = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             if args.resume and not same_recording(previous, manifest):
@@ -633,8 +660,8 @@ def main(all_spells):
                         print(f"[{len(results)}/{len(cases)}] 跳过：{case['name']} · {case['label']}，{data['reason']}", flush=True)
                         continue
                     if not data.get("passed"):
-                        reason = data.get("error", "").split("\n", 1)[0] or "实际结果未通过"
-                        if not continue_on_failure:
+                        reason = (data.get("error") or "").split("\n", 1)[0] or "实际结果未通过"
+                        if not continue_on_failure and len(cases) > 1:
                             raise RuntimeError(f"演示失败：{case['name']}，{reason}。查看 {report}")
                         failures.append(dict(case=case, reason=reason))
                         results[case["key"]] = data
@@ -681,6 +708,8 @@ def main(all_spells):
         accepted = {key: result for key, result in results.items() if result["passed"]}
         publish(output, cases, accepted, skipped, failures)
         if failures:
+            if not continue_on_failure and len(cases) == 1:
+                raise RuntimeError(f"演示失败：{cases[0]['name']}，{failures[0]['reason']}。查看 {output / '演示目录.md'}")
             raise RuntimeError(f"批次已结束，{len(failures)} 项失败。查看 {output / '演示目录.md'}")
         if not accepted:
             raise RuntimeError(f"本次改造均未成立。查看 {output / '演示目录.md'}")
