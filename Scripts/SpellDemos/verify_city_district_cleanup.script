@@ -89,8 +89,18 @@ void Pollute(WorldTile tile)
 }
 async Task Until(Func<bool> check, float limit)
 {
-    for (float elapsed = 0; elapsed < limit && !check(); elapsed += .20f) await Advance(.20f);
+    float step = captureProgress ? .10f : .20f;
+    for (float elapsed = 0; elapsed < limit && !check(); elapsed += step)
+    {
+        await Advance(step);
+        if (captureProgress) await ProgressFrame();
+    }
 }
+Vector3 WorkCentre() => (new Vector3(Tile(firstId).x + .5f, Tile(firstId).y + .5f)
+    + new Vector3(Tile(secondId).x + .5f, Tile(secondId).y + .5f)) * .5f;
+object WorkState() => new { projectId, first = firstId, second = secondId, firstClean = !Polluted(firstId),
+    secondClean = !Polluted(secondId), connected = Tile(bridgeId).zone.city == city,
+    complete = Completed(projectId), casts = starts.Count, history = History(), balance = worker.getMana() };
 void RestoreWorker()
 {
     worker = World.world.units.get(sourceId);
@@ -122,9 +132,21 @@ try
     var firstBalance = worker.getMaxMana();
     worker.setMana(firstBalance, false);
 
+    if (captureProgress)
+    {
+        // 在正常规划即将开始时布置污染，避免等候整月时散去。
+        var planners = (IDictionary)typeof(CollectiveProjectService).GetField("Planners", F).GetValue(null);
+        var planner = planners["cultiway.city_magic.routine_planner"];
+        double next = (double)planner.GetType().GetProperty("NextRunAt", F).GetValue(planner);
+        float wait = (float)(next - World.world.getCurWorldTime() - .42d);
+        if (wait > 0f) await Advance(wait);
+    }
     int previousHistory = History();
     Pollute(first);
     Pollute(second);
+    await StartProgress("first", WorkCentre(), 12f, definition, () => disconnected ? "第一处已净化 · 路断，剩余分区等待" :
+        starts.Count > 0 ? "工人已实际付费，净化当前分区" : "两处原版分区污染 · 等待认领",
+        WorkState);
     await Until(() => starts.Count > 0 || CollectiveProjectService.HasAssignableProject(owner, false),
         (float)Cultiway.Const.TimeScales.SecPerMonth + 2);
     if (starts.Count == 0) BeginWork();
@@ -143,6 +165,8 @@ try
     Check(starts.Count == 1 && Completed(projectId) == 1 && Polluted(secondId),
         "没有可用连接时保持等待，不再付费或补发净化");
 
+    await ProgressFrame();
+    EndProgress();
     string archive = Path.Combine(folder, "archive");
     SaveManager.saveWorldToDirectory(archive);
     bonfire.startDestroyBuilding();
@@ -162,6 +186,10 @@ try
         !Polluted(firstId) && Polluted(secondId) && Tile(bridgeId).zone.city != city,
         "正式读档保留原来源、完成序号、断开连接和两块地的真实变化");
     long resumedProjectId = projectId;
+    await StartProgress("resumed", WorkCentre(), 12f, definition, () => Tile(bridgeId).zone.city != city ? "已正式读回 · 第一处分区保持净化" :
+        History() > previousHistory ? "只完成剩余分区 · 完工记入一次" : "重新接通，同一项目恢复",
+        WorkState);
+    if (captureProgress) { await Advance(.28f); await ProgressFrame(); }
     city.addZone(Tile(bridgeId).zone);
     var secondBalance = worker.getMaxMana();
     worker.setMana(secondBalance, false);
@@ -173,10 +201,12 @@ try
         touched.Any(hit => hit.Cast == starts[1].CastId && hit.Tile == secondId) && History() == previousHistory + 1,
         "接通后同一工程只付费处理未完成分区，全部验收才记完成历史",
         new { starts = starts.Count, balances, history = History(), projectId, touched, staleRejected, tokens = starts.Select(value => value.CorrelationId).ToArray() });
+    if (captureProgress) { await Advance(.35f); await ProgressFrame(); EndProgress(); }
     return new { passed = true, city = cityId, project = projectId, source = fixedSource, first = firstId, second = secondId, routeBreak = bridgeId, tokens = starts.Select(value => value.CorrelationId).ToArray(), staleRejected };
 }
 finally
 {
+    EndProgress();
     DebugConfig.setOption(DebugOption.SystemBuildTick, buildEnabled);
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.WorldContactConfirmed -= HitDistrict;

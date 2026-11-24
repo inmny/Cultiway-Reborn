@@ -3438,3 +3438,7 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 城区护生、渡气、解构可在独立游戏分别录制 `verify_sun_life.py --section life --record native --city`、`verify_polarity.py --section balance --record native --city` 和 `verify_entropy.py --section clash --record native --city`。
 
 双门、魂契和传讯使用 `record_relations_926.py --case gate --view native --city`，把 `gate` 换成 `pact` 或 `signal` 可分别录制另两段。时序使用 `record_process_time.py --imprint-film --city --state "$PROCESS_TIME_SAVED"`，状态目录需有 C2 实机学会并重存的 `result.json` 和 `completed-save/map.wbox`。四段复用实际城区。录像同时写出越界位置、原结算、费用以及退场结果；时序另留原帧对照。
+
+### 城市和全图功能录像（16.07）
+
+原版独立游戏中，给 11.14 的分区净化和 11.17 的城域、全域功能复验附加`--record`。两者使用同一份 11.03 的已通过城市存档目录。分区录像在保存和读回之间分段，分别保留首轮及接通复工。`verify_solo_world_utility.py`可用`--case city`或`--case world`单独录制。本批实录在净土通过后续录全图一段，首次失败结果也保留。录像脚本按实际世界时间编码，输出原始帧、阶段和结算。

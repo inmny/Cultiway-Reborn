@@ -1,0 +1,54 @@
+// 采样与推进都走现有脚本的世界时钟，读档前结束当前片段。
+string progressFolder = null;
+var progressFrames = new List<object>();
+double progressTime = double.NegativeInfinity;
+Func<string> progressStage = null;
+Func<object> progressDetail = null;
+var progressScreen = new ScreenFacade();
+
+async Task ProgressCamera(Vector3 centre, float zoom)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    Tooltip.blockTooltips(30f);
+    MoveCamera.clearFocusUnitOnly();
+    var camera = World.world.camera;
+    camera.transform.position = new Vector3(centre.x, centre.y, camera.transform.position.z);
+    MoveCamera.instance.forceZoom(zoom);
+    World.world.setZoomOrthographic(zoom);
+    await Game.NextFrame();
+}
+
+async Task ProgressFrame()
+{
+    if (progressFolder == null) return;
+    double time = World.world.getCurWorldTime();
+    if (time <= progressTime) return;
+    await Game.NextFrame();
+    progressScreen.Capture(Path.Combine(progressFolder, "frames", progressFrames.Count.ToString("00000") + ".png"));
+    progressFrames.Add(new { frame = progressFrames.Count, time, stage = progressStage(), detail = progressDetail() });
+    progressTime = time;
+}
+
+async Task StartProgress(string name, Vector3 centre, float zoom, AbilityDefinition definition, Func<string> stage, Func<object> detail)
+{
+    if (!captureProgress) return;
+    progressFolder = Path.Combine(folder, name);
+    Directory.CreateDirectory(Path.Combine(progressFolder, "frames"));
+    File.WriteAllText(Path.Combine(progressFolder, "definition.json"),
+        JsonConvert.SerializeObject(definition, Formatting.Indented));
+    progressFrames.Clear();
+    progressTime = double.NegativeInfinity;
+    progressStage = stage;
+    progressDetail = detail;
+    await ProgressCamera(centre, zoom);
+    await ProgressFrame();
+}
+
+void EndProgress()
+{
+    if (progressFolder == null) return;
+    File.WriteAllText(Path.Combine(progressFolder, "recording.json"),
+        JsonConvert.SerializeObject(new { view = "native", frames = progressFrames, events = Array.Empty<object>() }, Formatting.Indented));
+    progressFolder = null;
+}

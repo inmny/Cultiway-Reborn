@@ -60,6 +60,7 @@ WorldTile FirePlot(int x, int y)
     tile.stopFire();
     tile.heat = 0;
     tile.burned_stages = 0;
+    tile.Height = 140;
     tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
     return tile;
 }
@@ -72,6 +73,16 @@ bool HasWash(WorldTile tile) => FormVisualScene.Instances.Any(form => form.Layer
     form.Layer.Depth((int)(tile.pos.x - form.Layer.Origin.x), (int)(tile.pos.y - form.Layer.Origin.y)) > 0f);
 async Task Until(Func<bool> condition)
 {
+    if (captureProgress)
+    {
+        for (int step = 0; step < 220 && !condition(); step++)
+        {
+            await Advance(.075f);
+            await ProgressFrame();
+        }
+        if (!condition()) throw new InvalidOperationException("世界过程未在实际推进中到达指定阶段");
+        return;
+    }
     Config.paused = false;
     await Game.WaitUntil(condition, 3600);
     Config.paused = true;
@@ -113,68 +124,132 @@ try
 
     Vector3 center = Center(source.current_tile);
     float radius = cleanse.Root.Scale;
-    var plots = city.zones.Select(Pick).Where(tile => tile != null).ToArray();
-    var protectedPlot = city.zones.SelectMany(zone => zone.tiles).First(tile => tile.building != null);
-    var building = protectedPlot.building;
-    var originalLand = protectedPlot.main_type;
-    var outside = FirePlot((int)center.x + (int)radius + 2, (int)center.y);
-    var takenPlots = plots.Select(tile => tile.tile_id).ToArray();
-    Check(plots.Length >= 2 && city.zones.SelectMany(zone => zone.tiles).Where(UsablePlot)
-            .All(tile => Vector2.Distance(center, Center(tile)) <= radius) &&
-        Vector2.Distance(center, Center(outside)) > radius,
-        "取证地块来自原城不同分区，另有真实圈外对照", new { radius, takenPlots, outside = outside.tile_id });
-    foreach (var tile in plots) Pollute(tile);
-    Pollute(outside);
-    Place(peer, plots[0].pos.x + .5f, plots[0].pos.y + .5f);
-    CombatStatusEffects.ApplyStatus(peer, hold, 10000, peer);
-    await Picture("city-before", center, 18f);
+    int[] takenPlots = Array.Empty<int>();
+    int? outsideId = null;
     Ready(source);
     WakanResourceService.Set(owner, ref owner.GetCultisys<Xian>(), maximum);
-    int peerHealth = peer.data.health;
-    Use(cleanse, new ActiveAbilityTarget(null, center));
-    await Until(() => plots.All(tile => !Burnt(tile)));
-    Check(takenPlots.All(id => changed.Count(receipt => World.world.GetTileSimple(receipt.X, receipt.Y).tile_id == id) == 1) &&
-        Burnt(outside) && peer.data.health == peerHealth &&
-        protectedPlot.building == building && protectedPlot.main_type == originalLand,
-        "原城样本各净化一次，圈外污染、原建筑和对照人物保持", new { takenPlots, outside = outside.tile_id, peerHealth });
-    Check(plots.All(HasWash) && !HasWash(outside), "画面只在已经确认净化的地块铺开");
-    await Picture("city-cleaned", center, 18f);
-    await Until(() => ended.Any(row => row.AbilityId == cleanse.Id));
-    Check(ended.Single(row => row.AbilityId == cleanse.Id).Cancelled == false &&
-        plots.All(tile => !Burnt(tile)), "净化自然结束后，原地块持续处于清理结果");
+    if (utilityCase != "world")
+    {
+        var plots = city.zones.Select(Pick).Where(tile => tile != null).ToArray();
+        var protectedPlot = city.zones.SelectMany(zone => zone.tiles).First(tile => tile.building != null);
+        var building = protectedPlot.building;
+        var originalLand = protectedPlot.main_type;
+        var outside = FirePlot((int)center.x + (int)radius + 2, (int)center.y);
+        outsideId = outside.tile_id;
+        takenPlots = plots.Select(tile => tile.tile_id).ToArray();
+        Check(plots.Length >= 2 && city.zones.SelectMany(zone => zone.tiles).Where(UsablePlot)
+                .All(tile => Vector2.Distance(center, Center(tile)) <= radius) &&
+            Vector2.Distance(center, Center(outside)) > radius,
+            "取证地块来自原城不同分区，另有真实圈外对照", new { radius, takenPlots, outside = outside.tile_id });
+        foreach (var tile in plots) Pollute(tile);
+        Pollute(outside);
+        Place(peer, plots[0].pos.x + .5f, plots[0].pos.y + .5f);
+        CombatStatusEffects.ApplyStatus(peer, hold, 10000, peer);
+        await Picture("city-before", center, 18f);
+        int peerHealth = peer.data.health;
+        await StartProgress("city", center, 19f, cleanse,
+            () => started.Count == 0 ? $"施放前 · 城里有 {plots.Count(Burnt)} 处实际污染" :
+                  ended.Count > 0 ? $"自然结束 · 城内 {plots.Count(t => !Burnt(t))} 处净土保留" :
+                  $"实际净化 {plots.Count(t => !Burnt(t))}/{plots.Length} 处 · 圈外仍有污染",
+            () => new { cleaned = plots.Count(t => !Burnt(t)), total = plots.Length, outside = Burnt(outside),
+                paid = maximum - owner.GetCultisys<Xian>().wakan,
+                applied = changed.Count, finished = ended.Any(row => row.AbilityId == cleanse.Id) });
+        if (captureProgress) { await Advance(.22f); await ProgressFrame(); }
+        Use(cleanse, new ActiveAbilityTarget(null, center));
+        await Until(() => plots.All(tile => !Burnt(tile)));
+        Check(takenPlots.All(id => changed.Count(receipt => World.world.GetTileSimple(receipt.X, receipt.Y).tile_id == id) == 1) &&
+            Burnt(outside) && peer.data.health == peerHealth &&
+            protectedPlot.building == building && protectedPlot.main_type == originalLand,
+            "原城样本各净化一次，圈外污染、原建筑和对照人物保持", new { takenPlots, outside = outside.tile_id, peerHealth });
+        Check(plots.All(HasWash) && !HasWash(outside), "画面只在已经确认净化的地块铺开");
+        await Picture("city-cleaned", center, 18f);
+        await Until(() => ended.Any(row => row.AbilityId == cleanse.Id));
+        Check(ended.Single(row => row.AbilityId == cleanse.Id).Cancelled == false &&
+            plots.All(tile => !Burnt(tile)), "净化自然结束后，原地块持续处于清理结果");
+        if (captureProgress)
+        {
+            await Advance(.30f);
+            await ProgressFrame();
+            EndProgress();
+        }
+
+        if (utilityCase == "city")
+            return new { passed = true, sourceId, city = city.id, plots = takenPlots, outside = outsideId, radius, changes = changed.Count, maximum };
+    }
 
     var existing = FirePlot((int)center.x + 3, (int)center.y + 3);
     var firstFar = FirePlot(MapBox.width - 8, 8);
     var secondFar = FirePlot(MapBox.width - 8, MapBox.height - 8);
     Check(Vector2.Distance(center, Center(firstFar)) > radius && Vector2.Distance(center, Center(secondFar)) > radius &&
         CanLight(existing) && CanLight(firstFar) && CanLight(secondFar), "全图对照来自远离城市的原版可点燃地块");
-    firstFar.stopFire();
-    secondFar.stopFire();
+    // 前置点火会消耗地块耐久。实际施放前恢复同两处草地。
+    firstFar = FirePlot(firstFar.x, firstFar.y);
+    secondFar = FirePlot(secondFar.x, secondFar.y);
     source.attack_timer = 0;
+    bool blockedFirst = false, blockedSecond = false, relitFirst = false, relitSecond = false;
+    float worldBefore = owner.GetCultisys<Xian>().wakan;
+    string district = "施术者与原火";
+    await StartProgress("world", Center(existing), 13f, fireEdict,
+        () => $"{district} · " + (relitFirst && relitSecond ? "到期，两处远端实际恢复点火" :
+            entire.Count > 0 ? blockedFirst && blockedSecond ? "生效，两处原版点火均被拒" : "已正式施放" : ended.Any(row => row.AbilityId == fireEdict.Id) ? "已到期，等待点火验证" : "施放前"),
+        () => new { district, conditions = entire.Count, cityFire = existing.isOnFire(),
+            blockedFirst, blockedSecond, relitFirst, relitSecond,
+            paid = worldBefore - owner.GetCultisys<Xian>().wakan,
+            firstFire = firstFar.isOnFire(), secondFire = secondFar.isOnFire() });
+    if (captureProgress) { await Advance(.16f); await ProgressFrame(); }
     Use(fireEdict, new ActiveAbilityTarget(source, source.GetSimPos()));
-    Check(entire.Count == 1 && regional.Count == 0 && existing.isOnFire() &&
-        NoNewFire(firstFar) && NoNewFire(secondFar),
+    blockedFirst = NoNewFire(firstFar);
+    blockedSecond = NoNewFire(secondFar);
+    Check(entire.Count == 1 && regional.Count == 0 && existing.isOnFire() && blockedFirst && blockedSecond,
         "全图只登记一份，原火继续，远端两格真实拒绝点火", new { first = firstFar.tile_id, second = secondFar.tile_id });
+    if (captureProgress) { await Advance(.17f); await ProgressFrame(); }
     existing.stopFire();
     await Until(() => FormVisualScene.Instances.Any(form => form.Resource.Description.Id == "truth_mirror" &&
         Mathf.Abs(form.Transform.m03 - source.current_position.x) < 2f &&
         Mathf.Abs(form.Transform.m13 - source.current_position.y) < 2f));
     await Picture("world-edict", source.GetSimPos(), 6f);
+    if (captureProgress)
+    {
+        ControllableUnit.clear(false);
+        district = "远端一";
+        await ProgressCamera(Center(firstFar), 7f);
+        for (int i = 0; i < 6; i++) { await Advance(.27f); await ProgressFrame(); }
+        district = "远端二";
+        await ProgressCamera(Center(secondFar), 7f);
+    }
     await Until(() => ended.Any(row => row.AbilityId == fireEdict.Id));
     var finish = ended.Single(row => row.AbilityId == fireEdict.Id);
-    Check(!finish.Cancelled && entire.Count == 0 && CanLight(firstFar) && CanLight(secondFar),
-        "全图条件自然到期解除，两处立刻恢复原版点火", new { finish.Age, finish.CastId, finish.Cancelled });
+    var finalPlots = new[] { firstFar, secondFar }.Select(tile => new
+    {
+        tile.tile_id, type = tile.Type.id, tile.Type.burnable, tile.health, wasBurning = tile.isOnFire()
+    }).ToArray();
+    relitFirst = CanLight(firstFar);
+    relitSecond = CanLight(secondFar);
+    Check(!finish.Cancelled && entire.Count == 0 && relitFirst && relitSecond,
+        "全图条件自然到期解除，两处立刻恢复原版点火", new { finish.Age, finish.CastId, finish.Cancelled, finalPlots, relitFirst, relitSecond });
+    if (captureProgress)
+    {
+        await Advance(.34f);
+        await ProgressFrame();
+        district = "远端一";
+        await ProgressCamera(Center(firstFar), 7f);
+        await Advance(.34f);
+        await ProgressFrame();
+        EndProgress();
+    }
     firstFar.stopFire();
     secondFar.stopFire();
 
     return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id,
-        sourceId, city = city.id, plots = takenPlots, outside = outside.tile_id, radius,
+        sourceId, city = city.id, plots = takenPlots, outside = outsideId, radius,
         cityId = cleanse.Id, world = fireEdict.Id, maximum, changes = changed.Count,
         fireAge = finish.Age, far = new[] { firstFar.tile_id, secondFar.tile_id } };
 }
 finally
 {
+    EndProgress();
     Config.paused = true;
+    ControllableUnit.clear(false);
     PerformanceSettings.SetTargetRenderFps(oldFps);
     PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(oldBudget);
     ConstructedAbilityService.CastStarted -= Started;

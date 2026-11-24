@@ -10,11 +10,13 @@ import tempfile
 import baseline_scenarios as baseline
 from common import write_json
 from verify_weapon_flight_archive import world_helpers
+from world_progress_capture import encode_progress, progress_helpers
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', type=Path, required=True, help='11.03 已通过的城市用术存档准备目录')
+    parser.add_argument('--record', action='store_true', help='录制原版常速进度')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         parser.error('请通过独立游戏的 dev.py exec 运行')
@@ -30,7 +32,8 @@ def main():
     imports = ('using Friflo.Engine.ECS;\nusing Cultiway.Core.CollectiveProjects;\n'
                'using Cultiway.Core.SkillLibV3;\nusing Cultiway.Core.SkillLibV3.Components;\nusing Cultiway.Core.SkillLibV3.Utils;\n')
     script.write_text(imports + world_helpers(folder, world, restore=True)
-                      + f'\nlong sourceId = {prepared["actor"]};\n' + Path(__file__).with_suffix('.script').read_text())
+                      + f'\nlong sourceId = {prepared["actor"]};\n'
+                      + progress_helpers(args.record) + Path(__file__).with_suffix('.script').read_text())
     baseline.connect(False, validate_runtime=False)
     try:
         result = baseline.call('run', str(script), '180000')
@@ -40,6 +43,8 @@ def main():
     write_json(folder / 'result.json', result)
     if not result.get('passed'):
         raise SystemExit(f'分区净化复验未通过，见 {folder}')
+    if args.record:
+        encode_progress(folder, {'first': '城市分区净化 · 首轮与断路', 'resumed': '城市分区净化 · 正式读回与复工'}, result)
     print(folder)
 
 
