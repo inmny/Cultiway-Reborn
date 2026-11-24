@@ -179,4 +179,9 @@ finally
 {
     ConstructedAbilityService.CastStarted -= Started;
     ReleaseChecks();
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    File.WriteAllText(Path.Combine(folder, "restore.json"), JsonConvert.SerializeObject(new { sceneRestored = true }));
 }

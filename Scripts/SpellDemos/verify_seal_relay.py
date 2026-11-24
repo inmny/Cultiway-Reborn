@@ -56,15 +56,18 @@ def main():
     try:
         result = baseline.call("run", str(path), "145000")
     except RuntimeError as error:
-        write_json(output / "result.json", dict(passed=False, error=str(error)))
+        write_json(output / "result.json", dict(passed=False, error=str(error),
+                    sceneRestored=(output / "restore.json").is_file()))
         raise RuntimeError(f"连印走符复验位于 {output}") from error
+    result["sceneRestored"] = (output / "restore.json").is_file()
     write_json(output / "result.json", result)
-    if result.get("passed") and args.record:
+    passed = result.get("passed") and result["sceneRestored"]
+    if passed and args.record:
         encode(output.parent, dict(key=output.name, name="连印走符", label="符箓正式受理", variant=1,
                                   trajectory="actual contact relay", modifiers=[],
                                   caption="折纸接触、三次朱印及余力递减"), keep_frames=True)
     print(json.dumps(dict(output=str(output), result=result), ensure_ascii=False), flush=True)
-    if not result.get("passed"):
+    if not passed:
         raise SystemExit("连印走符未通过")
 
 

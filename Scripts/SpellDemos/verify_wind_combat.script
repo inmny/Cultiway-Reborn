@@ -63,7 +63,15 @@ async Task SetCamera(float zoom)
     foreach (Building building in scenery) building.removeBuildingFinal();
     World.world.camera.transform.position = new Vector3(67.7f, 72f, 0);
     MoveCamera.instance.forceZoom(zoom);
-    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+        .FirstOrDefault(t => t != null);
+    if (type == null)
+    {
+        if (recordView == "worldfall") throw new InvalidOperationException("三维录像需要已加载的 Worldfall");
+        HideCameraOverlays();
+        await Game.NextFrame();
+        return;
+    }
     object mod = type.GetProperty("Instance", F).GetValue(null);
     object Get(string key) => type.GetProperty(key, F)?.GetValue(mod) ?? type.GetField(key, F)?.GetValue(mod);
     cameraSettings = Get("Settings");
@@ -81,11 +89,15 @@ async Task SetCamera(float zoom)
     object sampler = Get("_sampler");
     sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
     sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    HideCameraOverlays();
+    await Game.NextFrame();
+}
+void HideCameraOverlays()
+{
     World.world.console.Hide();
     WorldTip.hideNow();
     Tooltip.blockTooltips(30f);
     foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
-    await Game.NextFrame();
 }
 async Task<List<double>> Film(float duration, Action sample)
 {

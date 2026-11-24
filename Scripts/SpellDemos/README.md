@@ -2434,6 +2434,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 在独立游戏运行 `python3 .agents/skills/develop/scripts/dev.py exec --timeout 165 -- python3 Scripts/SpellDemos/verify_seal_relay.py --section relay`。通过正式物品入口消耗一张真实符箓，核对[构造资料](../../Content/Skills/Attack/SealRelay.json)的三次实际命中、留印位置、余力衰减和退场。 `--section miss` 让首张纸符飞空，检查原物消费和失效请求保留，以及后续形体是否停在源头。
 
+给传递场景加 `--record native` 可直接在独立原版游戏录制，或用 `--record worldfall` 在已加载 Worldfall 的独立环境录制。运行输出中的 `output` 指向结果与影片目录，`sceneRestored` 标记测试场地已经重载。
+
 正常传递可加 `--record native` 或 `--record worldfall`。输出同时记录每次作用面的准确位置与伤害。
 
 ### 狐火吐息、伏首雷角刺与伏地扑（9.40 妖兽器官）
