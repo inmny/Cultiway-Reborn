@@ -1780,7 +1780,8 @@ private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
             string reason = null;
             try
             {
-                definition = ConstructionDefinitionLayers.Snapshot(DemoVariant(definition.ToObject<AbilityDefinition>(), mode));
+                definition = ConstructionDefinitionLayers.Snapshot(
+                    DemoVariant(definition.ToObject<AbilityDefinition>(), mode, request["editOptions"]));
             }
             catch (Exception error) when (error is InvalidDataException or ArgumentException)
             {
@@ -1828,8 +1829,9 @@ private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
 
 /// <summary>在独立草稿上依次完成所选改造，再用与万法阁相同的校验判断能否实际施放。</summary>
 /// <param name="definition">完整原式。</param>
-/// <param name="mode">词条、轨迹或二者叠加。</param>
-private static AbilityDefinition DemoVariant(AbilityDefinition definition, string mode)
+/// <param name="mode">本段选择的改造。</param>
+/// <param name="options">实际形体或材料编号。</param>
+private static AbilityDefinition DemoVariant(AbilityDefinition definition, string mode, JToken options)
 {
     var result = ConstructionEditing.Copy(definition);
     if (mode is "modifiers" or "combined")
@@ -1858,8 +1860,56 @@ private static AbilityDefinition DemoVariant(AbilityDefinition definition, strin
             flight.Path.Additions = (flight.Path.Additions ?? Array.Empty<ConstructionPathTerm>())
                 .Append(new ConstructionPathTerm { Keys = wave.Keys, Loop = wave.Loop }).ToArray();
     }
+    if (mode == "cross-form")
+    {
+        string form = (string)options["form"];
+        RequireDemoContact(form);
+        if (result.Root == null)
+            result = BodyConstructionEdits.Project(result, new BodyProjection
+                { Form = form, Resource = result.Resource, Cost = result.Cost });
+        else
+        {
+            if (result.Root.Form == form) throw new InvalidDataException("跨形态需要选择与原主体不同的形体");
+            result.Root.Form = form;
+        }
+    }
+    if (mode == "material")
+    {
+        var node = result.Root ?? throw new InvalidDataException("换材需要实际生成主体");
+        string choice = (string)options["matter"];
+        var parts = choice.Split(new[] { ':' }, 2);
+        var matter = AbilityMatters.Resolve(parts[0], parts.Length == 2 ? parts[1] : null, "换材");
+        if (AbilityMatters.Resolve(node.Matter, node.State, "原材料") == matter)
+            throw new InvalidDataException("换材需要不同的实际材料或物态：" + choice);
+        node.Matter = matter.Id;
+        node.State = matter.State;
+        node.FollowMatter = true;
+    }
+    if (mode == "structure")
+    {
+        var node = result.Root ?? throw new InvalidDataException("增加子部位需要实际主体");
+        string form = (string)options["child"] ?? node.Form;
+        RequireDemoContact(form);
+        int suffix = 1;
+        while (node.Children.Any(child => child.Id == "demo_part_" + suffix)) suffix++;
+        node.Children = node.Children.Append(new ConstructionNode
+        {
+            Id = "demo_part_" + suffix, Form = form, Matter = node.Matter, State = node.State,
+            FollowMatter = node.FollowMatter, Scale = .55f, Offset = new[] { .9f, 0f, 0f },
+            ActiveFrom = node.ActiveFrom, ActiveUntil = node.ActiveUntil, ContactRole = node.ContactRole,
+            ContactGroup = node.ContactGroup ?? "root", Contact = node.Contact, Impact = node.Impact
+        }).ToArray();
+    }
     ConstructionEditing.Access.Validate(result);
     return result;
+}
+
+/// <summary>采用与实际形体选择相同的要求，明确说明无法参与命中的资源。</summary>
+/// <param name="form">用户选中的实际形体。</param>
+private static void RequireDemoContact(string form)
+{
+    if (!FormResources.Ids.Contains(form) || FormResources.Load(form).Contacts.Length == 0)
+        throw new InvalidDataException("形体缺少实际接触形状：" + form);
 }
 
 /// <summary>仅加载仓库中的测试夹具，不保存或覆盖玩家世界。</summary>

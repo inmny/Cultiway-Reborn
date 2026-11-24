@@ -17,12 +17,13 @@ PROJECT = Path(__file__).resolve().parents[2]
 CONTROL = Path(os.environ.get("CULTIWAY_DEMO_CONTROL", PROJECT / "artifacts/spell_demo"))
 CLIENT = Path(os.environ.get("CULTIWAY_DEBUG_CLIENT", PROJECT.parent / "DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll"))
 LABELS = {"base": "原始效果", "modifiers": "添加词条", "trajectory": "改变轨迹", "combined": "词条与轨迹"}
+CONSTRUCTION_ONLY = {"cross-form": "跨形态", "material": "换材", "structure": "增加子部位"}
 
 
 def demo_modes(text):
     modes = list(dict.fromkeys(part.strip() for part in text.split(",")))
     for mode in modes:
-        if mode not in LABELS:
+        if mode not in LABELS and mode not in CONSTRUCTION_ONLY:
             raise ValueError(f"未知演示类型：{mode}")
     return modes
 
@@ -191,7 +192,7 @@ def read_constructions(path):
 def construction_case(entry, key, mode):
     """同一份完整原式配上改造类型，交给游戏生成并校验独立候选。"""
     label = {"base": LABELS["base"], "modifiers": "巨化", "trajectory": "波形轨迹",
-             "combined": "巨化与波形轨迹"}[mode]
+             "combined": "巨化与波形轨迹", **CONSTRUCTION_ONLY}[mode]
     return dict(entry, key=key, mode=mode, label=label, variant=0, modifiers=[],
                 trajectory=entry.get("trajectory", "构造资料"))
 
@@ -222,6 +223,7 @@ def choose_cases(spells, catalog, args):
     """按游戏导出的兼容结果选择变化，不把不支持的轨迹硬塞给法术。"""
     rows, skipped = [], []
     modes = demo_modes(args.cases)
+    legacy_modes = [mode for mode in modes if mode in LABELS]
     modifier_by_id = {entry["id"]: entry for entry in catalog["modifiers"]}
     trajectory_by_id = {entry["id"]: entry for entry in catalog["trajectories"]}
     for spell in spells:
@@ -234,6 +236,10 @@ def choose_cases(spells, catalog, args):
                 raise ValueError(f"{spell['name']} 的构造原式没有旧动画变体")
             for mode in modes:
                 rows.append(construction_case(spell, f"registered-{len(rows) + 1:04d}", mode))
+            continue
+        skipped.extend(dict(id=spell["id"], case=mode, reason="需要构造资料中的实际形体和部位")
+                       for mode in modes if mode in CONSTRUCTION_ONLY)
+        if not legacy_modes:
             continue
         variants = range(spell["variants"]) if args.variants == "all" else [args.variant]
         for variant in variants:
@@ -260,7 +266,7 @@ def choose_cases(spells, catalog, args):
                 trajectory = next((key for name in priorities for key in alternatives
                                    if key.split(".")[-1] == name and key != spell["trajectory"]), None)
                 trajectory = trajectory or next((key for key in alternatives if key != spell["trajectory"]), None)
-            for mode in modes:
+            for mode in legacy_modes:
                 if mode in {"modifiers", "combined"} and (not spell["adjustable"] or not specs):
                     skipped.append({"id": spell["id"], "case": mode, "reason": "来源专属实体或没有兼容词条"})
                     continue
@@ -412,7 +418,10 @@ def main(all_spells):
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
     for key, title in CATALOG_FILTERS.items():
         parser.add_argument("--" + key, default="", help=f"按登记{title}筛选，支持标签名称或编号，可用逗号分隔")
-    parser.add_argument("--cases", help="base,modifiers,trajectory,combined；文件默认只录原式")
+    parser.add_argument("--cases", help="base,modifiers,trajectory,combined,cross-form,material,structure；文件默认只录原式")
+    parser.add_argument("--edit-form", default="spirit_bolt", help="跨形态演示的新形体编号")
+    parser.add_argument("--edit-matter", default="ice", help="换材演示的材料编号，可用材料:物态")
+    parser.add_argument("--edit-child", help="新增子部位的形体编号，缺省沿用主体形体")
     parser.add_argument("--modifier", action="append", default=[], help="词条名称:参数=值，可重复指定")
     parser.add_argument("--trajectory", help="指定兼容轨迹名称或编号")
     parser.add_argument("--variant", type=int, default=0, help="单个动画变体编号")
@@ -560,6 +569,8 @@ def main(all_spells):
         if not (fixture / "map.wbox").is_file():
             raise ValueError(f"缺少演示测试存档：{fixture}")
         manifest = dict(version=version, fixture=str(fixture), motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        if any(case["mode"] in CONSTRUCTION_ONLY for case in cases if "construction" in case):
+            manifest["editOptions"] = dict(form=args.edit_form, matter=args.edit_matter, child=args.edit_child)
         if args.shield_break:
             manifest["shieldBreak"] = True
         if args.caster_position:
@@ -599,7 +610,8 @@ def main(all_spells):
                     (output / case["key"] / filename).unlink(missing_ok=True)
         remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
         for case in remaining:
-            (output / case["key"] / "result.json").unlink(missing_ok=True)
+            for filename in ("result.json", "definition.json", "source-definition.json"):
+                (output / case["key"] / filename).unlink(missing_ok=True)
         has_edits = any("construction" in case and case.get("mode") != "base" for case in cases)
         continue_on_failure = (all_spells or has_edits) and args.scene == "single" and not args.resource_probe
         request = dict(manifest, id=str(time.time_ns()), action="construction" if constructions is not None else "resources" if args.resource_probe else "record",
