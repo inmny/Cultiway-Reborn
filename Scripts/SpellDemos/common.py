@@ -379,8 +379,12 @@ def publish(output, cases, results, skipped, failures=()):
         video = case["key"] + "/demo.mp4"
         title = f"{case['name']} · {case['label']} · 变体 {case['variant']}"
         details = case.get("trajectoryName", case["trajectory"]) + " · " + ("、".join(case.get("modifierLabels", [])) or "无额外词条")
-        body.append(f'<article><h2>{html.escape(title)}</h2><p>{html.escape(case["id"])} · {html.escape(details)}</p><video controls preload="none" poster="{case["key"]}/preview.png" src="{video}"></video></article>')
-        markdown.append(f"- [{title}]({video})")
+        report = case["key"] + "/result.json"
+        result_label = "已出手 · 实际作用成立" if data.get("effect", {}).get("confirmed") is True else "实际记录"
+        body.append(f'<article><h2>{html.escape(title)}</h2><p>{html.escape(case["id"])} · {html.escape(details)}</p>'
+                    f'<video controls preload="none" poster="{case["key"]}/preview.png" src="{video}"></video>'
+                    f'<p><a href="{report}">{result_label}</a></p></article>')
+        markdown.append(f"- [{title}]({video})　[{result_label}]({report})")
         groups.setdefault(case["group"], []).append((output / video).resolve())
     for group, videos in groups.items():
         concat = output / f"{group}.ffconcat"

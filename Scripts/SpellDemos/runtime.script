@@ -901,8 +901,7 @@ private void Update()
     ConstructedAbilityService.BurningConfirmed += OnBurning;
     WorldMaterialService.Changed += OnWorldMaterial;
     ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
-    if ((bool?)request["motionTrace"] == true || ((JArray)request["cases"]).Any(item => (string)item["id"] == "Cultiway.PalmStrike"))
-        ConstructedAbilityService.QueuedDamageConfirmed += OnQueuedDamage;
+    ConstructedAbilityService.QueuedDamageConfirmed += OnQueuedDamage;
     ConstructedAbilityService.CastEnded += OnConstructedEnd;
     ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
     if ((string)request["scene"] == "battle")
@@ -1445,7 +1444,8 @@ private IEnumerator RecordConstruction(JObject item)
     if (jointScene && BindDemoBody(plan, caster, target, bodyDirection.normalized) == null)
         throw new InvalidOperationException("实际身体缺少资料所需的关节或承接动作：" + species + " / " + effector);
     bool used = ActiveAbilityService.TryUse(owner, handle, selection, ActiveAbilityUseOrigin.Script);
-    float paid = before - Balance();
+    float afterPayment = Balance();
+    float paid = before - afterPayment;
     if (!used)
         throw new InvalidOperationException("构造施放入口拒绝：" +
             ActiveAbilityService.ResolveControlState(owner, handle).BlockReason +
@@ -1639,29 +1639,41 @@ private IEnumerator RecordConstruction(JObject item)
         .Where(v => (string)v["kind"] == "burn" && (long?)v["source"] == sourceId &&
                     (heatedCasts.Contains((long)v["cast"]) || heatedWorld.Contains((long)v["world"])))
         .Sum(v => (double)v["transferred"]);
+    var queuedDamage = queuedDamageLog.Select(JObject.FromObject).Where(value => ownCast != 0 &&
+        (long)value["cast"] == ownCast && (long)value["source"] == sourceId && (long)value["target"] == targetId).ToArray();
+    int lost = targetResponses.Sum(value => (int?)value["lost"] ?? 0) + queuedDamage.Sum(value => (int)value["lost"]);
+    double shieldAbsorbed = targetResponses.Sum(value => (double?)value["shieldAbsorbed"] ?? 0) +
+        queuedDamage.Sum(value => (double)value["shieldAbsorbed"]);
+    bool executed = used && ownCast != 0;
+    bool extentConfirmed = actualContacts > 0 || worldChanges.Length > 0 || fireConditionVerified || selfStatusApplied ||
+        conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 || ownHeating.Length > 0 ||
+        transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001;
+    bool opponentConfirmed = opponent == null || opponentUsed && opponentPaid == opponent.Cost &&
+        (actualClashes > 0 || activeWaterSources > 0 || quenchedWaterSources > 0 || heatedWoodSources > 0 ||
+         opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 ||
+                                    conductedHits > 0 || quenchedVolume > 0 || heatedWorld.Length > 0));
+    bool effectConfirmed = extentConfirmed && opponentConfirmed &&
+        (cleanPlot == null || cleanConfirmed) && (definition.WorldCondition == null || fireConditionVerified) &&
+        (selfStatus == null || selfStatusApplied) &&
+        ((extinguished || ownHeating.Length > 0) && actualContacts == 0 ? Health(target) == health :
+            plan.ContactDamageScale > 0f ? lost > 0 :
+            Health(target) == health && movementVerified && controlVerified);
+    bool presentationReady = (organScene || jointScene
+        ? organPoseFrames + jointPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId)
+        : peak > 0) && (walk == 0f || Vector2.Distance(casterStart, caster.current_position) > .25f);
+    string validationError = !executed ? "未确认一次正式施放" :
+        !effectConfirmed ? "已实际出手，未确认本段要求的作用" :
+        paid != definition.Cost ? "实扣与构造费用不符" :
+        !presentationReady ? "实际作用成立，录制未满足形体或动作要求" : null;
     Write(Path.Combine(folder, "result.json"), new
     {
-        passed = used &&
-                 (opponent == null || opponentUsed && opponentPaid == opponent.Cost && (actualClashes > 0 ||
-                     activeWaterSources > 0 || quenchedWaterSources > 0 || heatedWoodSources > 0 ||
-                     opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 ||
-                                                conductedHits > 0 || quenchedVolume > 0 ||
-                                                heatedWorld.Length > 0))) && scriptCasts.Length == 1 &&
-                 (actualContacts > 0 || worldChanges.Length > 0 || fireConditionVerified || selfStatusApplied ||
-                  conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 ||
-                  ownHeating.Length > 0 || transferredMaterials > 0 && worldSurvivedCast ||
-                  plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) &&
-                 (organScene || jointScene
-                     ? organPoseFrames + jointPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId)
-                     : peak > 0) &&
-                 (cleanPlot == null || cleanConfirmed) &&
-                 (definition.WorldCondition == null || fireConditionVerified) &&
-                 (selfStatus == null || selfStatusApplied) &&
-                 paid == definition.Cost &&
-                 ((extinguished || ownHeating.Length > 0) && actualContacts == 0 ? Health(target) == health :
-                     plan.ContactDamageScale > 0f ? Health(target) < health :
-                     Health(target) == health && (movementVerified && controlVerified)) && errors.Count == 0 &&
-                 (walk == 0f || Vector2.Distance(casterStart, caster.current_position) > .25f),
+        passed = executed && effectConfirmed && paid == definition.Cost && presentationReady && errors.Count == 0,
+        error = validationError,
+        execution = new { accepted = used, started = executed, cast = ownCast, source = sourceId, naturalEnd,
+            payment = new { resource = definition.Resource, paid, before, afterPayment } },
+        effect = new { confirmed = executed ? (bool?)effectConfirmed : null, target = pointTarget ? (long?)null : targetId,
+            contacts = actualContacts, lost, shieldAbsorbed, changedTiles = worldChanges.Length,
+            recovery = recoveredResource, selfStatusApplied, acceptedBind, acceptedStagger },
         isolatedTarget = (bool?)request["isolateTarget"] ?? false,
         heatedWoodSources, heatedCasts, heatedWorld, burnedVolume, burningLog,
         quenchedVolume, quenchedWaterSources, extinguished, quenchingLog,
@@ -1690,7 +1702,7 @@ private IEnumerator RecordConstruction(JObject item)
             poseFrames = organPoseFrames, released = !BodyControlState.IsBusy(sourceId) } : null,
         joint = jointScene ? new { species = caster.asset.id, part = effector, poseFrames = jointPoseFrames,
             travel = jointTravel, released = !BodyControlState.IsBusy(sourceId) } : null,
-        worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
+        worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, queuedDamageLog, materialFrames, errors
     });
 
     float Balance() => definition.Resource switch
@@ -3021,6 +3033,7 @@ private void OnConduction(ConstructedConduction wave) => conductionLog.Add(new
     {
         target = r.TargetId, forceApplied = r.ForceApplied, staggerSeconds = r.StaggerSeconds,
         bindSeconds = r.BindSeconds,
+        lost = r.Damage.HealthLost, shieldAbsorbed = r.Damage.ShieldAbsorbed,
         velocityChange = new[] { r.VelocityChange.x, r.VelocityChange.y, r.VelocityChange.z }
     }).ToArray()
 });
@@ -3061,7 +3074,7 @@ private void OnConstructedRecovery(ConstructedRecovery recovered) => recoveryLog
 /// <param name="contact">真实接触事件。</param>
 private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add(new
 {
-    time = World.world.getCurWorldTime(), id = contact.AbilityId, cast = contact.CastId,
+    time = contact.WorldTime, id = contact.AbilityId, cast = contact.CastId,
     source = contact.SourceId, originalSource = contact.OriginalSourceId, reflections = contact.Reflections,
     target = contact.TargetId, node = contact.Node, age = contact.Age,
     targetContactNumber = contact.TargetContactNumber, groupContactNumber = contact.GroupContactNumber,
@@ -3070,6 +3083,8 @@ private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add
     point = new[] { contact.Position.x, contact.Position.y, contact.Position.z },
     normal = new[] { contact.Normal.x, contact.Normal.y, contact.Normal.z },
     damageAttempted = contact.DamageAttempted,
+    damagePending = contact.DamagePending, lost = contact.Damage.HealthLost,
+    shieldAbsorbed = contact.Damage.ShieldAbsorbed, settledCount = contact.Damage.SettledCount,
     velocityChange = new[] { contact.VelocityChange.x, contact.VelocityChange.y, contact.VelocityChange.z },
     forceApplied = contact.ForceApplied, staggerSeconds = contact.StaggerSeconds,
     bindSeconds = contact.BindSeconds,
@@ -3080,8 +3095,10 @@ private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add
 private void OnQueuedDamage(ConstructedQueuedDamage hit) => queuedDamageLog.Add(new
 {
     id = hit.AbilityId, cast = hit.CastId, source = hit.SourceId, target = hit.TargetId,
+    node = hit.Node, targetContactNumber = hit.TargetContactNumber,
     contactTime = hit.ContactWorldTime, time = hit.WorldTime,
-    count = hit.Damage.SettledCount, lost = hit.Damage.HealthLost, health = hit.TargetHealthAfter
+    count = hit.Damage.SettledCount, lost = hit.Damage.HealthLost,
+    shieldAbsorbed = hit.Damage.ShieldAbsorbed, health = hit.TargetHealthAfter
 });
 
 /// <summary>收集本次运行的游戏错误，不把启动前的历史错误算入结果。</summary>
@@ -3278,6 +3295,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
     quenchingLog.Clear();
     burningLog.Clear();
     contactsLog.Clear();
+    queuedDamageLog.Clear();
     clashesLog.Clear();
     reflectionsLog.Clear();
     areasLog.Clear();
