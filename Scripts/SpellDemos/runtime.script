@@ -308,6 +308,7 @@ public void Install()
             (System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime() -
              new DateTime(1970, 1, 1)).TotalSeconds,
         modPath = mod.GetDeclaration().FolderPath,
+        runtime = CultiwayDemoRuntime.Loaded(),
         assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(), spells = rows,
         modifiers = modifiers.Select(item => new
             { id = item.id, name = Name(item.id), parameters = item.CreateDefaultSpec().Parameters }).ToArray(),
@@ -1001,7 +1002,8 @@ private IEnumerator Guarded(IEnumerator steps)
     ConstructedAbilityService.ReflectionConfirmed -= OnConstructedReflection;
     FormVisualScene.Clear();
     Write(Path.Combine(output, "status.json"),
-        new { done = true, current = currentCase, error = failure, sceneRestored, errors });
+        new { done = true, current = currentCase, error = failure, sceneRestored, errors,
+            requestId = handled, runtime = CultiwayDemoRuntime.Loaded() });
     busy = false;
 }
 
@@ -1082,7 +1084,7 @@ private IEnumerator ProbeFormResources()
         typeof(Cultiway.ModClass).Assembly.GetType(
             "Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
     int submitted = (int)bridge.GetProperty("LastDrawCount", Flags).GetValue(null);
-    Write(Path.Combine(folder, "result.json"), new
+    WriteResult(Path.Combine(folder, "result.json"), new
     {
         passed = times.Count > 0 && errors.Count == 0 && (externalView == null || submitted > 0),
         scene = "resources", validation = "仅验证资源读取及绘制提交，实际作用和美术需分别验收", item,
@@ -1681,7 +1683,7 @@ private IEnumerator RecordConstruction(JObject item)
         !effectConfirmed ? "已实际出手，未确认本段要求的作用" :
         paid != definition.Cost ? "实扣与构造费用不符" :
         !presentationReady ? "实际作用成立，录制未满足形体或动作要求" : null;
-    Write(Path.Combine(folder, "result.json"), new
+    WriteResult(Path.Combine(folder, "result.json"), new
     {
         passed = executed && effectConfirmed && paid == definition.Cost && presentationReady && errors.Count == 0,
         error = validationError,
@@ -1841,7 +1843,7 @@ private IEnumerator Run()
             }
             catch (Exception error) when (continueOnFailure && error is not OperationCanceledException)
             {
-                Write(result, new { passed = false, item, error = error.ToString(), errors });
+                WriteResult(result, new { passed = false, item, error = error.ToString(), errors });
                 break;
             }
 
@@ -1895,7 +1897,7 @@ private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
 
             if (reason != null)
             {
-                Write(Path.Combine(folder, "result.json"), new { passed = false, skipped = true, reason, item });
+                WriteResult(Path.Combine(folder, "result.json"), new { passed = false, skipped = true, reason, item });
                 yield break;
             }
             item = (JObject)item.DeepClone();
@@ -2811,7 +2813,7 @@ private IEnumerator Record(JObject item, string folder)
         formationStatus == null ? null : formationActiveAt.HasValue;
     int recordedContacts = contactsLog.Select(JObject.FromObject).Count(row =>
         (string)row["id"] == id && (long?)row["source"] == caster.id);
-    Write(Path.Combine(folder, "result.json"), new
+    WriteResult(Path.Combine(folder, "result.json"), new
     {
         passed = (spawned > 0 || dedicated && !formationActive && used) && errors.Count == 0 &&
                  (requiredSource == null || formationStatus == null || formationActiveAt.HasValue) &&
@@ -3431,7 +3433,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
         .Select(group => group.Select(row => (string)row["id"]).Distinct().Count()).DefaultIfEmpty().Max();
     if (reason == null && (casts.Length == 0 || rivalCasts.Length == 0))
         reason = "观察时间内双方未各自完成自主出手";
-    Write(Path.Combine(folder, "result.json"), new
+    WriteResult(Path.Combine(folder, "result.json"), new
     {
         passed = (constructed ? casts.Length > 0 : distinct >= 2 && together >= 2) &&
             rivalCasts.Length > 0 && artifactUsed && reason == null && errors.Count == 0,
@@ -3644,9 +3646,17 @@ private static string Name(string id)
     return id.Localize();
 }
 
-/// <summary>先写临时文件，再完整替换，避免外部读取到半份进度。</summary>
-/// <param name="path">结果位置。</param>
-/// <param name="value">结果内容。</param>
+/// <summary>每段记录实际运行的程序集和产生该报告的请求。</summary>
+private void WriteResult(string path, object value)
+{
+    var report = JObject.FromObject(value);
+    report["requestId"] = handled;
+    report["runtime"] = JObject.FromObject(CultiwayDemoRuntime.Loaded());
+    report["processId"] = System.Diagnostics.Process.GetCurrentProcess().Id;
+    Write(path, report);
+}
+
+/// <summary>完整落盘后替换，避免录制工具读到半份报告。</summary>
 private static void Write(string path, object value)
 {
     string temporary = path + ".tmp";

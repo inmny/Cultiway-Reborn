@@ -7,8 +7,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from common import PROJECT, version_stamp, write_json
-from record_body_connections import encode
+from common import PROJECT, specialized_recording, verify_specialized_recording, write_json
+from record_body_connections import encode, existing_clips
 from verify_weapon_flight_archive import FIXTURE, IMPORTS, SCRIPTS, world_helpers
 
 
@@ -120,15 +120,18 @@ def main():
     import baseline_scenarios as baseline
 
     connection = baseline.connect(False, validate_runtime=False)
-    version = version_stamp()[0]
+    recording = specialized_recording(baseline.call, args.view)
     output = args.output.resolve() / args.view
     output.mkdir(parents=True, exist_ok=True)
-    for case in args.case or CASES:
+    selected = args.case or CASES
+    clips = existing_clips(output, [key for key in CASES if key not in selected], recording)
+    fresh = {}
+    for case in selected:
         folder = Path(tempfile.mkdtemp(prefix=f'artifact-passives-film-{case}-{args.view}-',
                                        dir=os.environ['CULTIWAY_DEV_OUTPUT']))
         program = folder / 'input.script'
         program.write_text(program_for(case, args.view, folder))
-        write_json(folder / 'metadata.json', dict(view=args.view, case=case, connection=connection, version=version))
+        write_json(folder / 'metadata.json', dict(case=case, connection=connection, **recording))
         try:
             result = baseline.call('run', str(program), '190000')
         except RuntimeError as error:
@@ -139,11 +142,13 @@ def main():
         write_json(folder / 'result.json', result)
         if not result['passed'] or not result['sceneRestored']:
             raise RuntimeError(f'实录验证未通过，见 {folder}')
-        name = CASES[case][0]
-        encode(case, folder, output, args.view == 'native', label=name, milestone='10.06 法宝被动能力',
-               crop_worldfall=False)
+        fresh[case] = folder
 
-    clips = [json.loads((output / f'{case}.json').read_text()) for case in CASES if (output / f'{case}.json').is_file()]
+    verify_specialized_recording(baseline.call, recording)
+    for case, folder in fresh.items():
+        clips[case] = encode(case, folder, output, args.view == 'native', label=CASES[case][0],
+                             milestone='10.06 法宝被动能力', crop_worldfall=False, recording=recording)
+    clips = [clips[key] for key in CASES if key in clips]
     complete = len(clips) == len(CASES)
     if complete:
         (output / 'movies.ffconcat').write_text('ffconcat version 1.0\n' +

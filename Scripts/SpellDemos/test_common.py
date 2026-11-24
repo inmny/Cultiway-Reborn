@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 import common
+from record_body_connections import existing_clips, specialized_files
 
 
 class RegisteredConstructionTests(unittest.TestCase):
@@ -64,6 +65,43 @@ class RegisteredConstructionTests(unittest.TestCase):
 
 
 class RecordingVersionTests(unittest.TestCase):
+    def test_clip_fingerprints_bind_the_movie_and_runtime(self):
+        first = dict(version=dict(sha256="same"), runtime=dict(game="current"))
+        second = dict(first, runtime=dict(game="other"))
+        stamp = common.recording_stamp(first)
+        self.assertNotEqual(stamp, common.recording_stamp(second))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            clip = output / "fireball"
+            clip.mkdir()
+            for name in ("demo.mp4", "result.json", "preview.png"):
+                (clip / name).write_bytes(name.encode())
+            receipt = common.clip_facts(output, "fireball", stamp)
+            common.write_json(clip / "clip.json", receipt)
+            self.assertEqual(common.checked_clip(output, "fireball", stamp), receipt)
+            (clip / "demo.mp4").write_bytes(b"replaced")
+            with self.assertRaisesRegex(ValueError, "旧片段与本批凭据不符"):
+                common.checked_clip(output, "fireball", stamp)
+
+    def test_specialized_collection_rejects_another_environment_or_file(self):
+        recording = dict(version=dict(sha256="same"), view="native", runtime={"game": "current"},
+                         recordingTools={"encoder": "current"})
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            for name in ("shield.mp4", "result.json", "recording.json"):
+                (output / name).write_bytes(name.encode())
+            entry = dict(case="shield", view="native", recordingEnvironment=recording,
+                         result=str(output / "result.json"), recording=str(output / "recording.json"))
+            entry["files"] = specialized_files(entry, output / "shield.mp4")
+            common.write_json(output / "shield.json", entry)
+            self.assertEqual(existing_clips(output, ["shield"], recording), {"shield": entry})
+            changed = dict(recording, recordingTools={"encoder": "other"})
+            with self.assertRaisesRegex(ValueError, "版本或文件不符"):
+                existing_clips(output, ["shield"], changed)
+            (output / "shield.mp4").write_bytes(b"replaced")
+            with self.assertRaisesRegex(ValueError, "版本或文件不符"):
+                existing_clips(output, ["shield"], recording)
+
     def test_loaded_copy_and_fixture_are_checked_independently(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

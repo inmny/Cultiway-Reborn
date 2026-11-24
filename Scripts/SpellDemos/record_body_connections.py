@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from common import PROJECT, caption_font, write_json
+from common import PROJECT, caption_font, file_sha256, same_recording, write_json
 
 CASES = {
     "throw": ("徒手抓投", ["--carrying", "--carry-cases", "throw"], "body-carrying", "cases-throw"),
@@ -19,7 +19,8 @@ CASES = {
 }
 
 
-def encode(case, folder, output, native, label=None, milestone=None, skip_initial=0, crop_worldfall=True, worldfall_crop=None):
+def encode(case, folder, output, native, label=None, milestone=None, skip_initial=0,
+           crop_worldfall=True, worldfall_crop=None, recording=None):
     """按真实世界时间差编码；宽主体可明确调整裁切，不插入离线动作。"""
     data = json.loads((folder / "recording.json").read_text())
     frames = data["frames"][skip_initial:]
@@ -62,15 +63,50 @@ def encode(case, folder, output, native, label=None, milestone=None, skip_initia
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-safe", "0", "-f", "concat", "-i", "frames.ffconcat",
                     "-vf", ",".join(filters), "-r", "24", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(movie)],
                    cwd=folder, check=True)
+    metadata = json.loads((folder / "metadata.json").read_text())
     evidence = dict(case=case, name=name, view=data["view"], movie=str(movie), recording=str(folder / "recording.json"),
                     definition=str(folder / "definition.json"), result=str(folder / "result.json"),
                     duration=timeline[-1], frames=len(frames), maxWorldGap=max(gaps), stages=stages,
                     worldfallCrop=None if native or not crop_worldfall else filters[0],
                     trimmedInitialFrames=skip_initial, worldStart=frames[0]["time"], worldEnd=frames[-1]["time"],
-                    events=data["events"], version=json.loads((folder / "metadata.json").read_text())["version"])
+                    events=data["events"], version=metadata["version"])
+    if recording is not None:
+        evidence.update(recordingEnvironment=recording, files=specialized_files(evidence, movie))
     write_json(output / f"{case}.json", evidence)
     print(movie, flush=True)
     return evidence
+
+
+def specialized_files(entry, movie):
+    return dict(movie=file_sha256(movie), result=file_sha256(Path(entry["result"])),
+                recording=file_sha256(Path(entry["recording"])))
+
+
+def existing_clips(output, keys, recording):
+    """共用输出目录只接纳同一运行版本的原片，核对的是将被拼接的实际文件。"""
+    entries = {}
+    for key in keys:
+        try:
+            entry = json.loads((output / f"{key}.json").read_text())
+        except FileNotFoundError:
+            continue
+        try:
+            expected = entry["recordingEnvironment"]
+            if (recording is not None and entry["case"] == key and entry["view"] == recording["view"]
+                    and same_recording(expected, recording)
+                    and entry["files"] == specialized_files(entry, output / f"{key}.mp4")):
+                entries[key] = entry
+                continue
+        except (OSError, KeyError):
+            pass
+        raise ValueError(f"已有片段的版本或文件不符：{key}。请换目录或重新录制该段")
+    return entries
+
+
+def require_archive_directory(output, keys):
+    """历史画面的重新编码使用独立目录，保留原有验收文件。"""
+    if any((output / f"{key}.json").exists() for key in keys):
+        raise ValueError("历史画面请重新编码到新目录")
 
 
 def main():
@@ -118,7 +154,7 @@ def main():
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-safe", "0", "-f", "concat", "-i", "movies.ffconcat",
                         "-c", "copy", "-movflags", "+faststart", "all.mp4"], cwd=output, check=True)
         print(output / "all.mp4", flush=True)
-    write_json(manifest, dict(passed=True, view=mode, cases=rows,
+    write_json(manifest, dict(passed=True, historical=args.encode_only, view=mode, cases=rows,
                timeBasis="游戏世界时间；功能录像不作为负载性能证明"))
 
 

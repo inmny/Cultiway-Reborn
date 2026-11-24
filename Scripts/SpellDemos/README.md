@@ -135,7 +135,7 @@ python3 -m unittest discover -s Scripts/SpellDemos -p 'test_*.py'
 
 三类演示的 `committedPayments` 保存正式提交的付款人、通道、报价和实扣。构造单招的直接传讯还要求 `deliveredSignals` 里有同次施放给所选对象送达的事实。自主交战按所选规则记录实际交锋结果。普通旧法术缺少指定的作用验收时显示作用待核对。
 
-开始和结束时都会对照游戏报告的模组目录与准备录制的代码资源。清单同时记录模组输入和录制工具、测试地图的指纹。续录须使用相同录制输入，包含地图、本地化及依赖。
+开始和结束时都会对照游戏报告的模组目录与准备录制的代码资源。`manifest.json` 记录地图、本地化、依赖、实际载入的原版游戏、模组、加载器、调试端、Worldfall 以及录制工具的版本。每段的 `clip.json` 记录成片、结果、缩略图和构造文件的指纹。续录先核对整批版本、参数和旧片文件。旧片缺凭据、被替换或版本不同，请用新目录录制。
 
 法宝演示按能力选择钟、印、幡等代表器形；材料和能力参数来自同一份实际炼制设计，结果记录器形、材料与参数。为观察指定能力，演示仅保留这一项能力，不代表自然炼制一定只产出该能力。
 
@@ -2772,7 +2772,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 七种修炼主动能力实录（10.02）
 
-独立游戏就绪后运行 `dev.py exec --timeout 900 -- python3 Scripts/SpellDemos/record_formation_reels.py --output <实录目录>`。脚本依次使用七个真实主动入口，在两种视角分别生成连续片段、含章节的合辑与原片索引。用 `--view native` 或 `--view worldfall` 限定视角，已有原片可用 `--encode-only` 重新合成。
+独立游戏就绪后运行 `dev.py exec --timeout 900 -- python3 Scripts/SpellDemos/record_formation_reels.py --output <实录目录>`。脚本依次使用七个真实主动入口，在两种视角分别生成连续片段、含章节的合辑与原片索引。用 `--view native` 或 `--view worldfall` 限定视角。已有原片可用 `--encode-only` 重新合成，各段须来自同一运行环境并保留原始凭据。
 
 ### 御器的真实器物与原版弹丸（10.04）
 
@@ -2788,7 +2788,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 用 `dev.py exec --timeout 170 -- python3 Scripts/SpellDemos/verify_weapon_flight_archive.py --section prepare`，让原弓、飞剑和分光剑阵同时运行，正式保存并在同一进程换世界。退出并重新启动后，用同一脚本的 `--section cold --archive <prepare 输出目录>`，核对原件、完整参数、冷却、临时对象清理和再次施放。`--section legacy --archive <5.15 留下的 variant-save 目录>` 从原档本身提取预期，再用原法宝命中并召回。
 
-连续实录使用 `dev.py exec --timeout 600 -- python3 Scripts/SpellDemos/record_weapon_flight.py --view native|worldfall --output <录像目录>`。原版用未安装 Worldfall 的独立游戏，三维用已安装 Worldfall 的独立游戏。可重复传入 `--move arrow-rain|sky-volley|sweep|thrust|crush|flying-sword|sword-array` 只补指定招式，同一视角可续写到同一目录。七段齐备后生成 `all.mp4`，每段和合辑均按实际世界时间播放。`--encode-only <原始画面目录>` 可直接从已通过的实机画面再编码。
+连续实录使用 `dev.py exec --timeout 600 -- python3 Scripts/SpellDemos/record_weapon_flight.py --view native|worldfall --output <录像目录>`。原版用未安装 Worldfall 的独立游戏，三维用已安装 Worldfall 的独立游戏。可重复传入 `--move arrow-rain|sky-volley|sweep|thrust|crush|flying-sword|sword-array` 只补指定招式，同一视角、相同运行版本可续写到同一目录。七段核对通过后生成 `all.mp4`，每段和合辑均按实际世界时间播放。`--encode-only <原始画面目录> --output <新目录>` 重新编码历史画面，索引标明历史来源。
 
 ### 法钟的范围与净化（10.05）
 
@@ -2858,7 +2858,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 法宝主动的连续实录（10.05）
 
-用 `dev.py exec --timeout 620 -- python3 Scripts/SpellDemos/record_artifact_actives.py --view worldfall` 录制已登记配方的正式施放。原版用此前独立的 `weapon-flight-native` 游戏配置，并将视角设为 `--view native`。用 `--ability` 指定一个或多个能力，或用 `--batch` 选择 [配方表](artifact_active_recordings.json)中的分组。各批写入同一个 `--output` 时会汇总同视角的完整成片。可用 `--encode-only <本次实际采集目录>` 重新编码已完成的片段。
+用 `dev.py exec --timeout 620 -- python3 Scripts/SpellDemos/record_artifact_actives.py --view worldfall` 录制已登记配方的正式施放。原版用此前独立的 `weapon-flight-native` 游戏配置，并将视角设为 `--view native`。用 `--ability` 指定一个或多个能力，或用 `--batch` 选择 [配方表](artifact_active_recordings.json)中的分组。各批写入同一个 `--output` 时，会核对原成片文件及运行版本后汇总。可用 `--encode-only <本次实际采集目录> --output <新目录>` 重新编码历史片段。
 
 录像从正式入口受理前取景，一直记录到各招自然收束或经正式入口召回。分光剑阵与原物飞剑采用 [10.04 实录](../../Doc/技能系统全面重构/御器飞剑与投射物迁移.md#整项交付)。录像按实际世界时间编码。
 
@@ -2920,7 +2920,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 法宝被动代表实录（10.06）
 
-用 `dev.py exec --timeout 205 -- python3 Scripts/SpellDemos/record_artifact_passives.py --view native --case shield --output <录像目录>` 录制指定场景。将视角改为 `worldfall` 可录另一套。六个场景为 `shield`、`redirection`、`alchemy`、`spirit`、`riding` 和 `sect`。可重复指定 `--case`，同一视角收齐六段后自动生成 `all.mp4` 和索引。
+用 `dev.py exec --timeout 205 -- python3 Scripts/SpellDemos/record_artifact_passives.py --view native --case shield --output <录像目录>` 录制指定场景。将视角改为 `worldfall` 可录另一套。六个场景为 `shield`、`redirection`、`alchemy`、`spirit`、`riding` 和 `sect`。可重复指定 `--case`，同一视角的六段通过运行版本和原片核对后自动生成 `all.mp4` 和索引。
 
 用 `demo_all.py --list --source artifact.passive` 查登记资料及已接通的专用录像场景。每场录像结束后重载测试世界，结果中的 `sceneRestored` 记录是否恢复完成。
 

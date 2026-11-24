@@ -23,8 +23,7 @@ def main():
 
     def connect(_launch):
         baseline.call('hello')
-        baseline.call('run', str(Path(__file__).with_name('runtime.script')), '60000')
-        return json.loads((common.CONTROL / 'catalog.json').read_text())
+        return common.install_recorder(baseline.call)
 
     def run(name, arguments, all_spells=True, fails=False):
         output = folder / name

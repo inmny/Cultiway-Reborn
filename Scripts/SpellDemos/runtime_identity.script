@@ -1,0 +1,29 @@
+/// <summary>从游戏已载入的类型查询真实运行版本。</summary>
+public static class CultiwayDemoRuntime
+{
+    public static object Loaded()
+    {
+        var worldfall = System.Array.Find(System.AppDomain.CurrentDomain.GetAssemblies(),
+            assembly => assembly.GetType("FirstPerson.WorldBoxMod", false) != null);
+        var mod = typeof(Cultiway.ModClass);
+        return new
+        {
+            gameVersion = UnityEngine.Application.version,
+            unityVersion = UnityEngine.Application.unityVersion,
+            game = Module(typeof(Actor).Assembly),
+            cultiway = Module(mod.Assembly),
+            loader = Module(mod.BaseType.Assembly),
+            debugToolbox = Module(typeof(DebugToolbox.Runtime.Scripting.ScreenFacade).Assembly),
+            worldfall = Module(worldfall)
+        };
+    }
+
+    private static object Module(System.Reflection.Assembly assembly)
+    {
+        if (assembly == null)
+            return null;
+        var name = assembly.GetName();
+        return new { name = name.Name, version = name.Version.ToString(),
+            module = assembly.ManifestModule.ModuleVersionId.ToString() };
+    }
+}

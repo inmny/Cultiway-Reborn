@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from common import write_json
+from common import checked_clip, file_sha256, recording_environment, recording_stamp, same_recording, write_json
 
 CASES = (
     ('SwordEmbryoAura', '剑胎显锋', False),
@@ -54,14 +54,19 @@ def assemble(output, view):
     playlist = ['ffconcat version 1.0']
     metadata = [';FFMETADATA1']
     start = 0
-    source_hashes = set()
+    environment = None
     for skill, name, _ in CASES:
         case = folder / skill
         manifest = json.loads((case / 'manifest.json').read_text())
         assert manifest['view'] == view and len(manifest['cases']) == 1
-        source_hashes.add(manifest['version']['sha256'])
+        current = recording_environment(manifest)
+        if environment is None:
+            environment = current
+        elif not same_recording(environment, current):
+            raise ValueError(f'法相原片的运行版本或录制工具不同：{skill}')
         original = manifest['cases'][0]
         assert original['id'] == PREFIX + skill
+        receipt = checked_clip(case, original['key'], recording_stamp(manifest))
         clip_dir = case / original['key']
         result_path = clip_dir / 'result.json'
         result = json.loads(result_path.read_text())
@@ -69,12 +74,11 @@ def assemble(output, view):
         clip = clip_dir / 'demo.mp4'
         end = start + duration(clip)
         chapters.append(dict(id=PREFIX + skill, name=name, startMs=start, endMs=end,
-                             clip=str(clip), result=str(result_path)))
+                             clip=str(clip), result=str(result_path), files=receipt['files']))
         playlist.append("file '" + str(clip.relative_to(folder)) + "'")
         metadata.extend(['[CHAPTER]', 'TIMEBASE=1/1000', f'START={start}', f'END={end}', f'title={name}'])
         start = end
 
-    assert len(source_hashes) == 1, '各段必须使用同一份代码及录制工具'
     (folder / 'clips.ffconcat').write_text('\n'.join(playlist) + '\n')
     (folder / 'chapters.ffmetadata').write_text('\n'.join(metadata) + '\n')
     movie = folder / ('修炼法相-原版.mp4' if view == 'native' else '修炼法相-Worldfall.mp4')
@@ -83,7 +87,8 @@ def assemble(output, view):
         '-c', 'copy', '-movflags', '+faststart', str(movie), cwd=folder)
     run('ffmpeg', '-v', 'error', '-xerror', '-i', str(movie), '-f', 'null', '-')
     write_json(folder / 'chapters.json', dict(view=view, movie=str(movie), timeMs=duration(movie),
-                                             inputHash=source_hashes.pop(), chapters=chapters))
+                                             movieSha256=file_sha256(movie), recordingEnvironment=environment,
+                                             chapters=chapters))
     print(movie, flush=True)
 
 

@@ -97,8 +97,7 @@ def videos(baseline, base, selected):
         started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
         if any(path.stat().st_mtime > started for path in (PROJECT / 'Source').rglob('*.cs')):
             raise RuntimeError('当前游戏未加载本轮代码，请先正常退出再录制')
-        baseline.call('run', str(Path(__file__).with_name('runtime.script')), '60000')
-        return json.loads((common.CONTROL / 'catalog.json').read_text())
+        return common.install_recorder(baseline.call)
 
     plans = [
         ('principles', ['--scope', 'base', '--filter', 'FlyingSword,FallingTimber,GroundSpike,PoisonMist,HealingLight,SpiritBeam,ChainLightning', '--cases', 'base'], 'native', 3),
@@ -141,15 +140,16 @@ def videos(baseline, base, selected):
         if not status.get('done') or status.get('error') or restored['busy'] or not restored['paused'] or restored['hidden'] or restored['controlled'] or restored['forms']:
             raise RuntimeError('录像没有完整收尾 ' + name)
         manifest = json.loads((output / 'manifest.json').read_text())
-        versions[name] = manifest['version']
+        versions[name] = common.recording_environment(manifest)
         for case in manifest['cases']:
             key = name + '/' + case['key']
+            common.checked_clip(output, case['key'], common.recording_stamp(manifest))
             combined.append(dict(case, key=key, group='原版视角' if view == 'native' else 'Worldfall视角', label=case['label'] + ' · ' + view))
             results[key] = json.loads((output / case['key'] / 'result.json').read_text())
         print(json.dumps(dict(section='videos', completed=name), ensure_ascii=False), flush=True)
     if len(versions) == len(plans):
         common.publish(base / 'videos', combined, results, [])
-        write_json(base / 'videos/manifest.json', dict(version=version_stamp()[0], groupVersions=versions,
+        write_json(base / 'videos/manifest.json', dict(historical=True, groupVersions=versions,
                    assemblies=sorted({value['assembly'] for value in results.values() if value.get('assembly')}), cases=combined))
 
 

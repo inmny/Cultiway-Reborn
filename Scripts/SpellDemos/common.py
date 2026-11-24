@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 
@@ -75,9 +76,61 @@ def verify_loaded_inputs(catalog, version):
 
 def same_recording(previous, current):
     """提交号用于追溯；内容未变的提交不要求重录，内容和参数必须一致。"""
-    left = dict(previous, version=previous.get("version", {}).get("sha256"))
-    right = dict(current, version=current["version"]["sha256"])
-    return left == right
+    return recording_parameters(previous) == recording_parameters(current)
+
+
+def recording_parameters(manifest):
+    """比较可复现的输入，忽略只用于查询提交历史的名称。"""
+    return dict(manifest, version=manifest.get("version", {}).get("sha256"))
+
+
+def file_sha256(path):
+    """核对实际文件，可用于较大的影片。"""
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def recording_tools():
+    """记录本次实际调用的调试客户端、脚本解释器和编码器。"""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise ValueError("找不到录制用的 ffmpeg")
+    encoder = subprocess.run([ffmpeg, "-version"], capture_output=True, text=True, check=True).stdout
+    client_files = [path.name for path in CLIENT.parent.iterdir()
+                    if path.is_file() and path.suffix in (".dll", ".json")]
+    client, _ = input_fingerprint(CLIENT.parent, (), client_files)
+    return dict(client=client, encoder=encoder, encoderSha256=file_sha256(Path(ffmpeg)),
+                python=sys.version, captionFontSha256=file_sha256(caption_font()))
+
+
+def recording_environment(manifest):
+    """不同招式可以有各自参数，同一合集须使用相同运行环境。"""
+    return {name: manifest[name] for name in ("version", "runtime", "recordingTools", "view")}
+
+
+def recording_stamp(manifest):
+    """把每段凭据绑定到这批的实际输入、运行版本和录制参数。"""
+    parameters = json.dumps(recording_parameters(manifest), sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(parameters.encode()).hexdigest()
+
+
+def clip_facts(output, key, batch):
+    """通过已验收的录像、结果、缩略图及独立构造资料重建这段的凭据。"""
+    folder = output / key
+    names = ["demo.mp4", "result.json", "preview.png"]
+    names.extend(name for name in ("definition.json", "source-definition.json") if (folder / name).is_file())
+    return dict(case=key, batch=batch, files={name: file_sha256(folder / name) for name in names})
+
+
+def checked_clip(output, key, batch):
+    """续录先证实原片完整，拒绝失去凭据或已经修改的旧片。"""
+    try:
+        known = json.loads((output / key / "clip.json").read_text(encoding="utf-8"))
+        if known == clip_facts(output, key, batch):
+            return known
+    except (OSError, ValueError):
+        pass
+    raise ValueError(f"旧片段与本批凭据不符：{key}。请用新目录录制")
 
 
 def write_json(path, value):
@@ -151,8 +204,37 @@ def connect(launch):
         if time.monotonic() >= deadline:
             raise RuntimeError("Cultiway 或游戏世界仍未加载完成，请检查游戏日志")
         time.sleep(2)
-    rpc("run", str(Path(__file__).with_name("runtime.script")), "60000")
+    return install_recorder(rpc)
+
+
+def run_with_runtime(call, script):
+    """临时调试脚本共用实际运行身份的查询，不改变发布给玩家的模组。"""
+    identity = Path(__file__).with_name("runtime_identity.script")
+    with tempfile.TemporaryDirectory() as folder:
+        program = Path(folder) / "recording.script"
+        program.write_text(script + "\n" + identity.read_text(encoding="utf-8"), encoding="utf-8")
+        return call("run", str(program), "60000")
+
+
+def install_recorder(call):
+    run_with_runtime(call, Path(__file__).with_name("runtime.script").read_text(encoding="utf-8"))
     return json.loads((CONTROL / "catalog.json").read_text(encoding="utf-8"))
+
+
+def specialized_recording(call, view):
+    """专用录制同样核对游戏实际所读的安装目录、程序集和录制工具。"""
+    catalog = run_with_runtime(call, """return new {
+        modPath = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+        runtime = CultiwayDemoRuntime.Loaded()
+    };""")
+    version, _ = version_stamp()
+    verify_loaded_inputs(catalog, version)
+    return dict(view=view, version=version, runtime=catalog["runtime"], recordingTools=recording_tools())
+
+
+def verify_specialized_recording(call, recording):
+    if not same_recording(recording, specialized_recording(call, recording["view"])):
+        raise ValueError("录制期间实际游戏、模组或工具版本发生了变化")
 
 
 def resolve(entries, name):
@@ -640,7 +722,13 @@ def main(all_spells):
         fixture = PROJECT / FIXTURE_DIR
         if not (fixture / "map.wbox").is_file():
             raise ValueError(f"缺少演示测试存档：{fixture}")
-        manifest = dict(version=version, fixture=str(fixture), motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        runtime = catalog["runtime"]
+        tools = recording_tools()
+        manifest = dict(version=version, runtime=runtime, recordingTools=tools, fixture=str(fixture),
+                        motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration,
+                        fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view,
+                        lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics,
+                        speed=args.speed, battleArtifact=battle_artifact)
         if args.scene == "battle":
             manifest.update(battleEvent=args.battle_event, battleSeed=args.battle_seed)
         if any(case["mode"] in CONSTRUCTION_ONLY for case in cases if "construction" in case):
@@ -678,17 +766,20 @@ def main(all_spells):
                 generated.extend(group + "-合集.mp4" for group in {case["group"] for case in previous["cases"]})
                 for filename in generated:
                     (output / filename).unlink(missing_ok=True)
+        batch = recording_stamp(manifest)
+        cached_clips = {case["key"]: checked_clip(output, case["key"], batch) for case in cases
+                        if args.resume and (output / case["key"] / "demo.mp4").is_file()}
         write_json(output / "catalog.json", catalog)
         write_json(output / "manifest.json", manifest)
         for stale in [output / "status.json", CONTROL / "cancel"]:
             stale.unlink(missing_ok=True)
         if not args.resume:
             for case in cases:
-                for filename in ["result.json", "demo.mp4"]:
+                for filename in ("result.json", "demo.mp4", "clip.json"):
                     (output / case["key"] / filename).unlink(missing_ok=True)
-        remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
+        remaining = [case for case in cases if case["key"] not in cached_clips]
         for case in remaining:
-            for filename in ("result.json", "definition.json", "source-definition.json"):
+            for filename in ("result.json", "definition.json", "source-definition.json", "clip.json"):
                 (output / case["key"] / filename).unlink(missing_ok=True)
         has_edits = any("construction" in case and case.get("mode") != "base" for case in cases)
         continue_on_failure = (all_spells or has_edits) and args.scene == "single" and not args.resource_probe
@@ -698,11 +789,15 @@ def main(all_spells):
         recording_requested = True
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)
         results, failures, last_change, last_status = {}, [], time.monotonic(), ""
+        clips = dict(cached_clips)
         while len(results) < len(cases):
             for case in cases:
                 report = output / case["key"] / "result.json"
                 if case["key"] not in results and report.exists():
                     data = json.loads(report.read_text(encoding="utf-8"))
+                    cached = case["key"] in cached_clips
+                    if data.get("runtime") != runtime or not cached and data.get("requestId") != request["id"]:
+                        raise ValueError(f"片段的实际运行版本或请求不符：{case['key']}")
                     if data.get("skipped"):
                         skipped.append(dict(id=case["id"], case=case["mode"], reason=data["reason"],
                                             report=case["key"] + "/result.json"))
@@ -719,9 +814,9 @@ def main(all_spells):
                         last_change = time.monotonic()
                         print(f"[{len(results)}/{len(cases)}] 失败：{case['name']} · {case['label']}，{reason}", flush=True)
                         continue
-                    cached = args.resume and (report.parent / "demo.mp4").exists()
                     if not cached:
                         data = encode(output, case, args.keep_frames)
+                        clips[case["key"]] = clip_facts(output, case["key"], batch)
                     results[case["key"]] = data
                     last_change = time.monotonic()
                     if not cached:
@@ -756,7 +851,15 @@ def main(all_spells):
         if version_stamp()[0]["sha256"] != version["sha256"]:
             raise ValueError("录制期间代码或资源发生了修改，本目录不可作为同一版本的验收结果，请重新录制")
         verify_loaded_inputs(catalog, version)
+        if status.get("requestId") != request["id"] or status.get("runtime") != runtime or recording_tools() != tools:
+            raise ValueError("录制期间实际游戏或工具版本发生了变化")
         recording_requested = False
+        for key, checked in clips.items():
+            if clip_facts(output, key, batch) != checked:
+                raise ValueError(f"录制期间片段发生了变化：{key}")
+        for key, checked in clips.items():
+            if key not in cached_clips:
+                write_json(output / key / "clip.json", checked)
         accepted = {key: result for key, result in results.items() if result["passed"]}
         publish(output, cases, accepted, skipped, failures)
         if failures:

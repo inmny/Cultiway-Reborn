@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 from pathlib import Path
 
-from common import PROJECT, write_json
+from common import PROJECT, file_sha256, write_json
 
 VIEWS = {'native': '原版', 'worldfall': 'Worldfall'}
 
@@ -66,7 +66,8 @@ def publish(view, rows, clips, output):
         escaped = str(clip).replace("'", "'\\''")
         playlist.extend((f"file '{escaped}'", f'duration {duration:.6f}'))
         segments.append(dict(asset=asset, variant=index, title=title, start=round(elapsed, 3),
-                             seconds=duration, video=str(clip), report=str(evidence), delivery=str(delivery)))
+                             seconds=duration, video=str(clip), report=str(evidence), delivery=str(delivery),
+                             fileSha256=file_sha256(clip)))
         elapsed += duration
     chapters = [';FFMETADATA1']
     for _, group in groupby(segments, key=lambda item: item['asset']):
@@ -107,7 +108,7 @@ def main():
         raise ValueError(f'以下索引缺少双视角验证录像 {missing}')
     args.output.mkdir(parents=True, exist_ok=True)
     results = {view: publish(view, rows, clips, args.output.resolve()) for view in VIEWS}
-    write_json(args.output / '双视角索引.json', dict(spells=len({asset for asset, _, _ in rows}),
+    write_json(args.output / '双视角索引.json', dict(historical=True, spells=len({asset for asset, _, _ in rows}),
                variants=len(rows), views=results))
 
 
