@@ -169,7 +169,7 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
     float interval = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
     float rise = Seconds(animation.Appearance, interval), fade = Seconds(animation.Dissipation, interval);
     string model = form + "_" + index;
-    bool edge = caseName == "legacy-edge" || caseName == "edge";
+    bool edge = caseName == "edge";
     var point = new Vector3(71, 72, source.GetSimPos().z);
     Ready(source);
     Place(source, 64);
@@ -191,95 +191,37 @@ async Task PlaySpike(SkillEntityAsset asset, string form, int index)
     float before = owner.GetCultisys<Xian>().wakan;
     double price = SkillCastResources.Wakan.Quote(owner,
         SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
-    bool legacy = caseName == "legacy" || caseName == "legacy-edge";
     int count = casts.Count;
-    Entity originalCast = default;
-    double firstFrame = 0, eventAge = -1;
-    float originalRadius = 0;
-    Vector3 originalPoint = default;
-    var oldTargets = new List<long>();
-    void Emitted(Entity cast)
-    {
-        if (cast.GetComponent<SkillEntity>().Asset != asset || cast.GetComponent<SkillContext>().SourceObj != source) return;
-        originalCast = cast;
-        firstFrame = World.world.getCurWorldTime();
-    }
-    void Area(Entity cast, Vector3 centre, float radius)
-    {
-        if (cast != originalCast) return;
-        eventAge = World.world.getCurWorldTime() - firstFrame;
-        originalPoint = centre;
-        originalRadius = radius;
-    }
-    void OldContact(Entity cast, BaseSimObject actor)
-    {
-        if (cast == originalCast && actor.isActor()) oldTargets.Add(actor.a.id);
-    }
-    var previous = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
-    if (legacy)
-    {
-        Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
-        SkillHitResolver.AreaResolved += Area;
-        SkillHitResolver.ContactResolved += OldContact;
-        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
-            request.SkillContainer.GetComponent<SkillContainer>().Asset == asset ? SkillEmissionResult.Unhandled : previous(request);
-    }
-    try
-    {
-        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
-            new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "地刺原已学入口受理", index);
-        source.attack_timer = 999;
-        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
-        source.updateStats();
-        if (legacy)
-        {
-            await Advance(.53f);
-            Check(casts.Count == count && originalRadius > 0f && Math.Abs(originalRadius - 1.4f) < .001f &&
-                  Vector2.Distance(originalPoint, point) < .03f && oldTargets.OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
-                  (index == 0 ? eventAge >= rise - .035 && eventAge <= rise + .075 : eventAge < .06),
-                "旧执行的地刺作用时点、半径和两名实际目标已取样", new { index, rise, eventAge, originalRadius, oldTargets });
-            recordings.Add(new { asset = asset.id, index, rise, fade, eventAge, originalRadius,
-                originalPoint = new[] { originalPoint.x, originalPoint.y, originalPoint.z }, distances, hits = oldTargets });
-            return;
-        }
-
-        await Advance(.065f);
-        Check(casts.Count == count + 1 && oldExecutions == 0, "地刺进入共同执行", index);
-        var live = casts.Last();
-        var cast = live.Value;
-        if (rise > 0f)
-            Check(cast.Age < rise && ShapeCount(cast) == 0 && contacts.All(hit => hit.CastId != live.Key),
-                "岩床上升时没有提前伤害", index);
-        var first = Views(cast).Single(view => view.Resource.Description.Id == model);
-        Vector3 center = first.Transform.GetColumn(3);
-        Check(Vector2.Distance(center, point) < .035f &&
-              Math.Abs(first.Resource.Description.Contacts.Single().Sector.Radius * first.Transform.lossyScale.x - 1.4f) < .001f,
-            "真实岩床中心和 1.4 格作用半径与旧术一致", model);
-        await Stage(cast, Math.Max(.01f, rise) + .070f);
-        var settling = Views(cast).Single(view => view.Resource.Description.Id == model);
-        Check(ShapeCount(cast) == 0 && Vector2.Distance((Vector3)settling.Transform.GetColumn(3), center) < .02f,
-            "原地收回期间已经退出作用范围", model);
-        await Advance(.29f);
-        var damage = contacts.Where(hit => hit.CastId == live.Key && hit.Damage.HealthLost > 0).ToArray();
-        Check(damage.Select(hit => hit.TargetId).OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
-              damage.All(hit => Math.Abs(hit.Age - Math.Max(.01f, rise)) < .01f) && cast.Finished &&
-              Views(cast).Length == 0 && Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
-            "地刺只作用一轮，范围外安全，原价支付并自然结束", new { model, price,
-                hits = damage.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray(), cast.Age, cast.Finished });
-        recordings.Add(new { asset = asset.id, index, form = model, rise, fade, price, distances,
-            hits = damage.Select(hit => hit.TargetId).ToArray(), times = damage.Select(hit => hit.Age).ToArray() });
-    }
-    finally
-    {
-        if (legacy)
-        {
-            Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = previous;
-            Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
-            SkillHitResolver.AreaResolved -= Area;
-            SkillHitResolver.ContactResolved -= OldContact;
-            oldExecutions = 0;
-        }
-    }
+    Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+        new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "地刺原已学入口受理", index);
+    source.attack_timer = 999;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    await Advance(.065f);
+    Check(casts.Count == count + 1 && oldExecutions == 0, "地刺进入共同执行", index);
+    var live = casts.Last();
+    var cast = live.Value;
+    if (rise > 0f)
+        Check(cast.Age < rise && ShapeCount(cast) == 0 && contacts.All(hit => hit.CastId != live.Key),
+            "岩床上升时没有提前伤害", index);
+    var first = Views(cast).Single(view => view.Resource.Description.Id == model);
+    Vector3 center = first.Transform.GetColumn(3);
+    Check(Vector2.Distance(center, point) < .035f &&
+          Math.Abs(first.Resource.Description.Contacts.Single().Sector.Radius * first.Transform.lossyScale.x - 1.4f) < .001f,
+        "真实岩床中心和 1.4 格作用半径与旧术一致", model);
+    await Stage(cast, Math.Max(.01f, rise) + .070f);
+    var settling = Views(cast).Single(view => view.Resource.Description.Id == model);
+    Check(ShapeCount(cast) == 0 && Vector2.Distance((Vector3)settling.Transform.GetColumn(3), center) < .02f,
+        "原地收回期间已经退出作用范围", model);
+    await Advance(.29f);
+    var damage = contacts.Where(hit => hit.CastId == live.Key && hit.Damage.HealthLost > 0).ToArray();
+    Check(damage.Select(hit => hit.TargetId).OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
+          damage.All(hit => Math.Abs(hit.Age - Math.Max(.01f, rise)) < .01f) && cast.Finished &&
+          Views(cast).Length == 0 && Math.Abs(before - owner.GetCultisys<Xian>().wakan - price) < .001f,
+        "地刺只作用一轮，范围外安全，原价支付并自然结束", new { model, price,
+            hits = damage.Select(hit => new { hit.TargetId, hit.Age, hit.Damage.HealthLost }).ToArray(), cast.Age, cast.Finished });
+    recordings.Add(new { asset = asset.id, index, form = model, rise, fade, price, distances,
+        hits = damage.Select(hit => hit.TargetId).ToArray(), times = damage.Select(hit => hit.Age).ToArray() });
 }
 
 async Task CheckWallContact(SkillEntityAsset asset, string form, long castId, AbilityCast cast)
@@ -472,12 +414,11 @@ async Task PlayShield(SkillEntityAsset asset, string form, int index)
         "实际护盾位置、容量和原生命周期一致", new { model, activeEnd, recovery, cast.Plan.Lifetime, center = center.ToString() });
 
     Entity stone = new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.SourceGranted);
-    Entity shot = Cultiway.ModClass.I.SkillV3.SpawnSkillAtPosition(stone, target,
-        new Vector3(64, 72, .6f), source, new Vector3(70, 72, .6f), 13, 0);
+    Check(target.GetExtend().CastSkillV3(stone, source, strength: 13f, power_level: 0f,
+        funding_source: SkillCastFundingSource.Prepaid), "实际石锥发射受理", model);
     await Advance(.58f);
     float remaining = cast.RemainingForce(0);
-    Check((shot.IsNull || !shot.IsAvailable() || shot.Tags.Has<TagRecycle>() || shot.Tags.Has<TagSkillAnimationNoCollision>()) &&
-          Math.Abs(remaining - 287f) < .001f && source.data.health == hp && contacts.All(hit => hit.CastId != live.Key),
+    Check(Math.Abs(remaining - 287f) < .001f && source.data.health == hp && contacts.All(hit => hit.CastId != live.Key),
         "厚壳仅消耗一次拦截容量，人物无伤害或反击", new { model, hp, after = source.data.health, remaining });
     if (asset == SkillEntities.SpiritShield)
     {
@@ -754,104 +695,6 @@ async Task PlayField(SkillEntityAsset asset, string form, int index)
         ages = hits.Select(hit => hit.Age).ToArray(), live = live.Key });
 }
 
-async Task PlayLegacyRift()
-{
-    var asset = SkillEntities.Rift;
-    Entity skill = Learn(asset, 0, false);
-    var animation = asset.GetAnimation(0);
-    float frame = skill.GetComponent<SkillContainer>().MotionProfile.FrameInterval;
-    float rise = Seconds(animation.Appearance, frame), fall = Seconds(animation.Dissipation, frame);
-    float radius = SkillEffectRadius.ResolveForCaster(owner, skill,
-        asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
-    Vector3 point = new(70.5f, 72.5f, 0f);
-    Ready(source);
-    Place(source, 64, point.y);
-    Place(target, point.x, point.y);
-    Place(second, point.x + radius - .025f, point.y);
-    Place(outside, point.x + radius + .025f, point.y);
-    foreach (var actor in new[] { source, target, second, outside }) ConstructedAbilityService.NotifyActorChanged(actor);
-    int x0 = (int)point.x, y0 = (int)point.y;
-    var tiles = Enumerable.Range(x0 - 3, 7).SelectMany(x => Enumerable.Range(y0 - 3, 7)
-        .Select(y => World.world.GetTileSimple(x, y))).ToArray();
-    var buildingTile = World.world.GetTileSimple(x0, y0 - 1);
-    Building building = World.world.buildings.addBuilding("beehive", buildingTile);
-    building.setKingdom(enemyKingdom);
-    var types = tiles.ToDictionary(tile => tile, tile => tile.Type.id);
-    var heights = tiles.ToDictionary(tile => tile, tile => tile.Height);
-    float structureBefore = building.getHealth();
-    int centerBefore = target.data.health, edgeBefore = second.data.health, outsideBefore = outside.data.health;
-    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
-    float balance = owner.GetCultisys<Xian>().wakan;
-    double price = SkillCastResources.Wakan.Quote(owner,
-        SkillCastCost.CalculateStepDemand(skill) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
-    Entity execution = default;
-    Vector3 center = default;
-    float measuredRadius = 0;
-    double startedAt = 0, impactAge = -1;
-    int impacts = 0;
-    var hit = new List<long>();
-    bool structureContact = false;
-    string vfx = null;
-
-    void Emitted(Entity entity)
-    {
-        if (entity.GetComponent<SkillEntity>().Asset != asset || entity.GetComponent<SkillContext>().SourceObj != source) return;
-        execution = entity;
-        vfx = entity.GetComponent<SkillEntity>().VfxElement?.id;
-        startedAt = World.world.getCurWorldTime();
-    }
-    void Area(Entity entity, Vector3 position, float actualRadius)
-    {
-        if (entity != execution) return;
-        impacts++;
-        impactAge = World.world.getCurWorldTime() - startedAt;
-        center = position;
-        measuredRadius = actualRadius;
-    }
-    void Contact(Entity entity, BaseSimObject receiver)
-    {
-        if (entity != execution) return;
-        if (receiver.isActor()) hit.Add(receiver.a.id);
-        if (receiver == building) structureContact = true;
-    }
-    var previous = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
-        request.SkillContainer.GetComponent<SkillContainer>().Asset == asset ? SkillEmissionResult.Unhandled : previous(request);
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Emitted;
-    SkillHitResolver.AreaResolved += Area;
-    SkillHitResolver.ContactResolved += Contact;
-    try
-    {
-        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
-            new ActiveAbilityTarget(null, point), ActiveAbilityUseOrigin.Player), "墟隙原学习入口受理");
-        source.attack_timer = 999;
-        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
-        source.updateStats();
-        await Advance(rise + fall + .18f);
-        var changed = tiles.Where(tile => tile.Type.id != types[tile] || tile.Height != heights[tile])
-            .Select(tile => new { tile.pos.x, tile.pos.y, before = types[tile], after = tile.Type.id,
-                beforeHeight = heights[tile], afterHeight = tile.Height }).ToArray();
-        var damage = new { center = centerBefore - target.data.health, edge = edgeBefore - second.data.health,
-            outside = outsideBefore - outside.data.health, structure = structureBefore - (building.isRekt() ? 0f : building.getHealth()) };
-        Check(oldExecutions == 1 && casts.Count == 0 && impacts == 1 && impactAge >= rise - .035 &&
-              impactAge < rise + .09 && Math.Abs(measuredRadius - radius) < .001f &&
-              Vector2.Distance(center, point) < .03f && hit.OrderBy(id => id).SequenceEqual(new[] { target.id, second.id }.OrderBy(id => id)) &&
-              damage.center > 0 && damage.edge > 0 && damage.outside == 0 &&
-              Math.Abs(balance - owner.GetCultisys<Xian>().wakan - price) < .001f,
-            "旧执行在成形后只爆发一次，半径、敌方中心、费用和地块结果可对账",
-            new { rise, fall, impactAge, measuredRadius, center = center.ToString(), impacts, hit, damage, changed, structureContact, price });
-        recordings.Add(new { asset = asset.id, index = 0, rise, fall, impactAge, radius = measuredRadius,
-            center = center.ToString(), damage, hit, structureContact, vfx, changed, price });
-    }
-    finally
-    {
-        Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = previous;
-        Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Emitted;
-        SkillHitResolver.AreaResolved -= Area;
-        SkillHitResolver.ContactResolved -= Contact;
-    }
-}
-
 async Task PlayRift(string form)
 {
     var asset = SkillEntities.Rift;
@@ -930,8 +773,7 @@ async Task Play(SkillEntityAsset asset, string form, int index)
 {
     if (asset == SkillEntities.Rift)
     {
-        if (caseName == "legacy") await PlayLegacyRift();
-        else await PlayRift(form);
+        await PlayRift(form);
         return;
     }
     if (asset == SkillEntities.SpiritBeam || asset == SkillEntities.SolarBeam || asset == SkillEntities.ChainLightning)

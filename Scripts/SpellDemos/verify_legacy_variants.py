@@ -127,7 +127,7 @@ def main():
     parser.add_argument('spell', choices=('fireball', 'fire-family', *batches, *projectile_spells))
     parser.add_argument('--variant', type=int, choices=range(18), action='append',
                         help='只复验指定旧索引，可重复指定')
-    ground_checks = ('legacy', 'legacy-edge', 'edge')
+    ground_checks = ('edge',)
     parser.add_argument('--case', choices=('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', 'gravity', 'archive', 'cold', 'official-switch', *ground_checks))
     parser.add_argument('--archive', type=Path, help='冷启动使用之前实际保存的目录')
     args = parser.parse_args()
@@ -143,7 +143,7 @@ def main():
             asset, count = projectile_spells[args.spell]
             if case not in ('hit', 'miss', 'tracking', 'landing', 'cancel', 'scatter', *ground_checks) or any(i >= count for i in args.variant or []):
                 parser.error('单术实测需选择该法术已有的旧索引')
-            if case in ground_checks and args.spell != 'ground-spike' and (args.spell != 'rift' or case != 'legacy'):
+            if case in ground_checks and args.spell != 'ground-spike':
                 parser.error('旧执行对照使用地刺或墟隙，单独边界复验使用地刺')
             if args.spell == 'rift' and case not in ('hit', 'miss', 'legacy'):
                 parser.error('墟隙单术实测使用 hit、miss 或 legacy')

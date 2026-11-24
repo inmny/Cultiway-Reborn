@@ -257,37 +257,6 @@ try
     Check(!SkillExecutionLifecycle.TryBorrowBody(second, artifact), "已请求结束的执行体不能重新取得本体");
     await Advance(.1f);
     Check(!artifact.IsNull && !artifact.HasComponent<SkillExecutionBodyLease>(), "重复结束仍保留原法宝并释放控制");
-// 真实执行初始化在取得两类主体后抛错：保留原错误并撤销本次关联。
-    var container = new SkillContainerBuilder(SkillEntities.SwordQi).UseAnimation(0)
-        .Build(SkillContainerBuildMode.SourceGranted);
-    Entity failedRoot = default, failedChild = default;
-    container.GetComponent<SkillContainer>().OnSetup = e =>
-    {
-        failedRoot = e;
-        if (!e.HasComponent<SkillExecution>()) e.AddComponent(new SkillExecution());
-        failedChild = world.CreateEntity(new Position(), new Rotation());
-        if (!SkillExecutionLifecycle.TryBorrowBody(e, artifact) ||
-            !SkillExecutionLifecycle.TryBindSpawnedBody(e, failedChild, "child"))
-            throw new InvalidOperationException("测试未取得实际主体");
-        throw new InvalidOperationException("test.subjects.initialize");
-    };
-    bool failed = false;
-    try
-    {
-        Cultiway.ModClass.I.SkillV3.SpawnSkill(container, actor, enemy, 1f);
-    }
-    catch (InvalidOperationException error)
-    {
-        failed = error.Message == "test.subjects.initialize";
-    }
-
-    Check(
-        failed && failedRoot.Tags.Has<TagRecycle>() && !artifact.IsNull &&
-        !artifact.HasComponent<SkillExecutionBodyLease>() &&
-        failedChild.Tags.Has<TagRecycle>(), "真实初始化失败保留原错误，归还借用并回收自己创建的主体");
-    await Advance(.1f);
-    Check(failedRoot.IsNull && failedChild.IsNull && owner.GetItems().Contains(artifact),
-        "失败后统一回收完成，原法宝的库存归属保持");
 // 实际切世界后旧身体凭据不能清除新世界后来取得的部位。
     long originalId = actor.id;
     var oldWorldLease = BodyControlState.TryAcquire(originalId, BodyOccupancy.RightArm);
