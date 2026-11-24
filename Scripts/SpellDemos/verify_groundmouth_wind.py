@@ -66,7 +66,7 @@ def main():
                           "    await Game.NextFrame();", 1)
     flags = f'const string section = "{args.section}";\nbool cityFilm = {str(args.city).lower()};\n'
     path = output / "input.script"
-    path.write_text("\n".join([helpers, shared, loose, flags, (scripts / "verify_groundmouth_wind.script").read_text()]))
+    path.write_text("\n".join([helpers, shared, loose, flags, (scripts / "city_film_scene.script").read_text(), (scripts / "verify_groundmouth_wind.script").read_text()]))
     try:
         result = baseline.call("run", str(path), "125000")
     except RuntimeError as error:

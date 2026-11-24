@@ -15,7 +15,10 @@ def main():
     parser.add_argument("--section", choices=("district", "carrier", "reordered", "editor"), default="district")
     parser.add_argument("--record", choices=("native", "worldfall"))
     parser.add_argument("--save", action="store_true", help="保存放完后仍在世界里的五相材料")
+    parser.add_argument("--city", action="store_true", help="在城域现场复用本招的正式施放")
     args = parser.parse_args()
+    if args.city and (args.section != "district" or args.record != "native"):
+        parser.error("--city 只用于原版的主术录像")
     if args.save and args.section == "editor":
         parser.error("正式存档需要实战场景")
     if args.record and args.section == "editor":
@@ -70,7 +73,9 @@ def main():
     else:
         scenario = (scripts / "verify_five_phase_district.script").read_text()
     path = output / "input.script"
-    path.write_text("\n".join([imports + helpers, shared, f'const string section = "{args.section}";\nconst bool save = {str(args.save).lower()};', scenario]))
+    flags = (f'const string section = "{args.section}";\nconst bool save = {str(args.save).lower()};\n'
+             f'bool cityFilm = {str(args.city).lower()};')
+    path.write_text("\n".join([imports + helpers, shared, flags, (scripts / "city_film_scene.script").read_text(), scenario]))
     try:
         result = baseline.call("run", str(path), "145000")
     except RuntimeError as error:
@@ -78,7 +83,7 @@ def main():
         raise RuntimeError(f"五相换城复验位于 {output}") from error
     write_json(output / "result.json", result)
     if result.get("passed") and args.record:
-        encode(output.parent, dict(key=output.name, name=result["name"], label="正式施放", variant=1,
+        encode(output.parent, dict(key=output.name, name=result["name"], label="城区实录" if args.city else "正式施放", variant=1,
                                   trajectory="district material handoff", modifiers=[],
                                   caption=result["caption"]), keep_frames=True)
     print(json.dumps(dict(output=str(output), result=result), ensure_ascii=False), flush=True)

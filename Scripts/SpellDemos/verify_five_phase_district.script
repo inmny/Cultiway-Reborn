@@ -48,7 +48,7 @@ AbilityCast Send(string key, Vector3 start)
     ConstructedAbilityService.Learn(attacker, attack.Id);
     var handle = new ActiveAbilityHandle("content.constructed", attacker.E, attack.Id);
     var ground = (AbilityHeightField)service.GetProperty("BodyTerrain", F).GetValue(null);
-    var input = new Vector3(start.x, start.y, start.z - ground.Sample(start.x, start.y));
+    var input = new Vector3(start.x, start.y, start.z - (ground?.Sample(start.x, start.y) ?? 0f));
     victim.attack_timer = 0;
     bool accepted = ActiveAbilityService.TryUse(attacker, handle, new ActiveAbilityTarget(null, input), ActiveAbilityUseOrigin.Script);
     victim.attack_timer = 999;
@@ -119,6 +119,7 @@ try
     var previousMaterials = new HashSet<long>(Materials().Select(row => (long)row["Id"]));
     bool film = recordView.Length > 0, fromCarrier = section != "district";
     if (film) await SetCamera(19.5f);
+    City city = cityFilm ? CreateFilmCity(64) : null;
     var launch = fromCarrier ? await StartCarried(definition) : await Use(definition, 78f);
     ControllableUnit.clear(false);
     if (film)
@@ -277,8 +278,17 @@ try
         }, Formatting.Indented));
         Check(File.Exists(Path.Combine(archive, "map.wbox")), "以正式入口保存仍在世界里的五相材料");
     }
+    var cityRoute = cityFilm ? new
+    {
+        sourceInCity = IsInFilmCity(city, source.current_position),
+        attackerInCity = IsInFilmCity(city, victim.current_position),
+        source = source.current_position.ToString(), attacker = victim.current_position.ToString(),
+        contacts = bearing.Select(hit => hit.at).ToArray(), width = maxWidth
+    } : null;
+    if (cityFilm) Check(cityRoute.sourceInCity && !cityRoute.attackerInCity,
+        "城区内的岩壳逐相承力，实际回应城外来势", cityRoute);
     return new { passed = true, name = definition.Name, scene = "construction", resource = definition.Resource,
-        paid = definition.Cost, view = recordView, duration, times, archive,
+        paid = definition.Cost, view = recordView, duration, times, archive, cityRoute,
         previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(t => t >= pressAt + .12)), details,
         caption = section == "reordered" ? "原法宝承载 · 金火换序、交锋及原物归还"
             : fromCarrier ? "原法宝承载 · 五相交锋及原物归还" : "城域岩壳 · 实际换相、受力和落地支座" };

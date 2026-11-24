@@ -3420,3 +3420,5 @@ python3 .agents/skills/develop/scripts/dev.py exec --timeout 110 -- \
 保存成功并确认旧进程退出后，重启同一独立游戏，再用 `dev.py exec --timeout 185 -- python3 Scripts/SpellDemos/record_natural_creation.py --stage cold --archive <prepare 输出目录>`。读取原始正式档，核对同一人物、构造及学习关系，并实录第二次自主施放。两段均核对实际支付、对手掉血和自然结束。说明画面是定格，战斗画面按真实世界时间编码。
 
 `verify_groundmouth_wind.py --section film --view native --city` 可在上述独立游戏入口录制地口行风穿越原版城区边界。保留槽内外人物坐标、原剑落地与再次拾取、实际费用和自然卸压记录。
+
+同一城区取景支持 `verify_solar_reservoir.py --section film --view native --city` 和 `verify_five_phase_district.py --section district --record native --city`。两段分别保留来自城外的真实来势、护持和反击，以及五次换相承力和落地支座。

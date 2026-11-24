@@ -51,6 +51,7 @@ try
     }
 
     bool miss = section == "miss", film = section == "film";
+    City city = cityFilm ? CreateFilmCity(72) : null;
     var shotA = ShotDefinition("first", 6f);
     var shotB = ShotDefinition("second", 9f);
     var screen = Make(62);
@@ -173,8 +174,17 @@ try
     }
     Check(cast.Finished && Forms(cast).Length == 0 && !BodyControlState.IsBusy(source.id),
           "原壳、裂口、余光及占用一同退场");
+    var cityRoute = cityFilm ? new
+    {
+        sourceInCity = IsInFilmCity(city, source.current_position),
+        attackerInCity = IsInFilmCity(city, victim.current_position),
+        firstContact = firstContact.ToString(), source = source.current_position.ToString(),
+        attacker = victim.current_position.ToString()
+    } : null;
+    if (cityFilm) Check(cityRoute.sourceInCity && !cityRoute.attackerInCity,
+        "为城区内的来源挡住城外来势，反击实际命中原来袭者", cityRoute);
     return new { passed = true, scene = "construction", resource = definition.Resource, paid = definition.Cost,
-        section, view = recordView, phase, duration, times, previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(t => t >= openingTime)) };
+        section, view = recordView, phase, cityRoute, duration, times, previewFrame = times == null ? 0 : Math.Max(0, times.FindIndex(t => t >= openingTime)) };
 }
 finally
 {
