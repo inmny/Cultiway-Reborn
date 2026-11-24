@@ -113,6 +113,9 @@ private long executionCase;
 private readonly List<object> worldContactsLog = new();
 private readonly List<ConstructedCastEnded> constructionEndLog = new();
 
+/// <summary>已实际登记给收件人的消息，按施放编号与接触独立归档。</summary>
+private readonly List<ConstructedSignalReceipt> signals = new();
+
 /// <summary>当前观察的技能容器。</summary>
 private Entity observed;
 
@@ -895,6 +898,7 @@ private void Update()
     SkillHitResolver.BarrierContactResolved += OnBarrier;
     ConstructedAbilityService.CastStarted += OnConstructedStart;
     ConstructedAbilityService.WorldContactConfirmed += OnWorldContact;
+    ConstructedAbilityService.SignalReceived += OnSignal;
     ConstructedAbilityService.RecoveryConfirmed += OnConstructedRecovery;
     ConstructedAbilityService.ConductionConfirmed += OnConduction;
     ConstructedAbilityService.QuenchingConfirmed += OnQuenching;
@@ -978,6 +982,7 @@ private IEnumerator Guarded(IEnumerator steps)
     SkillHitResolver.BarrierContactResolved -= OnBarrier;
     ConstructedAbilityService.CastStarted -= OnConstructedStart;
     ConstructedAbilityService.WorldContactConfirmed -= OnWorldContact;
+    ConstructedAbilityService.SignalReceived -= OnSignal;
     ConstructedAbilityService.RecoveryConfirmed -= OnConstructedRecovery;
     ConstructedAbilityService.ConductionConfirmed -= OnConduction;
     ConstructedAbilityService.QuenchingConfirmed -= OnQuenching;
@@ -1554,6 +1559,9 @@ private IEnumerator RecordConstruction(JObject item)
         : Array.Empty<JObject>();
     int actualContacts = targetContacts.Length;
     long ownCast = scriptCasts.Length == 1 ? (long)scriptCasts[0]["cast"] : 0;
+    var deliveredSignals = signals.Where(value => ownCast != 0 && value.CastId == ownCast &&
+        value.SenderId == sourceId && value.RecipientId == targetId).ToArray();
+    bool requiresDelivery = definition.Steps?.Any(step => step?.Operation?.Kind == ConstructionOperationKind.SendSignal) == true;
     JObject[] worldChanges = ownCast == 0 ? Array.Empty<JObject>() :
         worldContactsLog.Select(JObject.FromObject)
             .Where(value => (long)value["cast"] == ownCast && (string)value["id"] == definition.Id &&
@@ -1645,14 +1653,15 @@ private IEnumerator RecordConstruction(JObject item)
     double shieldAbsorbed = targetResponses.Sum(value => (double?)value["shieldAbsorbed"] ?? 0) +
         queuedDamage.Sum(value => (double)value["shieldAbsorbed"]);
     bool executed = used && ownCast != 0;
-    bool extentConfirmed = actualContacts > 0 || worldChanges.Length > 0 || fireConditionVerified || selfStatusApplied ||
+    bool extentConfirmed = deliveredSignals.Length > 0 || actualContacts > 0 || worldChanges.Length > 0 ||
+        fireConditionVerified || selfStatusApplied ||
         conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 || ownHeating.Length > 0 ||
         transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001;
     bool opponentConfirmed = opponent == null || opponentUsed && opponentPaid == opponent.Cost &&
         (actualClashes > 0 || activeWaterSources > 0 || quenchedWaterSources > 0 || heatedWoodSources > 0 ||
          opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 ||
                                     conductedHits > 0 || quenchedVolume > 0 || heatedWorld.Length > 0));
-    bool effectConfirmed = extentConfirmed && opponentConfirmed &&
+    bool effectConfirmed = extentConfirmed && opponentConfirmed && (!requiresDelivery || deliveredSignals.Length > 0) &&
         (cleanPlot == null || cleanConfirmed) && (definition.WorldCondition == null || fireConditionVerified) &&
         (selfStatus == null || selfStatusApplied) &&
         ((extinguished || ownHeating.Length > 0) && actualContacts == 0 ? Health(target) == health :
@@ -1662,6 +1671,7 @@ private IEnumerator RecordConstruction(JObject item)
         ? organPoseFrames + jointPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId)
         : peak > 0) && (walk == 0f || Vector2.Distance(casterStart, caster.current_position) > .25f);
     string validationError = !executed ? "未确认一次正式施放" :
+        requiresDelivery && deliveredSignals.Length == 0 ? "已实际出手，未确认向所选对象送达" :
         !effectConfirmed ? "已实际出手，未确认本段要求的作用" :
         paid != definition.Cost ? "实扣与构造费用不符" :
         !presentationReady ? "实际作用成立，录制未满足形体或动作要求" : null;
@@ -1673,7 +1683,9 @@ private IEnumerator RecordConstruction(JObject item)
             payment = new { resource = definition.Resource, paid, before, afterPayment } },
         effect = new { confirmed = executed ? (bool?)effectConfirmed : null, target = pointTarget ? (long?)null : targetId,
             contacts = actualContacts, lost, shieldAbsorbed, changedTiles = worldChanges.Length,
-            recovery = recoveredResource, selfStatusApplied, acceptedBind, acceptedStagger },
+            signalsDelivered = deliveredSignals.Length, recovery = recoveredResource, selfStatusApplied,
+            acceptedBind, acceptedStagger },
+        deliveredSignals = deliveredSignals.Select(SignalFact).ToArray(),
         isolatedTarget = (bool?)request["isolateTarget"] ?? false,
         heatedWoodSources, heatedCasts, heatedWorld, burnedVolume, burningLog,
         quenchedVolume, quenchedWaterSources, extinguished, quenchingLog,
@@ -2290,6 +2302,7 @@ private void Prepare(JObject item)
     }
     artifactDetails = null;
     executionLog.Clear();
+    signals.Clear();
     worldContactsLog.Clear();
     constructionEndLog.Clear();
     worldMaterialsLog.Clear();
@@ -2780,14 +2793,26 @@ private IEnumerator Record(JObject item, string folder)
         (long?)hit["target"] == enemies[0].id).ToArray() : Array.Empty<JObject>();
     bool palmReleased = palm && palmEnd.HasValue && !palmEnd.Value.Cancelled && !BodyControlState.IsBusy(caster.id) &&
         !ConstructedAbilityService.TryGetBodyPose(caster.id, out _);
+    bool palmConfirmed = palm && palmCast > 0 && palmHits.Length == 1 && palmDamage.Length == 1 &&
+        (int?)palmDamage[0]["count"] == 1 && (int?)palmDamage[0]["lost"] > 0 && palmReleased;
+    bool shield = (string)request["scene"] == "shield";
+    bool shieldConfirmed = probeUsed && barrierBefore > barrierLowest &&
+        ((bool?)request["shieldBreak"] != true || breakProbeUsed && barrierLowest == 0f);
+    bool? effectConfirmed = palm ? (bool?)palmConfirmed : shield ? shieldConfirmed :
+        formationStatus == null ? null : formationActiveAt.HasValue;
+    int recordedContacts = contactsLog.Select(JObject.FromObject).Count(row =>
+        (string)row["id"] == id && (long?)row["source"] == caster.id);
     Write(Path.Combine(folder, "result.json"), new
     {
         passed = (spawned > 0 || dedicated && !formationActive && used) && errors.Count == 0 &&
                  (requiredSource == null || formationStatus == null || formationActiveAt.HasValue) &&
-                 (!palm || palmCast > 0 && palmHits.Length == 1 && palmDamage.Length == 1 &&
-                     (int?)palmDamage[0]["count"] == 1 && (int?)palmDamage[0]["lost"] > 0 && palmReleased) &&
-                 ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest) &&
-                 ((bool?)request["shieldBreak"] != true || breakProbeUsed && barrierLowest == 0f),
+                 (!palm || palmConfirmed) &&
+                 (!shield || shieldConfirmed),
+        execution = new { accepted = used, started = spawned > 0 || palmCast > 0, source = caster.id },
+        effect = new { confirmed = effectConfirmed, contacts = recordedContacts,
+            lost = palm ? (int?)palmDamage.Sum(hit => (int?)hit["lost"] ?? 0) : null,
+            shieldAbsorbed = shield && probeUsed ? (float?)(barrierBefore - barrierLowest) : null,
+            formationActiveAt },
         id, item, frames = times.Count, times, start, motionFrames,
         sourceProvider = dedicated ? ability.ProviderId : null,
         sourceEntry = dedicated ? ability.EntryId : null,
@@ -3010,6 +3035,21 @@ private void OnWorldContact(ConstructedWorldContact contact) => worldContactsLog
     flags = contact.Result.Flags.ToString()
 });
 
+/// <summary>只记录正式送达的消息，不用选中的目标冒充实际收件人。</summary>
+private void OnSignal(ConstructedSignalReceipt received) => signals.Add(received);
+
+/// <summary>只保留可与实际施放对应的送达内容及冻结方位。</summary>
+private static object SignalFact(ConstructedSignalReceipt received) => new
+{
+    cast = received.CastId, sender = received.SenderId, recipient = received.RecipientId,
+    kind = received.Kind.ToString(), time = received.WorldTime,
+    observation = received.Observation is { } seen ? new
+    {
+        subject = seen.SubjectId, point = new[] { seen.Position.x, seen.Position.y },
+        observedAt = seen.ObservedAt, expiresAt = seen.ExpiresAt
+    } : null
+};
+
 /// <summary>记录已确认世界材料，与原施放和独立稳定编号对应。</summary>
 /// <param name="change">正式维护者已经接受的变化。</param>
 private void OnWorldMaterial(WorldMaterialChange change) => worldMaterialsLog.Add(new
@@ -3194,6 +3234,7 @@ private void OnContact(Entity entity, BaseSimObject target)
     contactsLog.Add(new
     {
         time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id,
+        source = entity.GetComponent<SkillContext>().SourceObj?.getID(), framework = "legacy",
         target = target.getID(), position = target.GetSimPos().ToString()
     });
 }
@@ -3288,6 +3329,7 @@ private IEnumerator RecordBattle(JObject item, string folder)
     enemy.setAttackTarget(caster);
     caster.attack_timer = enemy.attack_timer = 0;
     executionLog.Clear();
+    signals.Clear();
     worldContactsLog.Clear();
     worldMaterialsLog.Clear();
     recoveryLog.Clear();
@@ -3355,7 +3397,8 @@ private IEnumerator RecordBattle(JObject item, string folder)
     var pairedReactions = quenchingLog.Select(JObject.FromObject).Where(row =>
         Opposing((long)row["fireCast"], (long)row["waterCast"]) &&
         (float)row["spent"] > 0f && (double)row["evaporated"] > 0d).ToArray();
-    string reason = (string)request["battleEvent"] switch
+    string battleEvent = (string)request["battleEvent"];
+    string reason = battleEvent switch
     {
         "clash" when pairedClashes.Length == 0 => "观察时间内未发生双方自主施放的相撞损耗",
         "guard" when guards.Length == 0 => "观察时间内未发生双方自主施放的格挡消耗",
@@ -3376,12 +3419,20 @@ private IEnumerator RecordBattle(JObject item, string folder)
         passed = (constructed ? casts.Length > 0 : distinct >= 2 && together >= 2) &&
             rivalCasts.Length > 0 && artifactUsed && reason == null && errors.Count == 0,
         error = reason,
+        execution = new { started = casts.Length > 0 && rivalCasts.Length > 0,
+            leftCasts = casts.Length, rightCasts = rivalCasts.Length },
+        effect = new { confirmed = battleEvent == null ? (bool?)null : reason == null, required = battleEvent,
+            clashes = pairedClashes.Length, clashAbsorbed = pairedClashes.Sum(row => (double)row["absorbed"]),
+            guards = guards.Length, guardAbsorbed = guards.Sum(row => (double)row["absorbed"]),
+            breaks = breaks.Length, reflections = pairedReflections.Length, reactions = pairedReactions.Length },
         item, frames = times.Count, times,
         duration = World.world.getCurWorldTime() - start, spawned = casts.Length, distinct, together,
         rivalCasts = rivalCasts.Length, artifactUsed, artifactDetails,
         view = (string)request["view"], viewState, finalViewState = ConfirmViewState(),
         lighting = (string)request["lighting"] ?? "day",
-        lightingState = LightingState(), scene = "battle", executionLog, contactsLog, areasLog, barrierLog,
+        lightingState = LightingState(), scene = "battle", executionLog, contactsLog, queuedDamageLog, areasLog, barrierLog,
+        deliveredSignals = signals.Where(value => leftIds.Contains(value.CastId) || rightIds.Contains(value.CastId))
+            .Select(SignalFact).ToArray(),
         participants = new[] { new { id = caster.id, before = ownerHealth, after = Health(caster) },
             new { id = enemy.id, before = rivalHealth, after = Health(enemy) } },
         clashesLog, pairedClashes, guards, breaks, reflectionsLog, pairedReflections, quenchingLog, pairedReactions,

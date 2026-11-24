@@ -380,7 +380,12 @@ def publish(output, cases, results, skipped, failures=()):
         title = f"{case['name']} · {case['label']} · 变体 {case['variant']}"
         details = case.get("trajectoryName", case["trajectory"]) + " · " + ("、".join(case.get("modifierLabels", [])) or "无额外词条")
         report = case["key"] + "/result.json"
-        result_label = "已出手 · 实际作用成立" if data.get("effect", {}).get("confirmed") is True else "实际记录"
+        confirmed = (data.get("effect") or {}).get("confirmed")
+        if (data.get("execution") or {}).get("started"):
+            result_label = "已出手 · 实际作用成立" if confirmed is True else (
+                "已出手 · 作用未成立" if confirmed is False else "已出手 · 作用待核对")
+        else:
+            result_label = "实际记录"
         body.append(f'<article><h2>{html.escape(title)}</h2><p>{html.escape(case["id"])} · {html.escape(details)}</p>'
                     f'<video controls preload="none" poster="{case["key"]}/preview.png" src="{video}"></video>'
                     f'<p><a href="{report}">{result_label}</a></p></article>')
