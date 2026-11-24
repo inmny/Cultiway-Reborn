@@ -149,11 +149,12 @@ async Task<object> VerifyDelivery()
 
 async Task<object> Record(AbilityCast cast)
 {
-    var type = WorldfallType();
-    var mod = type.GetProperty("Instance", F).GetValue(null);
-    var god = type.GetProperty("GodShown", F);
-    var firstPerson = type.GetProperty("IsFirstPerson", F);
-    var gpu = type.GetField("_gpuShown", F);
+    var type = recordView == "worldfall" ? WorldfallType() : AppDomain.CurrentDomain.GetAssemblies()
+        .Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(found => found != null);
+    var mod = type?.GetProperty("Instance", F).GetValue(null);
+    var god = type?.GetProperty("GodShown", F);
+    var firstPerson = type?.GetProperty("IsFirstPerson", F);
+    var gpu = type?.GetField("_gpuShown", F);
     var lastDraw = typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer")
         .GetProperty("LastDrawCount", F);
     int near = Node(cast, "root/near"), far = Node(cast, "root/far"), fold = Node(cast, "root/near/fold");
@@ -164,8 +165,9 @@ async Task<object> Record(AbilityCast cast)
     const float duration = 3.93f;
     var times = await Film(duration, () =>
     {
-        stable &= !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
-                  (recordView != "worldfall" || (bool)gpu.GetValue(mod));
+        stable &= mod == null ? recordView == "native" :
+            !(bool)firstPerson.GetValue(mod) && (bool)god.GetValue(mod) == (recordView == "worldfall") &&
+            (recordView != "worldfall" || (bool)gpu.GetValue(mod));
         float age = cast.Age;
         if (age < next) return;
         next = age + .055f;
