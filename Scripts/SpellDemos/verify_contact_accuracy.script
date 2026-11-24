@@ -125,6 +125,16 @@ try
             await Shot("native-restored", 66f, 72.6f, 8.5f);
             return new { passed = true, section, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
         }
+        ConstructedAbilityService.SetContactDebug(castIds[definition.Id], true);
+        await Advance(.05f);
+        Check(LiveModels() == 0 && DebugMesh() != null && !casts[definition.Id].Finished,
+            "只看有效区时只隐藏所选施放的正式形体");
+        await Shot("native-isolated", 66f, 72.6f, 8.5f);
+        ConstructedAbilityService.SetContactDebug();
+        await Advance(.05f);
+        Check(LiveModels() >= 2 && DebugMesh() == null && !casts[definition.Id].Finished,
+            "同一施放恢复正式形体，调试轮廓不再绘制");
+        await Shot("native-restored", 66f, 72.6f, 8.5f);
         ConstructedAbilityService.SetContactDebug(castIds[definition.Id]);
         await Advance(.08f);
         Check(DebugMesh() != null, "同一次施放重新开启仍可读取实际形状");

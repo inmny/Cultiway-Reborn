@@ -22,6 +22,9 @@ DESCRIPTIONS = {
     "save-data": "独立运行保存资料及旧格式转换",
     "save": "游戏真实读写、旧单招迁移与读档后施放",
     "rain": "已学雨云的付款、实际成云和回收",
+    "resources": "发布资源包与实际形体清单",
+    "outline": "真实作用轮廓、原版与三维显示及关闭恢复",
+    "visual-result": "同次施放的画面、有效区和实际扣血",
 }
 COMMANDS = {
     "build": ["dotnet", "build", "Cultiway.csproj", "-c", "Debug"],
@@ -31,6 +34,9 @@ COMMANDS = {
     "edits": [sys.executable, str(SPELLS / "verify_construction_batch.py"), "--output", "{output}/result"],
     "parallel": [sys.executable, str(SPELLS / "verify_parallel_contact_batch.py"), "--output", "{output}"],
     "rain": [sys.executable, str(SPELLS / "record_rain_process.py"), "legacy", "--output", "{output}"],
+    "resources": [sys.executable, str(SPELLS / "verify_form_combinations_909.py"), "--section", "catalog", "--output", "{output}"],
+    "outline": [sys.executable, str(SPELLS / "verify_contact_accuracy.py"), "--section", "outline", "--output", "{output}"],
+    "visual-result": [sys.executable, str(SPELLS / "verify_visual_boundary.py"), "--section", "circle", "--output", "{output}"],
 }
 SCRIPTS = {
     "bounds": (SPELLS / "verify_flight_contacts.script", 'Path.Combine(root,"' + FIXTURE_DIR + '")',

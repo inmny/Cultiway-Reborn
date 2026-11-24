@@ -6,11 +6,13 @@ var boundaryMethod = service.Assembly.GetType("Cultiway.Core.Skills.ActorHitBoun
 var caster = Make(64);
 var target = Make(67, "wolf");
 var casts = new Dictionary<string, AbilityCast>();
+var castIds = new Dictionary<string, long>();
 var reflections = new List<ConstructedReflection>();
 void Reflected(ConstructedReflection result) => reflections.Add(result);
 void Started(ConstructedCastStarted value)
 {
     if (!value.AbilityId.StartsWith(prefix)) return;
+    castIds.Add(value.AbilityId, value.CastId);
     foreach (object running in (IEnumerable)service.GetField("casts", F).GetValue(null))
         if ((long)Field(running, "Id") == value.CastId)
             casts.Add(value.AbilityId, (AbilityCast)Field(running, "Cast"));
@@ -103,13 +105,17 @@ try
         AbilityCapsule area = sample.Contacts.Single(), body = Body(target, sample.Models.Single().Terrain);
         Vector3 centre = sample.Models.Single().Transform.GetColumn(3);
         var facts = contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).ToArray();
+        long castId = castIds[definition.Id];
+        int lost = facts.Sum(fact => fact.Damage.HealthLost);
         await Shot(name, 65.4f, section == "height" ? 76.4f : 73.8f, section == "height" ? 11f : 9f);
         Check(Vector3.Distance(centre, area.A) < .002f && Vector3.Distance(area.A, area.B) < .002f &&
             Mathf.Abs(area.Radius - radius) < .002f && (lift <= 0f || body.A.z - body.Radius > area.A.z + area.Radius),
             "画面主体与圆形有效区同心，高处样本仍在圆顶上方：" + name,
-            new { image = name + ".png", model = XYZ(centre), area = Shape(area), body = Shape(body), foot = XYZ(Foot(target)) });
-        Check(facts.Length == (hit ? 1 : 0) && (hit ? target.data.health < health : target.data.health == health),
-            "实际扣血与确认事件：" + name, new { health, after = target.data.health, distance, hits = facts.Select(c => XYZ(c.Position)) });
+            new { castId, image = name + ".png", model = XYZ(centre), area = Shape(area), body = Shape(body), foot = XYZ(Foot(target)) });
+        Check(facts.Length == (hit ? 1 : 0) && facts.All(fact => fact.CastId == castId) &&
+            (hit ? lost > 0 : lost == 0) && target.data.health == health - lost,
+            "实际扣血与确认事件：" + name, new { castId, health, after = target.data.health, distance, lost,
+                hits = facts.Select(c => new { point = XYZ(c.Position), c.WorldTime, c.Damage }) });
         await Advance(definition.Lifetime - .10f);
         Check(endings.Any(end => end.Fact.AbilityId == definition.Id && !end.Fact.Cancelled) &&
             contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == target.id) == facts.Length,

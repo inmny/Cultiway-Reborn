@@ -6,7 +6,24 @@ import os
 from pathlib import Path
 import tempfile
 
-from common import PROJECT, write_json
+from common import PROJECT, file_sha256, write_json
+
+
+def release_bundles(root):
+    """核对三套发布包的文件头，并为实机结果记录来源。"""
+    bundles = root / 'Content/AssetBundles'
+    records = {}
+    for kind in ('forms', 'shaders'):
+        for platform in ('linux', 'windows', 'osx'):
+            name = f'cultiway_{kind}_{platform}'
+            path = bundles / name
+            if not path.is_file():
+                raise ValueError(f'缺少发布资源包：{path}')
+            with path.open('rb') as stream:
+                if stream.read(8) != b'UnityFS\0' or path.stat().st_size <= 8:
+                    raise ValueError(f'发布资源包文件头无效：{path}')
+            records[name] = dict(size=path.stat().st_size, sha256=file_sha256(path))
+    return records
 
 
 def main():
@@ -14,6 +31,7 @@ def main():
     parser.add_argument('--section', choices=('catalog', 'surfaces', 'layouts', 'scale-meshes', 'scale-frames', 'scale-worldfall'), required=True)
     parser.add_argument('--forms', help='取景编号，逗号分隔；省略时按结构分组取全部可见形体')
     parser.add_argument('--full-reference', action='store_true', help='给指定原版取景补拍同距离的完整细节对照')
+    parser.add_argument('--output', type=Path, help='结果目录')
     args = parser.parse_args()
     if args.full_reference and (args.section != 'scale-frames' or not args.forms):
         parser.error('--full-reference 只用于明确指定的原版形体')
@@ -21,9 +39,12 @@ def main():
         parser.error('请通过 develop 的 dev.py exec 运行')
     import baseline_scenarios as baseline
 
-    folder = Path(tempfile.mkdtemp(prefix=f'form-combinations-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    folder = args.output.resolve() if args.output else Path(tempfile.mkdtemp(
+        prefix=f'form-combinations-{args.section}-', dir=os.environ['CULTIWAY_DEV_OUTPUT']))
+    folder.mkdir(parents=True, exist_ok=True)
     read = lambda name: (Path(__file__).parent / name).read_text()
     if args.section == 'catalog':
+        write_json(folder / 'bundles.json', release_bundles(PROJECT))
         write_json(folder / 'ids.json', sorted(path.stem for path in (PROJECT / 'Content/Forms').glob('*.json')))
         header = read('verify_body_footwork.script').split('const BindingFlags F', 1)[0]
         header += f'\nstring folder = {json.dumps(str(folder))};\n'

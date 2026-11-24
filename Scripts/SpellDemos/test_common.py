@@ -9,6 +9,20 @@ from unittest.mock import patch
 import common
 from demo_index import write_index
 from record_body_connections import existing_clips, specialized_files
+from verify_form_combinations_909 import release_bundles
+
+
+class ResourceFilesTests(unittest.TestCase):
+    def test_missing_and_truncated_platform_bundles_are_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bundle = root / "Content/AssetBundles/cultiway_forms_linux"
+            with self.assertRaisesRegex(ValueError, "缺少发布资源包.*cultiway_forms_linux"):
+                release_bundles(root)
+            bundle.parent.mkdir(parents=True)
+            bundle.write_bytes(b"UnityFS\0")
+            with self.assertRaisesRegex(ValueError, "文件头无效.*cultiway_forms_linux"):
+                release_bundles(root)
 
 
 class DemoIndexTests(unittest.TestCase):

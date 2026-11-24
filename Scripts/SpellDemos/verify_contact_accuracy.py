@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """6.19：按实际尺寸核对扇形误差与共用调试轮廓。"""
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -11,25 +12,22 @@ from common import PROJECT, write_json
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('accuracy', 'outline', 'isolated', 'water'), required=True)
-    section = parser.parse_args().section
+    parser.add_argument('--output', type=Path, help='结果目录')
+    args = parser.parse_args()
+    section = args.section
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请用 develop 的 dev.py exec 运行')
-    relative = f'contact-accuracy/{section}'
-    folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / relative
+    folder = args.output.resolve() if args.output else Path(os.environ['CULTIWAY_DEV_OUTPUT']) / 'contact-accuracy' / section
     fixture = 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     shutil.copytree(PROJECT / fixture, folder / 'input-world', dirs_exist_ok=True)
     scripts = Path(__file__).parent
     setup = (scripts / 'verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     setup = setup.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")',
-                          f'Path.Combine(Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT"), "{relative}")')
+                          json.dumps(str(folder)))
     setup = setup.replace(f'Path.Combine(root, "{fixture}")', 'Path.Combine(folder, "input-world")')
     setup = setup.replace('test.body-footwork.', 'test.contact-accuracy.')
     camera = (scripts / 'verify_visual_boundary.script').read_text().split('\ntry\n', 1)[0]
     camera = camera.replace('test.visual-boundary.', 'test.contact-accuracy.')
-    camera = camera.replace('var casts = new Dictionary<string, AbilityCast>();',
-                            'var casts = new Dictionary<string, AbilityCast>();\nvar castIds = new Dictionary<string, long>();')
-    camera = camera.replace('    if (!value.AbilityId.StartsWith(prefix)) return;\n',
-                            '    if (!value.AbilityId.StartsWith(prefix)) return;\n    castIds.Add(value.AbilityId, value.CastId);\n')
     regions = (scripts / 'verify_part_contact_regions.script').read_text().split('var generation', 1)[1].split('Actor source =', 1)[0]
     script = folder / 'input.script'
     script.write_text(setup + camera + '\nvar generation' + regions + f'\nstring section = "{section}";\n' +

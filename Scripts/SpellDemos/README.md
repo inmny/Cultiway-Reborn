@@ -36,6 +36,9 @@
 | 批量形状采样、并行接触或切换世界 | `parallel` |
 | 旧单招迁移、真实读写或读档后施放 | `save-data save` |
 | 旧已学雨云的支付和持续时间 | `rain` |
+| 发布资源包及游戏实际加载的网格、材质 | `resources` |
+| 原版与三维的作用轮廓、关闭和恢复 | `outline` |
+| 圆内外的画面、真实有效区和实际扣血 | `visual-result` |
 
 ```bash
 python3 Scripts/SpellDemos/check_skill_changes.py build tools
@@ -43,6 +46,8 @@ dev.py exec --timeout 220 -- python3 Scripts/SpellDemos/check_skill_changes.py b
 ```
 
 每项保留命令和结果。遇到问题先检查该项的报告和日志，再用新目录单独补测对应项。变更直接影响冷启动读档时，另用[世界存档分步检查](../WorldSaveTests/README.md)复核真正重启。
+
+资源改动可只执行 `resources`。结果中的 `bundles.json` 记录三平台发布文件头检查、大小与指纹，`catalog.json` 来自当前实际游戏。接触轮廓只由独立测试脚本对指定施放开启，正常使用时默认关闭。画面和结算对照按同一施放编号记录，形状、截图及扣血可以逐项查找。
 
 凝固动量另用 `verify_solidification.script` 检查，正式学习、支付和留置用 `verify_solidification_runtime.script`，真正退出并重启后用 `verify_solidification_restart.script`。对应输入为 `Doc/技能系统全面重构/构造输入/流水凝固留置.json`。
 

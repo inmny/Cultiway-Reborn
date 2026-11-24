@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """6.18：用正式模型、同一帧画面和实际结算核对有效边界。"""
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -11,17 +12,17 @@ from common import PROJECT, write_json
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--section', choices=('circle', 'height', 'blade', 'wave', 'shield'), required=True)
+    parser.add_argument('--output', type=Path, help='结果目录')
     args = parser.parse_args()
     if not os.environ.get('CULTIWAY_DEV_ACTIVE'):
         raise SystemExit('请用 develop 的 dev.py exec 运行')
-    relative = f'visual-boundary/{args.section}'
-    folder = Path(os.environ['CULTIWAY_DEV_OUTPUT']) / relative
+    folder = args.output.resolve() if args.output else Path(os.environ['CULTIWAY_DEV_OUTPUT']) / 'visual-boundary' / args.section
     fixture = 'Scripts/WorldSaveTests/Fixtures/world-format-1'
     shutil.copytree(PROJECT / fixture, folder / 'input-world', dirs_exist_ok=True)
     scripts = Path(__file__).parent
     setup = (scripts / 'verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     setup = setup.replace('Path.Combine(root, "artifacts/skill_rebuild/body-footwork")',
-                          f'Path.Combine(Environment.GetEnvironmentVariable("CULTIWAY_DEV_OUTPUT"), "{relative}")')
+                          json.dumps(str(folder)))
     setup = setup.replace(f'Path.Combine(root, "{fixture}")', 'Path.Combine(folder, "input-world")')
     setup = setup.replace('test.body-footwork.', 'test.visual-boundary.')
     script = folder / 'input.script'

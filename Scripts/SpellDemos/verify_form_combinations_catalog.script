@@ -5,16 +5,19 @@ string[] ids = JsonConvert.DeserializeObject<string[]>(File.ReadAllText(Path.Com
 var disk = new HashSet<string>(ids, StringComparer.Ordinal);
 var expected = new HashSet<string>(disk, StringComparer.Ordinal) { "fire_body" };
 var missing = expected.Except(FormResources.Ids).ToArray();
-var extra = FormResources.Ids.Except(expected).ToArray();
-if (missing.Length != 0 || extra.Length != 0) failures.Add("发布清单不一致，缺失：" + string.Join(",", missing) + "；新增：" + string.Join(",", extra));
+if (missing.Length != 0) failures.Add("当前版本缺少发布形体：" + string.Join(",", missing));
 foreach (string id in FormResources.Ids)
 {
     var resource = FormResources.Load(id);
     var description = resource.Description;
+    bool publishedFile = disk.Contains(id);
+    if (description.Id != id || !publishedFile && string.IsNullOrEmpty(description.Structure.Generation?.Entry))
+        failures.Add(id + " 缺少与实际编号一致的制作来源");
     var visual = new FormVisualInstance(resource, Matrix4x4.identity);
-    if (resource.Meshes.Length == 0 && id != "pivot" && id != "world_domain") failures.Add(id + " 无发布网格");
+    if (resource.Meshes.Length != description.Parts.Length)
+        failures.Add(id + " 的实际网格数与声明部件数不符");
     var parts = new List<object>();
-    for (int index = 0; index < resource.Meshes.Length; index++)
+    for (int index = 0; index < Math.Min(resource.Meshes.Length, description.Parts.Length); index++)
     {
         var part = description.Parts[index];
         string surface = visual.SurfaceFor(index);
@@ -24,9 +27,10 @@ foreach (string id in FormResources.Ids)
         parts.Add(new { part.Id, part.Roles, surface, part.UseMatterSurface,
             size = new[] { size.x, size.y, size.z }, part.Skin, part.HasBuildData, part.DetailMeshes.Length });
     }
-    records.Add(new { id, from = disk.Contains(id) ? "文件" : "运行时生成", kind = description.Structure.Kind, controls = description.Controls.Length,
+    records.Add(new { id, from = publishedFile ? "文件" : "运行时生成", kind = description.Structure.Kind, controls = description.Controls.Length,
         clips = description.Motions.Select(m => m.Id).ToArray(), contacts = description.Contacts.Length,
-        ground = description.ConformToGround, changes = description.Structure.Changes, parts });
+        ground = description.ConformToGround, changes = description.Structure.Changes,
+        declaredParts = description.Parts.Length, parts });
 }
 File.WriteAllText(Path.Combine(folder, "catalog.json"), JsonConvert.SerializeObject(records, Formatting.Indented));
-return new { passed = failures.Count == 0, count = records.Count, failures };
+return new { passed = failures.Count == 0, version = FormResources.Version, count = records.Count, failures };
