@@ -36,6 +36,7 @@ using Cultiway.Utils.Extension;
 using Cultiway.Core.Visuals.Forms;
 using Cultiway.Core.Skills;
 using Cultiway.Content.Skills;
+using Cultiway.Content.YaoBeasts;
 foreach (var old in Resources.FindObjectsOfTypeAll<MonoBehaviour>()
              .Where(item => item != null && item.GetType().Name == "CultiwaySpellDemoRunner"))
 {
@@ -274,16 +275,60 @@ public void Install()
 /// <summary>列出当前通用夹具缺少的原始输入，避免把无法正式受理的能力录成空片。</summary>
 private static string ConstructionSceneProblem(AbilityDefinition definition)
 {
-    string part = definition.Body?.Effector;
-    if (part != null && (part.StartsWith("part:", StringComparison.Ordinal) ||
-                         part.StartsWith("organ:", StringComparison.Ordinal)))
-        return "需要对应的非人部位或器官场景";
+    string part = DemoEffector(definition.Body);
+    if (part?.StartsWith("part:", StringComparison.Ordinal) == true)
+        return "需要实际拥有对应关节的身体：" + part;
+    if (part?.StartsWith("organ:", StringComparison.Ordinal) == true)
+    {
+        if (DemoOrgan(part).Species == null) return "缺少实际展示该器官的真身：" + part;
+        if (definition.Resource is "wakan" or "vigor") return "器官演示真身缺少原式要求的修炼资源";
+    }
     if (definition.Inventory?.Length > 0) return "需要准备资料声明的原库存物项";
     if (definition.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina"))
         return "需要提供实际资源：" + definition.Resource;
     if (definition.Body?.WeaponForm is string form && DemoWeapon(form) == null)
         return "夹具找不到实际对应的兵器：" + form;
     return null;
+}
+
+/// <summary>身体构造可以先用名称引用实际关节或器官。</summary>
+private static string DemoEffector(BodyActionDefinition body)
+{
+    string effector = body?.Effector;
+    return body?.Construction?.Parts?.FirstOrDefault(part => part.Id == effector)?.Part ?? effector;
+}
+
+/// <summary>已有取证的真身搭配。同一器官的资料共用场景，正式绑定仍校验具体部件。</summary>
+private static (string Species, string Slot, int Rank) DemoOrgan(string part) =>
+    part?.Split('/')[0] switch
+    {
+        "organ:yao.crown.tails" => ("fox", YaoContent.Slots.Tail, 1),
+        "organ:yao.horn.thunder" => ("wolf", YaoContent.Slots.Head, 2),
+        "organ:yao.wing.fierce" => ("wolf", YaoContent.Slots.Limbs, 2),
+        _ => default
+    };
+
+private static void PrepareDemoOrgan(Actor actor, string part, string slot, int rank)
+{
+    var owner = actor.GetExtend();
+    owner.E.RemoveComponent<Xian>();
+    owner.E.RemoveComponent<Magic>();
+    if (!YaoAwakeningService.TryAwakenByRain(owner)) throw new InvalidOperationException("演示妖兽无法启灵");
+    var organs = new List<YaoOrganRecord>
+    {
+        new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+            Origin = YaoOrganOrigin.Innate }
+    };
+    if (slot != YaoContent.Slots.Head)
+        organs.Add(new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
+            Origin = YaoOrganOrigin.Innate });
+    organs.Add(new YaoOrganRecord { SlotId = slot, OrganId = part.Substring("organ:".Length).Split('/')[0],
+        Rank = rank, Origin = YaoOrganOrigin.GodEdited });
+    if (!YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, organs.ToArray()))
+        throw new InvalidOperationException("真身无法表达资料要求的器官：" + part);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.finishScale();
 }
 
 /// <summary>从原版实际装备登记匹配形体的持物规则，原铁剑保持旧录像的缺省选择。</summary>
@@ -848,17 +893,24 @@ private void OnConstructedClash(ConstructedClash clash)
 /// <param name="item">当前构造及其录制编号。</param>
 private IEnumerator RecordConstruction(JObject item)
 {
-    var loading = LoadScene();
+    AbilityDefinition definition = item["construction"].ToObject<AbilityDefinition>();
+    string unavailable = ConstructionSceneProblem(definition);
+    if (unavailable != null) throw new InvalidOperationException(unavailable);
+    CompiledAbility plan = AbilityCompiler.Compile(definition);
+    string effector = DemoEffector(definition.Body);
+    var organ = DemoOrgan(effector);
+    bool organScene = organ.Species != null;
+    var loading = LoadScene(organ.Species ?? "human");
     while (loading.MoveNext()) yield return loading.Current;
     currentCase = (string)item["id"];
     Prepare(item);
+    if (organScene) PrepareDemoOrgan(caster, effector, organ.Slot, organ.Rank);
     Place(caster, 60, 72);
     // 清场触发的原版倒塌和碎片先完成，避免它们混入待测招式。
     Config.paused = false;
     double settledAt = World.world.getCurWorldTime() + 1d;
     while (World.world.getCurWorldTime() < settledAt) yield return null;
     Config.paused = true;
-    AbilityDefinition definition = item["construction"].ToObject<AbilityDefinition>();
     heldSwordDemo = definition.Body?.WeaponForm == "sword";
     ConstructedAbilityService.Register(definition);
     var owner = caster.GetExtend();
@@ -921,6 +973,8 @@ private IEnumerator RecordConstruction(JObject item)
         caster.current_rotation = new Vector3(0, caster.flip_angle, 0);
         caster.target_angle = caster.current_rotation;
         PositionBodyTarget();
+        if (organScene && request["targetOffset"] == null)
+            PositionOrganTarget(plan, caster, enemies[0]);
         Camera();
     }
 
@@ -936,7 +990,6 @@ private IEnumerator RecordConstruction(JObject item)
         caster.setStamina(10000);
     }
 
-    CompiledAbility plan = AbilityCompiler.Compile(definition);
     bool selfTarget = plan.Use.Target == ActiveAbilityTargetMode.Self;
     var aimOffset = request["aimOffset"] as JArray;
     bool pointTarget = plan.Use.Target == ActiveAbilityTargetMode.Point ||
@@ -973,6 +1026,12 @@ private IEnumerator RecordConstruction(JObject item)
     if (!selfTarget && request["targetOffset"] is JArray offset)
         Place(target, caster.current_position.x + (float)offset[0],
             caster.current_position.y + (float)offset[1]);
+    if (definition.Body != null && target == enemies[0])
+    {
+        // 进入三维观察时会解除附体，等镜头稳定后再建立正式敌对关系。
+        caster.addAggro(target);
+        target.addAggro(caster);
+    }
     Vector2 casterStart = caster.current_position;
     Vector3 aim = target.GetSimPos();
     if (pointTarget)
@@ -1120,8 +1179,8 @@ private IEnumerator RecordConstruction(JObject item)
     float paid = before - Balance();
     if (!used)
         throw new InvalidOperationException("构造施放入口拒绝：" +
-                                            ActiveAbilityService.ResolveControlState(owner, handle)
-                                                .BlockReason);
+            ActiveAbilityService.ResolveControlState(owner, handle).BlockReason +
+            $"，目标检查={ActiveAbilityService.CanUse(owner, handle, selection)}，脚下={caster.GetSimPos()}，瞄准={aim}");
     bool fireBlocked = firePlot != null && !TryLight(firePlot);
     bool selfStatusApplied = !selfStatusBefore && CombatStatusEffects.HasStatus(caster, selfStatus, caster);
     // 手动单招完成后不再让原版自动普攻混入录像，正式准入及动作本身已经正常执行。
@@ -1139,6 +1198,7 @@ private IEnumerator RecordConstruction(JObject item)
     double start = World.world.getCurWorldTime(), next = 0, lastWalk = 0;
     double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
     int peak = 0;
+    int organPoseFrames = 0;
     float targetPeakHeight = 0f;
     var materialFrames = new List<object>();
     bool worldSurvivedCast = false;
@@ -1171,6 +1231,9 @@ private IEnumerator RecordConstruction(JObject item)
         targetPeakHeight = Mathf.Max(targetPeakHeight, target.position_height);
         if (elapsed >= next)
         {
+            bool organPose = organScene &&
+                ConstructedAbilityService.TryGetBodyPose(sourceId, out var bodyPose) && bodyPose.Organ.HasValue;
+            if (organPose) organPoseFrames++;
             times.Add(elapsed);
             new ScreenFacade().Capture(Path.Combine(folder, "frames",
                 (times.Count - 1).ToString("00000") + ".png"));
@@ -1311,7 +1374,8 @@ private IEnumerator RecordConstruction(JObject item)
                  (actualContacts > 0 || worldChanges.Length > 0 || fireConditionVerified || selfStatusApplied ||
                   conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 ||
                   ownHeating.Length > 0 || transferredMaterials > 0 && worldSurvivedCast ||
-                  plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 &&
+                  plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) &&
+                 (organScene ? organPoseFrames > 0 && naturalEnd && !BodyControlState.IsBusy(sourceId) : peak > 0) &&
                  (cleanPlot == null || cleanConfirmed) &&
                  (definition.WorldCondition == null || fireConditionVerified) &&
                  (selfStatus == null || selfStatusApplied) &&
@@ -1343,6 +1407,8 @@ private IEnumerator RecordConstruction(JObject item)
         times, frames = times.Count, duration, view = (string)request["view"],
         lighting = (string)request["lighting"] ?? "day", lightingState = LightingState(),
         scriptCasts = scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials,
+        organ = organScene ? new { species = caster.asset.id, part = effector, rank = organ.Rank,
+            poseFrames = organPoseFrames, released = !BodyControlState.IsBusy(sourceId) } : null,
         worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
     });
 
@@ -1387,6 +1453,41 @@ private IEnumerator RecordConstruction(JObject item)
             World.world.GetTileSimple(Mathf.FloorToInt(enemies[0].current_position.x), 72));
         enemies[0].updatePos();
     }
+}
+
+/// <summary>用真身姿态确定站立对手的起点，实际接触和结算仍由正式施放产生。</summary>
+private static void PositionOrganTarget(CompiledAbility plan, Actor source, Actor target)
+{
+    var assembly = typeof(ConstructedAbilityService).Assembly;
+    var bindingType = assembly.GetType("Cultiway.Content.Skills.BodyActionBinding", true);
+    var heightMethod = assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true).GetMethod("Height", Flags);
+    float height = (float)heightMethod.Invoke(null, new object[] { target });
+    Vector3 aim = target.GetSimPos();
+    object binding = bindingType.GetMethod("TryCreate", Flags).Invoke(null,
+        new object[] { source, plan.Body, Vector3.right, aim, height });
+    if (binding == null) throw new InvalidOperationException("真身缺少资料要求的器官或支撑");
+    var frame = (BodyFrame)bindingType.GetMethod("Frame", Flags, null, new[] { typeof(Actor) }, null)
+        .Invoke(binding, new object[] { source });
+    var cast = new AbilityCast(plan, Matrix4x4.identity, frame);
+    var append = bindingType.GetMethod("AppendContacts", Flags);
+    var shapes = new List<AbilityCapsule>();
+    var points = new List<Vector3>();
+    float age = 0f;
+    for (int i = 0; i <= 8; i++)
+    {
+        float time = Mathf.Lerp(plan.Body.ActiveFrom, plan.Body.ActiveUntil, i / 8f);
+        cast.Advance(time - age, aim);
+        age = time;
+        shapes.Clear();
+        append.Invoke(binding, new object[] { cast.BodyPose.Value, shapes });
+        points.AddRange(shapes.Select(shape => (shape.A + shape.B) * .5f)
+            .Where(point => point.x > frame.Foot.x && point.z >= frame.Foot.z && point.z <= frame.Foot.z + height &&
+                Vector2.Distance(point, frame.Foot) <= plan.TargetRange.GetValueOrDefault(8f)));
+    }
+    if (points.Count == 0) throw new InvalidOperationException("真身作用面内没有合适的站立对练位置");
+    Vector3 position = points.OrderBy(point => Mathf.Abs(point.y - frame.Foot.y))
+        .ThenByDescending(point => point.x).First();
+    Place(target, position.x, position.y);
 }
 
 /// <summary>读取独立测试世界，然后依次准备、释放和录制每一招。</summary>
@@ -1480,7 +1581,7 @@ private IEnumerator LoadFixture()
 }
 
 /// <summary>复用夹具后只准备当前段的演示人物与观察条件。</summary>
-private IEnumerator LoadScene()
+private IEnumerator LoadScene(string species = "human")
 {
     var loading = LoadFixture();
     while (loading.MoveNext()) yield return loading.Current;
@@ -1498,7 +1599,7 @@ private IEnumerator LoadScene()
                 Mathf.Clamp(Mathf.RoundToInt(100f + slope * (x - 60)), 0, 255);
     foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
     foreach (Actor actor in World.world.units.getSimpleList().ToArray()) Place(actor, 12, 12);
-    caster = World.world.units.createNewUnit("human", World.world.GetTileSimple(53, 72), pAdultAge: true);
+    caster = World.world.units.createNewUnit(species, World.world.GetTileSimple(53, 72), pAdultAge: true);
     caster.data.name = "法术演示·施法者";
     var owner = caster.GetExtend();
     owner.AddComponent(new Xian { level = (int?)request["realm"] ?? 2, wakan = 10000 });
