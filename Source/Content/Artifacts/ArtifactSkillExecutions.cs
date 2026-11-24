@@ -55,7 +55,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             new Position(),
             new Rotation(),
             new AliveTimer(),
-            Tags.Get<TagPrefab, TagSkillAnimationNoCollision>());
+            Tags.Get<TagPrefab>());
         FlyingSword
             .SetupColliderSphere(1f, new ColliderConfig
             {
@@ -90,7 +90,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             },
             new SkillContext(),
             new Position(),
-            Tags.Get<TagPrefab, TagSkillAnimationNoCollision>());
+            Tags.Get<TagPrefab>());
         SwordArrayBlade.PrefabEntity.AddComponent(new SkillHitMemory());
         SwordArrayBlade.PrefabEntity.AddComponent(new AliveTimer());
         SwordArrayBlade

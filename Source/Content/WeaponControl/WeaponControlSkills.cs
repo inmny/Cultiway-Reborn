@@ -72,7 +72,6 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
             .SetDealsBaseDamage(false)
             .SetIcon("ui/icons/items/icon_sword_iron")
             .SetupCommonPrefab("cultiway/effect/flying_sword/1/runtime", 1f, true)
-            .UseSpatialModel(0)
             .SetupImpactProfile(impact, new ColliderConfig
             {
                 Enabled = false,

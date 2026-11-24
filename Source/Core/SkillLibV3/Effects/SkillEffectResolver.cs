@@ -3,59 +3,15 @@ using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
-using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Effects;
 
-/// <summary>按目标关系执行技能容器中已编译的对象效果和地块效果。</summary>
+/// <summary>读取已编译的作用资料，供目标选择及预览使用。</summary>
 public static class SkillEffectResolver
 {
-    /// <summary>结算一次直接对象命中的结构化效果。</summary>
-    public static bool ResolveDirectImpact(Entity skillEntity, BaseSimObject target)
-    {
-        if (!TryCreateContext(skillEntity, target?.GetSimPos() ?? default, 0f, out var context, out var pipeline))
-            return false;
-        return ApplyObjectEffects(pipeline, SkillEffectTrigger.Impact, in context, target).Changed;
-    }
-
-    /// <summary>在技能落点范围内按关系分别结算对象和地块效果。</summary>
-    public static bool ResolveAreaImpact(Entity skillEntity, Vector3 position, float radius)
-    {
-        if (!TryCreateContext(skillEntity, position, radius, out var context, out var pipeline)) return false;
-        SkillEffectResult result = ApplyAreaObjectEffects(pipeline, SkillEffectTrigger.Impact, in context);
-        result = result.Merge(ApplyTileEffects(pipeline, SkillEffectTrigger.Impact, in context));
-        SkillWorldVisualService.ReportAreaResolution(skillEntity, position, radius, in result);
-        return result.Changed;
-    }
-
-    /// <summary>结算两个调度时间边界之间到期的周期效果。</summary>
-    public static bool ResolvePeriodic(Entity skillEntity, float previousTime, float currentTime)
-    {
-        if (skillEntity.IsNull || !skillEntity.HasComponent<Position>()) return false;
-        SkillEntityAsset asset = skillEntity.GetComponent<SkillEntity>().Asset;
-        float radius = SkillEffectRadius.Resolve(
-            skillEntity,
-            asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
-        if (!TryCreateContext(skillEntity, skillEntity.GetComponent<Position>().value, radius,
-                out var context, out var pipeline)) return false;
-        SkillEffectResult result = ApplyAreaObjectEffects(
-            pipeline,
-            SkillEffectTrigger.Periodic,
-            in context,
-            previousTime,
-            currentTime);
-        result = result.Merge(ApplyTileEffects(
-            pipeline,
-            SkillEffectTrigger.Periodic,
-            in context,
-            previousTime,
-            currentTime));
-        return result.Changed;
-    }
-
     /// <summary>在扣费前检查落点范围内是否至少存在一个可应用的地块效果。</summary>
     public static bool HasApplicableTile(
         ActorExtend caster,
@@ -253,26 +209,6 @@ public static class SkillEffectResolver
         return best != null && bestUtility > 0f;
     }
 
-    private static bool TryCreateContext(
-        Entity skillEntity,
-        Vector3 position,
-        float radius,
-        out SkillEffectContext context,
-        out SkillEffectPipeline pipeline)
-    {
-        context = default;
-        pipeline = null;
-        if (skillEntity.IsNull || !skillEntity.HasComponent<SkillEntity>() ||
-            !skillEntity.HasComponent<SkillContext>()) return false;
-        SkillEntity runtime = skillEntity.GetComponent<SkillEntity>();
-        if (runtime.SkillContainer.IsNull || !runtime.SkillContainer.HasComponent<SkillContainer>()) return false;
-        pipeline = runtime.SkillContainer.GetComponent<SkillContainer>().EffectPipeline;
-        if (pipeline == null || pipeline.Effects.Count == 0) return false;
-        SkillContext cast = skillEntity.GetComponent<SkillContext>();
-        context = new SkillEffectContext(runtime.SkillContainer, skillEntity, in cast, position, radius);
-        return true;
-    }
-
     /// <summary>计算一个友军候选中心的单体收益或范围累计收益。</summary>
     private static void EvaluateFriendlyCandidate(
         ActorExtend caster,
@@ -306,161 +242,6 @@ public static class SkillEffectResolver
         if (utility <= bestUtility) return;
         bestUtility = utility;
         best = candidate;
-    }
-
-    private static SkillEffectResult ApplyAreaObjectEffects(
-        SkillEffectPipeline pipeline,
-        SkillEffectTrigger trigger,
-        in SkillEffectContext context,
-        float previousTime = 0f,
-        float currentTime = 0f)
-    {
-        SkillEffectResult result = default;
-        foreach (SkillEffectDescriptor effect in pipeline.Effects)
-        {
-            if (!effect.IsObjectEffect || effect.Trigger != trigger ||
-                trigger == SkillEffectTrigger.Periodic &&
-                !IsPeriodicEffectDue(effect, previousTime, currentTime)) continue;
-            foreach (BaseSimObject target in EnumerateTargets(context, effect.TargetRelation))
-            {
-                result = result.Merge(ApplyObjectEffect(effect, in context, target));
-            }
-        }
-        return result;
-    }
-
-    private static SkillEffectResult ApplyObjectEffects(
-        SkillEffectPipeline pipeline,
-        SkillEffectTrigger trigger,
-        in SkillEffectContext context,
-        BaseSimObject target)
-    {
-        SkillEffectResult result = default;
-        foreach (SkillEffectDescriptor effect in pipeline.Effects)
-        {
-            if (!effect.IsObjectEffect || effect.Trigger != trigger) continue;
-            result = result.Merge(ApplyObjectEffect(effect, in context, target));
-        }
-        return result;
-    }
-
-    private static SkillEffectResult ApplyObjectEffect(
-        SkillEffectDescriptor effect,
-        in SkillEffectContext context,
-        BaseSimObject target)
-    {
-        BaseSimObject relationSource = effect.TargetRelation == SkillEffectTargetRelation.Self
-            ? context.Cast.ResolveSpatialSource()
-            : context.Cast.SourceObj;
-        if (target == null || target.isRekt() || relationSource == null || relationSource.isRekt() ||
-            !SkillTargetRelationResolver.Matches(
-                effect.TargetRelation,
-                relationSource,
-                target,
-                context.Cast.ResolveAttackKingdom())) return default;
-        var evaluation = new SkillEffectEvaluationContext(
-            ResolveCaster(in context),
-            context.SkillContainer,
-            context.Position,
-            context.Radius);
-        if (!(effect.CanApplyObject?.Invoke(in evaluation, target) ?? true)) return default;
-        SkillEffectResult result = effect.ApplyObject(in context, target);
-        if (result.Changed)
-        {
-            SkillWorldVisualService.ReportEffectResolution(
-                context.SkillEntity,
-                effect.Id,
-                context.Position,
-                context.Radius,
-                target.GetSimPos(),
-                in result);
-        }
-        return result;
-    }
-
-    private static SkillEffectResult ApplyTileEffects(
-        SkillEffectPipeline pipeline,
-        SkillEffectTrigger trigger,
-        in SkillEffectContext context,
-        float previousTime = 0f,
-        float currentTime = 0f)
-    {
-        SkillEffectResult result = default;
-        var evaluation = new SkillEffectEvaluationContext(
-            ResolveCaster(in context),
-            context.SkillContainer,
-            context.Position,
-            context.Radius);
-        foreach (SkillEffectDescriptor effect in pipeline.Effects)
-        {
-            if (!effect.IsTileEffect || effect.Trigger != trigger ||
-                trigger == SkillEffectTrigger.Periodic &&
-                !IsPeriodicEffectDue(effect, previousTime, currentTime)) continue;
-            foreach (WorldTile tile in EnumerateTiles(context.Position, context.Radius))
-            {
-                if (!(effect.CanApplyTile?.Invoke(in evaluation, tile) ?? true)) continue;
-                SkillEffectResult tileResult = effect.ApplyTile(in context, tile);
-                if (!tileResult.Changed) continue;
-                result = result.Merge(tileResult);
-                SkillWorldVisualService.ReportEffectResolution(
-                    context.SkillEntity,
-                    effect.Id,
-                    context.Position,
-                    context.Radius,
-                    tile.posV3,
-                    in tileResult);
-            }
-        }
-        return result;
-    }
-
-    private static ActorExtend ResolveCaster(in SkillEffectContext context)
-    {
-        Actor actor = context.Cast.SourceObj?.a;
-        return actor.TryGetExtend(out ActorExtend caster) ? caster : null;
-    }
-
-    /// <summary>判断指定效果的独立周期是否在当前调度区间内跨过了触发边界。</summary>
-    private static bool IsPeriodicEffectDue(
-        SkillEffectDescriptor effect,
-        float previousTime,
-        float currentTime)
-    {
-        float interval = Mathf.Max(0.05f, effect.Interval);
-        int previousTick = Mathf.FloorToInt((Mathf.Max(0f, previousTime) + 0.0001f) / interval);
-        int currentTick = Mathf.FloorToInt((Mathf.Max(0f, currentTime) + 0.0001f) / interval);
-        return currentTick > previousTick;
-    }
-
-    private static IEnumerable<BaseSimObject> EnumerateTargets(
-        SkillEffectContext context,
-        SkillEffectTargetRelation relation)
-    {
-        BaseSimObject source = context.Cast.SourceObj;
-        if (source == null || source.isRekt()) yield break;
-        if (relation == SkillEffectTargetRelation.Self)
-        {
-            BaseSimObject spatialSource = context.Cast.ResolveSpatialSource();
-            if (spatialSource != null && !spatialSource.isRekt()) yield return spatialSource;
-            yield break;
-        }
-        WorldTile center = World.world.GetTile(
-            Mathf.FloorToInt(context.Position.x),
-            Mathf.FloorToInt(context.Position.y));
-        if (center == null) yield break;
-        float radiusSquared = context.Radius * context.Radius;
-        int chunkRadius = Mathf.CeilToInt(context.Radius / 16f) + 1;
-        foreach (Actor actor in Finder.getUnitsFromChunk(center, chunkRadius))
-        {
-            if (actor == null || actor.isRekt()) continue;
-            if (Toolbox.SquaredDistVec2Float(context.Position, actor.current_position) > radiusSquared) continue;
-            if (!SkillTargetRelationResolver.Matches(
-                    relation,
-                    source,
-                    actor,
-                    context.Cast.ResolveAttackKingdom())) continue;
-            yield return actor;
-        }
     }
 
     private static IEnumerable<WorldTile> EnumerateTiles(Vector3 center, float radius)

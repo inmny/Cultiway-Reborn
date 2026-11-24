@@ -8,7 +8,7 @@ using Cultiway.Content.Utils;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Visuals;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
@@ -20,14 +20,10 @@ namespace Cultiway.Content.Combat;
 /// <summary>读取地刺、真实武器与组合法宝的现有状态，提供两个视角共用的空间快照。</summary>
 internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearable
 {
-    /// <summary>地刺装饰碎屑的同屏上限；主体与玩法结算不受此限制。</summary>
-    private const int MaxGroundShards = 64;
     /// <summary>当前显示帧的模型快照；没有自己的玩法时钟。</summary>
     internal static readonly List<SpatialVisualMeshInstance> Meshes = new();
     /// <summary>当前世界的实际近战执行体。</summary>
     private readonly ArchetypeQuery<Position, Rotation, EquippedWeaponMotionState, AnimData, Scale> weapons;
-    /// <summary>当前世界带动画阶段的技能。</summary>
-    private readonly ArchetypeQuery<Position, SkillEntity, AnimData> skills;
     /// <summary>实际魔法护持身体。</summary>
     private readonly ArchetypeQuery<ActorBinder, Magic> mages;
     /// <summary>实际单帧物品的空间显示。</summary>
@@ -41,11 +37,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
     private SpatialNativeMeshView view;
     /// <summary>本帧经过原版镜头裁剪的同材质批次。</summary>
     private readonly List<SpatialVisualMeshInstance> nativeBatch = new();
-    /// <summary>地刺主体，所有实例共享几何。</summary>
-    private readonly SpatialVisualMesh spike = SpatialMaterialGeometry.Rocks[0];
-    /// <summary>接触后的少量碎屑模型。</summary>
-    private readonly SpatialVisualMesh shard = SpatialMaterialGeometry.Rocks[2];
-
     /// <summary>只登记读取查询，不增加施法、支付与命中入口。</summary>
     /// <param name="world">现有世界实体库。</param>
     internal CombatSpatialVisualSystem(EntityStore world)
@@ -53,7 +44,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         QueryFilter filter = new();
         filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
         weapons = world.Query<Position, Rotation, EquippedWeaponMotionState, AnimData, Scale>(filter);
-        skills = world.Query<Position, SkillEntity, AnimData>(filter);
         artifacts = world.Query<Position, Rotation, ArtifactAppearance, ArtifactManifestation>(filter);
         mages = world.Query<ActorBinder, Magic>(filter);
         QueryFilter spriteFilter = new();
@@ -78,7 +68,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         {
             int detailBudget = 384;
             BattleSpellVisualRuntime.Append(Meshes, ref detailBudget);
-            SampleGroundSpikes(ref detailBudget);
             GoldenBellSpatialVisualCue.AppendMeshes(Meshes, World.world.getCurWorldTime(), ref detailBudget);
             ArtifactSpatialVisualRuntime.Append(Meshes, ref detailBudget);
             Meshes.AddRange(ArtifactSectManifestationSystem.Veins);
@@ -103,53 +92,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             if (drawNative && instance.DrawNative && IsNativeVisible(instance)) nativeBatch.Add(instance);
         if (nativeBatch.Count > 0 && view == null) view = SpatialNativeMeshView.Create(root);
         if (view != null) view.DrawBatch(nativeBatch);
-    }
-
-    /// <summary>使用真实动画阶段决定生长与收尾；半径取实际作用范围。</summary>
-    /// <param name="detailBudget">本帧剩余装饰数量。</param>
-    private void SampleGroundSpikes(ref int detailBudget)
-    {
-        int remainingShards = Mathf.Min(MaxGroundShards, detailBudget);
-        int remainingDetails = detailBudget;
-        skills.ForEachEntity((ref Position position, ref SkillEntity skill, ref AnimData animation, Entity entity) =>
-        {
-            SkillAnimationLifecycleState lifecycle = entity.TryGetComponent(out SkillAnimationLifecycleState state)
-                ? state : new SkillAnimationLifecycleState { Phase = SkillAnimationPhase.Runtime };
-            SkillSpatialVisual.Append(entity, skill, position.value, lifecycle, animation, Meshes, ref remainingDetails);
-            if (skill.Asset == SkillEntities.LightningStrike && entity.Tags.Has<TagSpatialVisualReplacement>())
-                LightningStrikeSpatialVisual.Append(entity, position.value, lifecycle, animation, Meshes);
-            if (skill.Asset != SkillEntities.GroundSpike || !entity.Tags.Has<TagSpatialVisualReplacement>() ||
-                lifecycle.Phase == SkillAnimationPhase.RecycleReady) return;
-            SkillPositionImpactState impact = entity.GetComponent<SkillPositionImpactState>();
-            if (!impact.Requested && !impact.Resolved) return;
-            float progress = Mathf.Clamp01((animation.frame_idx + animation.frame_timer /
-                SkillAnimationLifecycle.ResolveCurrentFrameInterval(entity)) / animation.frames.Length);
-            float radius = SkillEffectRadius.Resolve(entity, entity.GetComponent<ColliderSphere>().Radius);
-            float height = lifecycle.Phase switch
-            {
-                SkillAnimationPhase.Appearance => Mathf.Lerp(0.08f, 1f, 1f - Mathf.Pow(1f - progress, 3f)),
-                SkillAnimationPhase.Dissipation => 1f - progress * progress,
-                _ => 1f,
-            };
-            float alpha = lifecycle.Phase == SkillAnimationPhase.Dissipation ? 1f - progress : 1f;
-            if(lifecycle.Phase==SkillAnimationPhase.Dissipation)
-                MaterialSpellVisuals.DrawRock(Meshes,0,position.value,Quaternion.identity,Vector3.one*radius,.2f+progress*1.3f);
-            else Meshes.Add(new SpatialVisualMeshInstance(spike, position.value, Quaternion.identity,
-                new Vector3(radius, radius, radius * height), Color.white, true,false));
-            if (lifecycle.Phase != SkillAnimationPhase.Dissipation) return;
-            // 碎屑由当前阶段和固定序号计算，切换视角时不会重发或使用战斗随机数。
-            float t = progress * 0.45f;
-            for (int i = 0; i < 5 && remainingShards > 0 && remainingDetails > 0; i++, remainingShards--, remainingDetails--)
-            {
-                float angle = (i * 1.256637f + entity.Id * 0.37f);
-                Vector3 offset = new(Mathf.Cos(angle) * (0.35f + t * 1.5f),
-                    Mathf.Sin(angle) * (0.35f + t * 1.5f), Mathf.Max(0.02f, 0.3f + t * 2f - t * t * 7f));
-                Meshes.Add(new SpatialVisualMeshInstance(shard, position.value + offset * radius,
-                    Quaternion.Euler(progress * 160f, i * 43f, i * 72f), Vector3.one * radius * 0.12f,
-                    new Color(1f, 1f, 1f, alpha), true));
-            }
-        });
-        detailBudget = remainingDetails;
     }
 
     /// <summary>单帧真实武器与纸符不会被当作整张法术动画处理。</summary>
@@ -241,6 +183,8 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
         Meshes.Clear();
         SpatialSpriteMesh.Clear();
         SpatialCombatFeedback.Clear();
+        SkillParticleEmitter.ClearWorldState();
+        SpatialVisualEffects.ClearWorldState();
         GoldenBellSpatialVisualCue.ClearWorldState();
         ArtifactSpatialVisualRuntime.ClearWorldState();
         TalismanVfxManager.ClearWorldState();

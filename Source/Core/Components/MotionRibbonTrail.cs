@@ -5,11 +5,6 @@ using UnityEngine;
 
 namespace Cultiway.Core.Components;
 
-/// <summary>主体由空间模型绘制，原有动画帧仅继续承担阶段计时。</summary>
-public struct TagSpatialVisualReplacement : ITag
-{
-}
-
 /// <summary>运动历史采用的几何表现。</summary>
 public enum MotionRibbonShape
 {

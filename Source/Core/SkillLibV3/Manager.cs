@@ -4,7 +4,6 @@ using System.Text;
 using System.Threading;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Core.Components;
-using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Editor;
@@ -16,7 +15,6 @@ using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
-using Cultiway.Core.Systems.Render;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -64,18 +62,15 @@ public class Manager
         Game = game;
         World = ModClass.I.W;
 
-        ModClass.I.LogicPrepareRecycleSystemGroup.Add(new PrepareSkillAnimationDissipationSystem());
         //ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new ReleaseSkillExecutionBodiesSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
         ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
-        ModClass.I.GeneralRenderSystems.Add(new RenderSkillWorldVisualSystem());
         ActiveAbilityService.Register(new LearnedSkillActiveAbilityProvider());
 
         SkillLogicSystemGroup.Add(new LogicQueuedSkillCastSystem());
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new SkillCooldownSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new ArtifactBladeFlightSystem());
         SkillLogicSystemGroup.Add(new WeaponControlStrikeSystem());
     }
@@ -159,48 +154,6 @@ public class Manager
         }
 
         activeSkillCasts.Clear();
-    }
-
-    public Entity SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
-        float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
-    {
-        var frames = SkillEntityAsset.LoadOrderedFrames(path);
-        return SpawnAnim(frames, pos, rot, scale, tint, frameInterval, loop, lifeTime, visualRotation);
-    }
-
-    public Entity SpawnAnim(Sprite[] frames, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
-        float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
-    {
-        var entity = SkillEntityLibrary.RawAnim.NewEntity();
-        if (frames == null || frames.Length == 0)
-        {
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return entity;
-        }
-
-        var data = entity.Data;
-        data.Get<Position>().value = pos;
-        data.Get<Rotation>().value = rot;
-        data.Get<Scale>().value = scale * Vector3.one;
-        data.Get<AnimData>().frames = frames;
-        data.Get<AnimData>().frame_idx = 0;
-        data.Get<AnimData>().frame_timer = 0f;
-        data.Get<AnimController>().meta.frame_interval = Mathf.Max(0.01f, frameInterval);
-        data.Get<AnimController>().meta.loop = loop;
-        data.Get<AliveTimer>().value = 0f;
-        data.Get<AliveTimeLimit>().value = lifeTime ?? frames.Length * data.Get<AnimController>().meta.frame_interval;
-
-        if (tint.HasValue)
-        {
-            entity.AddComponent(new AnimTint(tint.Value));
-        }
-
-        if (visualRotation.HasValue)
-        {
-            entity.AddComponent(visualRotation.Value);
-        }
-
-        return entity;
     }
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,

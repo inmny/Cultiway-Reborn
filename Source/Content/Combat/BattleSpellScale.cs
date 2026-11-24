@@ -13,11 +13,10 @@ namespace Cultiway.Content.Combat;
 /// <summary>把境界成长应用到同一真实作用范围，再让显示读取结果，避免大特效和小伤害范围脱节。</summary>
 internal static class BattleSpellScale
 {
-    /// <summary>接入执行体建立和真实落点；不在绘制回调内结算。</summary>
+    /// <summary>接入正式范围成长和换世界时的法相清理。</summary>
     internal static void Initialize()
     {
         SkillEffectRadius.CasterGrowth = ResolveContainerGrowth;
-        SkillHitResolver.AreaResolved += BattleSpellVisualRuntime.OnAreaResolved;
         PatchMapBox.RegisterActionOnClearWorld(BattleSpellVisualRuntime.Clear);
     }
 
@@ -40,7 +39,7 @@ internal static class BattleSpellScale
     {
         if(owner==null)return 1f;
         SkillEntityAsset asset=container.GetComponent<SkillContainer>().Asset;
-        if(!SkillSpatialVisualCatalog.Forms.ContainsKey(asset.id) && asset!=SkillEntities.LightningStrike && asset!=SkillEntities.GroundSpike)return 1f;
+        if(!OriginalSkillGrowthRules.ScaledSkills.Contains(asset.id) && asset!=SkillEntities.LightningStrike && asset!=SkillEntities.GroundSpike)return 1f;
         float growth=Resolve(owner);
         if(asset==SkillEntities.TidalWave || asset==SkillEntities.EarthRidge)
             growth*=Mathf.Lerp(1f,2f,Mathf.InverseLerp(1f,6.4f,growth));

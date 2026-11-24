@@ -198,7 +198,7 @@ public class RenderAnimFrameSystem : BaseSystem, IWorldStateClearable
     [Hotfixable]
     private bool NeedRender(Entity entity, Sprite sprite, ref Position pos, ref Scale scale)
     {
-        if (sprite == null || entity.Tags.Has<TagSpatialVisualReplacement>()) return false;
+        if (sprite == null) return false;
         var size = sprite.rect.size;
         if (entity.HasComponent<AnimLinearLayout>())
         {

@@ -14,7 +14,3 @@ public enum ArtifactVisualColorRole
     Secondary,
     Glow,
 }
-
-/// <summary>
-/// 复用 SkillLibV3 RawAnim 的贴图动画 cue。租约只更新位姿、配色和时长，渲染与回收沿用现有系统。
-/// </summary>

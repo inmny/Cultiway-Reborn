@@ -208,13 +208,11 @@ internal static class ArtifactSwordArrayExecution
 
         Actor owner = context.SourceObj.a;
         if (owner.id != context.SourceId || !owner.canAttackTarget(target.a)) return;
-        SkillHitResolver.HitTarget(
+        SkillHitResolver.HitArtifact(
             ArtifactSkillExecutions.SwordArrayBlade,
             ref context,
-            default,
             blade,
-            target,
-            playImpact: true);
+            target);
     }
 
     private static void UpdateForming(

@@ -35,13 +35,11 @@ public enum SkillCarrierRequirement : byte
     /// <summary>必须由魂体或无身元神执行。</summary>
     Soul,
 }
-public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
 {
     private readonly Dictionary<string, float> _modifierWeightMultipliers = new(StringComparer.Ordinal);
     private readonly List<SkillEntityAnimation> _animations = new();
     /// <summary>已接入空间主体的变体编号；其他变体继续使用原有显示。</summary>
-    private readonly HashSet<int> _spatialModelAnimations = new();
     private readonly List<SkillEffectDescriptor> effects = new();
     private readonly List<SkillModifierSpec> requiredModifiers = new();
 
@@ -64,7 +62,6 @@ public class SkillEntityAsset : Asset
     /// <summary>该实体能否作为角色持有、改进和释放的技能容器模板。</summary>
     public bool CanBeLearned { get; private set; }
     public EntityStore World => ModClass.I.SkillV3.World;
-    public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
     /// <summary>技能执行所需的人物载体；默认身魂皆可。</summary>
     public SkillCarrierRequirement CarrierRequirement { get; private set; }
@@ -326,7 +323,6 @@ public class SkillEntityAsset : Asset
     public SkillEntityAsset SetupImpactProfile(SkillImpactProfileAsset profile, ColliderConfig config)
     {
         ImpactProfile = profile ?? throw new ArgumentNullException(nameof(profile));
-        OnObjCollision = SkillHitResolver.ResolveProfile;
         if (profile.CollisionRadius > 0f)
         {
             SetupColliderSphere(profile.CollisionRadius, config);
@@ -461,33 +457,6 @@ public class SkillEntityAsset : Asset
 
         SetupRuntimeFx(entity);
 
-        return entity;
-    }
-
-    /// <summary>仅替换指定变体的主体显示，保留编号与原有阶段计时。</summary>
-    /// <param name="animationIndex">保留原有编号的动画变体。</param>
-    public SkillEntityAsset UseSpatialModel(int animationIndex)
-    {
-        GetAnimation(animationIndex);
-        _spatialModelAnimations.Add(animationIndex);
-        return this;
-    }
-
-    public Entity NewEntity(int animationIndex)
-    {
-        var entity = NewEntity();
-        var animation = GetAnimation(animationIndex);
-        if (_spatialModelAnimations.Contains(animationIndex)) entity.AddTag<TagSpatialVisualReplacement>();
-        ref var animData = ref entity.GetComponent<AnimData>();
-        animData.frames = animation.Runtime.Frames;
-        animData.frame_idx = 0;
-        animData.frame_timer = 0f;
-        Vector3 intrinsicScale = Vector3.one * animation.Scale;
-        entity.GetComponent<Scale>().value = intrinsicScale;
-        ref var controller = ref entity.GetComponent<AnimController>();
-        controller.meta.frame_interval = DefaultAnimationFrameInterval;
-        controller.meta.loop = DefaultAnimationLoop;
-        animation.Runtime.Settings.Apply(ref controller.meta);
         return entity;
     }
 

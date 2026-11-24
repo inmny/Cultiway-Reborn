@@ -131,7 +131,7 @@ try
     rootExecution = Activity().active_execution;
     Entity[] blades = State().blades.Select(value => value.entity).ToArray();
     Check(!rootExecution.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>() &&
-        blades.All(blade => blade.Tags.Has<TagSkillAnimationNoCollision>()), "阵体和剑影脱离旧轨迹和碰撞");
+        blades.All(blade => !blade.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>()), "阵体和剑影没有旧轨迹");
     var links = rootExecution.GetRelations<SkillExecutionBodyRelation>();
     Check(blades.Length == expectedBlades && blades.Distinct().Count() == expectedBlades &&
         links.Length == expectedBlades && blades.All(blade => blade.GetComponent<SkillExecutionBodyLease>().execution == rootExecution &&

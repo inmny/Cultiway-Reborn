@@ -126,8 +126,7 @@ internal static partial class ArtifactSpatialAttackExecution
         bool completesStrike = motion.mode == ArtifactSpatialAttackMode.ContinuousHunt ||
                                context.TargetObj != null &&
                                ArtifactSpatialTargeting.GetTargetKey(context.TargetObj) == targetKey;
-        SkillHitResolver.HitTarget(ArtifactSkillExecutions.FlyingSword, ref context, default, execution, target,
-            playImpact: true);
+        SkillHitResolver.HitArtifact(ArtifactSkillExecutions.FlyingSword, ref context, execution, target);
         if (motion.impact_force > 0f && target.isActor())
         {
             CombatForceEffects.ApplyRadialForce(

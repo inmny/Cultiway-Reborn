@@ -318,22 +318,7 @@ internal sealed class CoreFormationSkills : ICanInit
                 : VisualRotation.FollowRotation());
         if (id is "BodyCounter" or "PrimalBodyCounter" or "PrimalBody")
             asset.RequireCarrier(SkillCarrierRequirement.PhysicalBody);
-        SkillSpatialVisualCatalog.Add(id switch
-        {
-            "IronSeverance" => SkillSpatialForm.Blade,
-            "WoodVenomBloom" => SkillSpatialForm.PoisonBloom,
-            "WaterFrostBind" => SkillSpatialForm.Crystal,
-            "FireBrand" or "FireEmberBurst" => SkillSpatialForm.Fire,
-            "EarthWard" or "BalancedAdaptation" or "InfantGuard" or "SwordEmbryoAura" or
-                "SpiritPlatform" or "PrimalBody" or "FivePhase" => SkillSpatialForm.Shield,
-            "EarthWardImpact" or "BodyCounter" or "PrimalBodyCounter" or "FivePhaseStrike" or
-                "DragonAspectBurst" => SkillSpatialForm.Contact,
-            "SwordChase" or "SwordEmbryoStrike" => SkillSpatialForm.Sword,
-            "DragonMight" or "DragonAspectMight" or "PureYangDomain" or "MysteriousYinDomain" => SkillSpatialForm.Field,
-            "IllusionDecoy" => SkillSpatialForm.Image,
-            "WoodLifeReturn" or "YangCleanse" or "PureYangCleanse" or "SpiritEcho" or "ChaosRebirth" => SkillSpatialForm.Support,
-            _ => SkillSpatialForm.Spirit,
-        }, asset);
+        OriginalSkillGrowthRules.Add(asset);
         ModClass.I.SkillV3.SkillLib.add(asset);
 
         Entity container = new SkillContainerBuilder(asset).Build(SkillContainerBuildMode.SourceGranted);

@@ -599,9 +599,6 @@ private void WriteMigrationInventory(List<object> demoRows)
     var convertedUtility = (ISet<string>)typeof(ConstructedAbilityService).Assembly
         .GetType("Cultiway.Content.Skills.UtilityConstructionMigration", true).GetField("templates", Flags)
         .GetValue(null);
-    var spatialForms = (IDictionary)typeof(ConstructedAbilityService).Assembly
-        .GetType("Cultiway.Content.Visuals.SkillSpatialVisualCatalog", true).GetField("Forms", Flags)
-        .GetValue(null);
     foreach (var asset in mod.SkillV3.SkillLib.list.OrderBy(item => item.id, StringComparer.Ordinal))
     {
         entries.Add(new
@@ -626,7 +623,6 @@ private void WriteMigrationInventory(List<object> demoRows)
                 baseDemand = asset.BaseCastDemand, dealsBaseDamage = asset.DealsBaseDamage,
                 impact = asset.ImpactProfile?.id, useProfile = asset.UseProfile?.id,
                 channels = asset.UseProfile?.Channels.ToString(),
-                spatialForm = spatialForms.Contains(asset.id) ? spatialForms[asset.id].ToString() : null,
                 requiredModifiers = asset.RequiredModifiers.Select(item => item.AssetId).ToArray(),
                 effects = asset.Effects.Select(effect => new
                 {
@@ -2998,8 +2994,6 @@ private void CleanExecutions()
     foreach (Entity entity in mod.W.Query<SkillEntity>().Entities.ToArray())
     {
         if (entity.Tags.Has<TagPrefab>()) continue;
-        if (entity.HasComponent<SkillAnimationLifecycleState>())
-            entity.GetComponent<SkillAnimationLifecycleState>().Phase = SkillAnimationPhase.RecycleReady;
         if (!entity.Tags.Has<TagRecycle>()) entity.AddTag<TagRecycle>();
     }
 

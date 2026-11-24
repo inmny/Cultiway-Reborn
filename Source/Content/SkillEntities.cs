@@ -34,7 +34,7 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
         ConfigureUtility();
         ConfigureGeneric();
         ConfigureSealRelay();
-        Visuals.SkillSpatialVisualCatalog.Register();
+        Visuals.OriginalSkillGrowthRules.Register();
     }
 
     private static SkillEntityAsset Configure(

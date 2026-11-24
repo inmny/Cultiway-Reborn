@@ -99,7 +99,7 @@ internal static class CultivationMaterialVisuals
                             new Color(.7f, .8f, .85f, opacity * .55f), false, surface: SpatialSurface.Metal);
                     break;
                 case 1:
-                    MaterialSpellVisuals.RootCluster(output, center, radius, opening, opacity * .75f);
+                    RootCluster(output, center, radius, opening, opacity * .75f);
                     break;
                 case 2:
                     for (int i = 0; i < 2; i++)
@@ -129,6 +129,20 @@ internal static class CultivationMaterialVisuals
     }
 
     /// <summary>建立一块封闭的断裂实体，避免混沌回到椭圆与线框。</summary>
+    /// <summary>木系领域以不等长主根和稀疏枝叶建立主体。</summary>
+    /// <param name="output">模型。</param><param name="center">固定根部。</param><param name="radius">实际范围。</param>
+    /// <param name="growth">生长进度。</param><param name="fade">收尾透明度。</param>
+    private static void RootCluster(List<SpatialVisualMeshInstance> output, Vector3 center, float radius, float growth, float fade)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            float phase = Mathf.Clamp01(growth * 1.35f - i * .07f);
+            SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.Sample(SpatialMaterialGeometry.Roots[i % 4], phase), center,
+                Quaternion.Euler(0, 0, i * 137.5f + 18f), new Vector3(radius * (.66f + i % 3 * .13f), radius * .85f, radius * .9f),
+                new Color(1, 1, 1, fade), false);
+        }
+    }
+
     private static SpatialVisualMesh BuildFracture()
     {
         SpatialVisualMeshBuilder builder = new();
