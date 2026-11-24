@@ -7,7 +7,42 @@ import unittest
 from unittest.mock import patch
 
 import common
+from demo_index import write_index
 from record_body_connections import existing_clips, specialized_files
+
+
+class DemoIndexTests(unittest.TestCase):
+    def test_known_files_and_statuses_use_the_same_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            accepted = dict(id="Test.A", key="有效 & 录像", name="剑气 <原式>", variant=2,
+                            trajectory="spiral", modifiers=[dict(Parameters={"Scale": "1.8"})],
+                            labels={"range": 4.14, "school": {"steel": "金"}})
+            failure = dict(id="Test.B", key="failure", name="坏形体", mode="base")
+            for case, files in ((accepted, ("result.json", "demo.mp4", "preview.png")),
+                                (failure, ("result.json", "demo.mp4"))):
+                folder = output / case["key"]
+                folder.mkdir()
+                for name in files:
+                    (folder / name).touch()
+            skipped = [dict(id="Test.C", case="trajectory", reason="不兼容")]
+            common.write_json(output / "catalog.json", {"spells": [
+                dict(id="Test.C", name="预先跳过", modifiers=["可选词条"], labels={"range": 2.0})]})
+            write_index(output, [accepted, failure], {accepted["key"]: {}}, skipped,
+                        [dict(case=failure, reason="形体无效")], [], batch_error="批次没有继续")
+            data = json.loads((output / "index.json").read_text())
+            self.assertEqual(data["counts"], {"passed": 1, "failed": 1, "skipped": 1})
+            self.assertEqual(set(data["entries"]["passed"][0]["files"]), {"result", "image", "video"})
+            self.assertEqual(data["entries"]["failed"][0]["files"], {"result": "failure/result.json"})
+            self.assertFalse(data["entries"]["skipped"][0]["files"])
+            self.assertFalse(data["entries"]["skipped"][0]["parameters"])
+            self.assertEqual(data["entries"]["skipped"][0]["name"], "预先跳过")
+            page = (output / "index.html").read_text()
+            self.assertIn("剑气 &lt;原式&gt;", page)
+            self.assertIn("%26%20", page)
+            self.assertIn("spiral", page)
+            self.assertIn("steel", page)
+            self.assertIn("批次没有继续", page)
 
 
 class RegisteredConstructionTests(unittest.TestCase):

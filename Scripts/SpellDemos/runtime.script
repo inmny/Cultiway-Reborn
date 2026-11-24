@@ -1855,9 +1855,10 @@ private IEnumerator Run()
             {
                 more = recording.MoveNext();
             }
-            catch (Exception error) when (continueOnFailure && error is not OperationCanceledException)
+            catch (Exception error) when (error is not OperationCanceledException)
             {
                 WriteResult(result, new { passed = false, item, error = error.ToString(), errors });
+                if (!continueOnFailure) throw;
                 break;
             }
 
@@ -1869,9 +1870,11 @@ private IEnumerator Run()
         heldSwordDemo = false;
         RestoreTerrainFirstPersonLook();
         legacyScene = item["construction"] is not JObject;
-        JObject recorded = continueOnFailure ? JObject.Parse(File.ReadAllText(result)) : null;
-        if (recorded != null && (bool?)recorded["passed"] != true && (bool?)recorded["skipped"] != true)
+        var recorded = JObject.Parse(File.ReadAllText(result));
+        if ((bool?)recorded["passed"] != true && (bool?)recorded["skipped"] != true)
         {
+            if (!continueOnFailure)
+                throw new InvalidOperationException((string)recorded["error"] ?? "实际结果未通过");
             // 失败点可能已经开始施放。先恢复夹具，再允许后续录像。
             Config.paused = true;
             CleanExecutions();

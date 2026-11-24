@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>法术实机演示</title>
+<style>
+:root { color-scheme: dark; color: #edf2f6; background: #101821; font: 16px/1.55 system-ui, sans-serif; }
+body { max-width: 76rem; margin: 0 auto; padding: clamp(1rem, 4vw, 3rem); }
+h1 { margin: 0; font-size: clamp(1.65rem, 4vw, 2.4rem); }
+h2 { font-size: 1.2rem; margin: 0 0 .8rem; }
+h3 { font-size: 1.12rem; margin: 0; }
+p { margin: .45rem 0; color: #becbd8; overflow-wrap: anywhere; }
+header { border-bottom: 1px solid #3b4b5b; padding-bottom: 1rem; }
+a { color: #a7d8ff; text-underline-offset: .15em; }
+nav, .links { display: flex; flex-wrap: wrap; gap: .45rem 1rem; }
+nav { margin-top: 1rem; }
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; margin: 1.3rem 0 .5rem; }
+.controls label { display: grid; gap: .25rem; }
+input, select { background: #1c2a39; border: 1px solid #566b7e; border-radius: .4rem; color: inherit; font: inherit; padding: .55rem; min-width: 0; }
+section { margin-top: 1.5rem; }
+.items { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: .85rem; }
+article { background: #1b2936; border: 1px solid #3b4b5b; border-top: 3px solid #56a88e; border-radius: .55rem; padding: 1rem; min-width: 0; }
+[data-status="failed"] article { border-top-color: #ef9c86; }
+[data-status="skipped"] article { border-top-color: #dfb86e; }
+.id { font-size: .85rem; font-family: ui-monospace, monospace; }
+.outcome, .batch-error { color: #ffcfaf; }
+video { width: 100%; display: block; border-radius: .35rem; background: #101821; margin-top: .8rem; }
+details { margin-top: .7rem; }
+summary { cursor: pointer; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #101821; padding: .6rem; border-radius: .35rem; }
+[hidden] { display: none !important; }
+@media (max-width: 32rem) { .controls { grid-template-columns: 1fr; } }
+</style>
+<body>
+<header>
+  <h1>法术实机演示</h1>
+  <p>$summary</p>
+  $error
+  <nav aria-label="批次资料">$navigation</nav>
+</header>
+<div class="controls" id="controls" hidden>
+  <label>搜索<input id="search" type="search" placeholder="名称、编号、词条、轨迹或原因"></label>
+  <label>结果<select id="state">
+    <option value="">全部</option>
+    <option value="passed">通过</option>
+    <option value="failed">失败</option>
+    <option value="skipped">跳过</option>
+  </select></label>
+</div>
+<p id="empty" role="status" hidden>没有符合的项目。</p>
+<main>$sections</main>
+<script>
+const search = document.querySelector("#search");
+const state = document.querySelector("#state");
+const sections = document.querySelectorAll("main section");
+const normalize = text => text.normalize("NFKC").toLowerCase();
+function filter() {
+  const words = normalize(search.value).trim().split(/\s+/).filter(Boolean);
+  let total = 0;
+  for (const section of sections) {
+    let shown = 0;
+    for (const article of section.querySelectorAll("article")) {
+      const text = normalize(article.dataset.search);
+      article.hidden = Boolean(state.value && state.value !== section.dataset.status)
+          || !words.every(word => text.includes(word));
+      if (!article.hidden) shown++;
+    }
+    section.hidden = shown === 0;
+    total += shown;
+  }
+  document.querySelector("#empty").hidden = total !== 0;
+}
+document.querySelector("#controls").hidden = false;
+search.addEventListener("input", filter);
+state.addEventListener("change", filter);
+filter();
+</script>
+</body>
+</html>

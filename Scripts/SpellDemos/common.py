@@ -2,7 +2,6 @@
 import math
 import argparse
 import datetime
-import html
 import hashlib
 import json
 import os
@@ -13,6 +12,8 @@ import sys
 import tempfile
 import time
 import zipfile
+
+from demo_index import INDEX_FILE, write_index
 
 PROJECT = Path(__file__).resolve().parents[2]
 CONTROL = Path(os.environ.get("CULTIWAY_DEMO_CONTROL", PROJECT / "artifacts/spell_demo"))
@@ -475,61 +476,27 @@ def caption_font():
     raise RuntimeError("未找到中文字体，请安装 Noto Sans CJK 后再录制")
 
 
-def publish(output, cases, results, skipped, failures=()):
-    """生成逐招网页、中文目录、分类合集和完整下载包。"""
-    body, markdown = [], ["# 法术实机演示", "", "单招标题标明变体、词条与轨迹；自主交战由游戏 AI 出手。通过标记只表示运行检查通过，美术验收须观看录像。", ""]
+def publish(output, cases, results, skipped, failures=(), batch_error=None):
+    """保留每段原片和分类成片，再生成离线目录与完整压缩包。"""
     groups = {}
+    selected = []
     for case in cases:
-        data = results.get(case["key"])
-        if data is None:
-            continue
-        video = case["key"] + "/demo.mp4"
-        title = f"{case['name']} · {case['label']} · 变体 {case['variant']}"
-        details = case.get("trajectoryName", case["trajectory"]) + " · " + ("、".join(case.get("modifierLabels", [])) or "无额外词条")
-        report = case["key"] + "/result.json"
-        confirmed = (data.get("effect") or {}).get("confirmed")
-        if (data.get("execution") or {}).get("started"):
-            result_label = "已出手 · 实际作用成立" if confirmed is True else (
-                "已出手 · 作用未成立" if confirmed is False else "已出手 · 作用待核对")
-        else:
-            result_label = "实际记录"
-        body.append(f'<article><h2>{html.escape(title)}</h2><p>{html.escape(case["id"])} · {html.escape(details)}</p>'
-                    f'<video controls preload="none" poster="{case["key"]}/preview.png" src="{video}"></video>'
-                    f'<p><a href="{report}">{result_label}</a></p></article>')
-        markdown.append(f"- [{title}]({video})　[{result_label}]({report})")
-        groups.setdefault(case["group"], []).append((output / video).resolve())
-    for group, videos in groups.items():
-        concat = output / f"{group}.ffconcat"
-        concat.write_text("ffconcat version 1.0\n" + "\n".join("file '" + str(path).replace("'", "'\\''") + "'" for path in videos) + "\n", encoding="utf-8")
+        if case["key"] in results:
+            video = (output / case["key"] / "demo.mp4").resolve()
+            groups.setdefault(case["group"], []).append(video)
+            selected.append(video)
+    reels = [(f"{group}合集", group, f"{group}-合集.mp4", videos) for group, videos in groups.items()]
+    if len(selected) > 1:
+        reels.insert(0, ("全部总览", "全部法术", "全部法术-总览.mp4", selected))
+    playlists = []
+    for label, prefix, filename, videos in reels:
+        concat = output / f"{prefix}.ffconcat"
+        lines = ["file '" + str(path).replace("'", "'\\''") + "'" for path in videos]
+        concat.write_text("ffconcat version 1.0\n" + "\n".join(lines) + "\n", encoding="utf-8")
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(concat),
-                        "-c", "copy", "-movflags", "+faststart", str(output / f"{group}-合集.mp4")], check=True)
-        markdown.insert(4, f"- [{group}合集]({group}-合集.mp4)")
-    if len(results) > 1:
-        playlist = output / "全部法术.ffconcat"
-        playlist.write_text("ffconcat version 1.0\n" + "\n".join("file '" + str((output / case["key"] / "demo.mp4").resolve()).replace("'", "'\\''") + "'" for case in cases if case["key"] in results) + "\n", encoding="utf-8")
-        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(playlist),
-                        "-c", "copy", "-movflags", "+faststart", str(output / "全部法术-总览.mp4")], check=True)
-        markdown.insert(4, "- [全部法术总览](全部法术-总览.mp4)")
-    if failures:
-        markdown.extend(["", "## 录制失败", ""])
-        for failure in failures:
-            case, reason = failure["case"], failure["reason"]
-            report = case["key"] + "/result.json"
-            markdown.append(f"- [{case['name']} · {case['label']}]({report})　{reason}")
-            body.append(f'<article><h2>录制失败 · {html.escape(case["name"])}</h2>'
-                        f'<p>{html.escape(case["id"])} · {html.escape(reason)}</p><a href="{report}">结果</a></article>')
-    if skipped:
-        markdown.extend(["", "## 跳过", ""])
-        for entry in skipped:
-            name = f"{entry['id']} · {entry['case']}"
-            if entry.get("report"):
-                name = f"[{name}]({entry['report']})"
-            markdown.append(f"- {name}　{entry['reason']}")
-            body.append(f'<article><h2>跳过 · {html.escape(entry["id"])}</h2>'
-                        f'<p>{html.escape(entry["case"])} · {html.escape(entry["reason"])}</p></article>')
-    (output / "演示目录.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
-    navigation = ('<a href="全部法术-总览.mp4">全部总览</a>　' if len(results) > 1 else "") + "　".join(f'<a href="{html.escape(group)}-合集.mp4">{html.escape(group)}</a>' for group in groups)
-    (output / "index.html").write_text('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>法术实机演示</title><style>body{margin:30px;background:#111820;color:#eee;font-family:sans-serif}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:24px}article{background:#202b38;padding:16px;border-radius:10px}h2{font-size:19px}p{font-size:12px;color:#b8c6d6}video{width:100%}a{color:#9bd6ff}nav{margin-bottom:20px}input{width:95%;padding:12px;margin-bottom:20px}</style><h1>法术实机演示</h1><nav>' + navigation + '</nav><input placeholder="搜索中文名、编号、词条或轨迹" oninput="for(const a of document.querySelectorAll(\'article\'))a.hidden=!a.textContent.toLowerCase().includes(this.value.toLowerCase())"><main>' + "".join(body) + "</main></html>", encoding="utf-8")
+                        "-c", "copy", "-movflags", "+faststart", str(output / filename)], check=True)
+        playlists.append((label, filename))
+    write_index(output, cases, results, skipped, failures, playlists, batch_error)
     with zipfile.ZipFile(output / "全部演示.zip", "w", compression=zipfile.ZIP_STORED) as archive:
         for file in output.rglob("*"):
             if file.is_file() and file.suffix in {".mp4", ".json", ".md", ".html", ".png"}:
@@ -704,10 +671,6 @@ def main(all_spells):
                 group="开发资源验证", label="模型与材质", variant=0, modifiers=[], trajectory="共同姿态")], []
         else:
             cases, skipped = choose_cases(spells, catalog, args)
-        if not cases:
-            reasons = list(dict.fromkeys(row["reason"] for row in skipped))
-            detail = "；".join(reasons) if reasons else "请检查 --cases 和兼容范围"
-            parser.error("没有可用演示：" + detail)
         if args.caster_species and any("construction" not in case for case in cases):
             raise ValueError("--caster-species 需要选择依赖真实关节的构造")
         if args.require_source and any("construction" in case for case in cases):
@@ -729,7 +692,7 @@ def main(all_spells):
         if not (fixture / "map.wbox").is_file():
             raise ValueError(f"缺少演示测试存档：{fixture}")
         runtime = catalog["runtime"]
-        tools = recording_tools()
+        tools = recording_tools() if cases else None
         manifest = dict(version=version, runtime=runtime, recordingTools=tools, fixture=str(fixture),
                         motionTrace=args.motion_trace, cases=cases, skipped=skipped, duration=args.duration,
                         fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view,
@@ -768,7 +731,7 @@ def main(all_spells):
                     folder = output / old["key"]
                     if old["key"] not in current_keys and folder.exists():
                         shutil.rmtree(folder)
-                generated = ["全部演示.zip", "全部法术-总览.mp4", "index.html", "演示目录.md"]
+                generated = ["全部演示.zip", "全部法术-总览.mp4", "index.html", INDEX_FILE, "演示目录.md"]
                 generated.extend(group + "-合集.mp4" for group in {case["group"] for case in previous["cases"]})
                 for filename in generated:
                     (output / filename).unlink(missing_ok=True)
@@ -777,15 +740,18 @@ def main(all_spells):
                         if args.resume and (output / case["key"] / "demo.mp4").is_file()}
         write_json(output / "catalog.json", catalog)
         write_json(output / "manifest.json", manifest)
-        for stale in [output / "status.json", CONTROL / "cancel"]:
-            stale.unlink(missing_ok=True)
+        (output / "status.json").unlink(missing_ok=True)
+        if not cases:
+            publish(output, cases, {}, skipped)
+            raise ValueError(f"筛选后没有可录制项。查看 {output / '演示目录.md'}")
+        (CONTROL / "cancel").unlink(missing_ok=True)
         if not args.resume:
             for case in cases:
                 for filename in ("result.json", "demo.mp4", "clip.json"):
                     (output / case["key"] / filename).unlink(missing_ok=True)
         remaining = [case for case in cases if case["key"] not in cached_clips]
         for case in remaining:
-            for filename in ("result.json", "definition.json", "source-definition.json", "clip.json"):
+            for filename in ("result.json", "definition.json", "source-definition.json", "clip.json", "preview.png"):
                 (output / case["key"] / filename).unlink(missing_ok=True)
         has_edits = any("construction" in case and case.get("mode") != "base" for case in cases)
         continue_on_failure = (all_spells or has_edits) and args.scene == "single" and not args.resource_probe
@@ -796,7 +762,9 @@ def main(all_spells):
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)
         results, failures, last_change, last_status = {}, [], time.monotonic(), ""
         clips = dict(cached_clips)
-        while len(results) < len(cases):
+        status_file = output / "status.json"
+        while True:
+            status = json.loads(status_file.read_text(encoding="utf-8")) if status_file.exists() else {}
             for case in cases:
                 report = output / case["key"] / "result.json"
                 if case["key"] not in results and report.exists():
@@ -805,16 +773,14 @@ def main(all_spells):
                     if data.get("runtime") != runtime or not cached and data.get("requestId") != request["id"]:
                         raise ValueError(f"片段的实际运行版本或请求不符：{case['key']}")
                     if data.get("skipped"):
-                        skipped.append(dict(id=case["id"], case=case["mode"], reason=data["reason"],
-                                            report=case["key"] + "/result.json"))
+                        skipped.append(dict(id=case["id"], case=case.get("mode", ""), reason=data["reason"],
+                                            key=case["key"]))
                         results[case["key"]] = data
                         last_change = time.monotonic()
                         print(f"[{len(results)}/{len(cases)}] 跳过：{case['name']} · {case['label']}，{data['reason']}", flush=True)
                         continue
                     if not data.get("passed"):
                         reason = (data.get("error") or "").split("\n", 1)[0] or "实际结果未通过"
-                        if not continue_on_failure and len(cases) > 1:
-                            raise RuntimeError(f"演示失败：{case['name']}，{reason}。查看 {report}")
                         failures.append(dict(case=case, reason=reason))
                         results[case["key"]] = data
                         last_change = time.monotonic()
@@ -827,33 +793,19 @@ def main(all_spells):
                     last_change = time.monotonic()
                     if not cached:
                         print(f"[{len(results)}/{len(cases)}] {case['name']} · {case['label']}：{data['frames']} 帧，{data['duration']:.2f} 世界秒", flush=True)
-            status_file = output / "status.json"
-            if status_file.exists():
-                status = json.loads(status_file.read_text(encoding="utf-8"))
-                if status.get("error"):
-                    raise RuntimeError(status["error"])
-                marker = json.dumps(status, ensure_ascii=False)
-                if marker != last_status:
-                    last_status, last_change = marker, time.monotonic()
-                if status.get("done") and len(results) < len(cases):
-                    raise RuntimeError("游戏已结束录制，但存在缺失结果，请查看 status.json")
-            if time.monotonic() - last_change > 180:
-                raise RuntimeError("三分钟没有进展，请检查游戏窗口和 status.json；可用 --resume 继续")
-            time.sleep(.5)
-        # 最后一段落盘后，等待游戏完成回收和界面恢复。
-        deadline = time.monotonic() + 60
-        while time.monotonic() < deadline:
-            if not (output / "status.json").exists():
-                time.sleep(.1)
-                continue
-            status = json.loads((output / "status.json").read_text(encoding="utf-8"))
-            if status.get("error"):
-                raise RuntimeError(status["error"])
             if status.get("done"):
+                recording_requested = False
                 break
+            marker = json.dumps(status, ensure_ascii=False)
+            if marker != last_status:
+                last_status, last_change = marker, time.monotonic()
+            timeout = 60 if len(results) == len(cases) else 180
+            if time.monotonic() - last_change > timeout:
+                raise RuntimeError("录制没有进展，请检查游戏窗口和 status.json；可用 --resume 继续")
             time.sleep(.5)
-        else:
-            raise RuntimeError("录像已完成，但游戏尚未完成收尾，请查看 status.json")
+        batch_error = status.get("error")
+        if not batch_error and len(results) < len(cases):
+            raise RuntimeError("游戏已结束录制，但存在缺失结果，请查看 status.json")
         if version_stamp()[0]["sha256"] != version["sha256"]:
             raise ValueError("录制期间代码或资源发生了修改，本目录不可作为同一版本的验收结果，请重新录制")
         verify_loaded_inputs(catalog, version)
@@ -861,7 +813,6 @@ def main(all_spells):
             raise ValueError("录制期间实际游戏或工具版本发生了变化")
         if not status.get("sceneRestored"):
             raise RuntimeError("演示结束后未恢复测试世界，请查看 status.json")
-        recording_requested = False
         for key, checked in clips.items():
             if clip_facts(output, key, batch) != checked:
                 raise ValueError(f"录制期间片段发生了变化：{key}")
@@ -869,7 +820,12 @@ def main(all_spells):
             if key not in cached_clips:
                 write_json(output / key / "clip.json", checked)
         accepted = {key: result for key, result in results.items() if result["passed"]}
-        publish(output, cases, accepted, skipped, failures)
+        if batch_error:
+            skipped.extend(dict(id=case["id"], case=case.get("mode", ""), key=case["key"],
+                                reason="批次中止，未执行本项") for case in cases if case["key"] not in results)
+        publish(output, cases, accepted, skipped, failures, batch_error.splitlines()[0] if batch_error else None)
+        if batch_error:
+            raise RuntimeError(f"{batch_error.splitlines()[0]}。查看 {output / '演示目录.md'}")
         if failures:
             if not continue_on_failure and len(cases) == 1:
                 raise RuntimeError(f"演示失败：{cases[0]['name']}，{failures[0]['reason']}。查看 {output / '演示目录.md'}")

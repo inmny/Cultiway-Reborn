@@ -148,9 +148,9 @@ def videos(baseline, base, selected):
             results[key] = json.loads((output / case['key'] / 'result.json').read_text())
         print(json.dumps(dict(section='videos', completed=name), ensure_ascii=False), flush=True)
     if len(versions) == len(plans):
-        common.publish(base / 'videos', combined, results, [])
         write_json(base / 'videos/manifest.json', dict(historical=True, groupVersions=versions,
                    assemblies=sorted({value['assembly'] for value in results.values() if value.get('assembly')}), cases=combined))
+        common.publish(base / 'videos', combined, results, [])
 
 
 def main():
