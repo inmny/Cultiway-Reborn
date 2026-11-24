@@ -1,4 +1,5 @@
 """录像版本检查：实际内容变化必须阻止复用旧片段。"""
+from argparse import Namespace
 import json
 from pathlib import Path
 import tempfile
@@ -6,6 +7,26 @@ import unittest
 from unittest.mock import patch
 
 import common
+
+
+class RegisteredConstructionTests(unittest.TestCase):
+    def test_mixed_recording_keeps_the_world_construction_and_reports_missing_scene(self):
+        legacy = dict(id="Cultiway.Legacy", name="旧法术", group="基础法术", adjustable=True,
+                      variants=1, trajectory="default", trajectories=["default"], modifiers=[])
+        definition = {"Id": "Cultiway.Created.Demo", "Name": "原创", "Root": {"Form": "sword"}}
+        construction = dict(id=definition["Id"], name=definition["Name"], group="万法阁构造",
+                            trajectory="构造资料", construction=definition)
+        unsupported = dict(construction, id="Cultiway.Created.Organ", name="兽足", unavailable="需要兽足")
+        catalog = dict(spells=[legacy, construction, unsupported], modifiers=[], trajectories=[])
+        args = Namespace(cases="base,trajectory", variant=0, variants="first", modifier=[], trajectory=None)
+
+        cases, skipped = common.choose_cases(catalog["spells"], catalog, args)
+        self.assertEqual([case["id"] for case in cases], [legacy["id"], construction["id"]])
+        self.assertNotIn("construction", cases[0])
+        self.assertEqual(cases[1]["construction"], definition)
+        self.assertIn(dict(id=unsupported["id"], case="base", reason="需要兽足"), skipped)
+        selected = common.resolve(catalog["spells"], definition["Id"])
+        self.assertEqual(common.choose_cases([selected], catalog, args)[0][0]["construction"], definition)
 
 
 class RecordingVersionTests(unittest.TestCase):

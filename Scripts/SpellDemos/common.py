@@ -176,9 +176,27 @@ def modifier_spec(text, catalog):
 def choose_cases(spells, catalog, args):
     """按游戏导出的兼容结果选择变化，不把不支持的轨迹硬塞给法术。"""
     rows, skipped = [], []
+    modes = args.cases.split(",")
+    for mode in modes:
+        if mode not in LABELS:
+            raise ValueError(f"未知演示类型：{mode}")
     modifier_by_id = {entry["id"]: entry for entry in catalog["modifiers"]}
     trajectory_by_id = {entry["id"]: entry for entry in catalog["trajectories"]}
     for spell in spells:
+        if "construction" in spell:
+            for mode in modes:
+                reason = spell.get("unavailable")
+                if not reason and mode != "base":
+                    reason = "构造改造需要完整的构造资料，不能附加旧词条或轨迹"
+                if reason:
+                    skipped.append({"id": spell["id"], "case": mode, "reason": reason})
+                    continue
+                if args.variant != 0:
+                    raise ValueError(f"{spell['name']} 的构造原式没有旧动画变体")
+                rows.append(dict(spell, key=f"registered-{len(rows) + 1:04d}", mode=mode,
+                                 label=LABELS[mode], variant=0, trajectoryName=spell["trajectory"],
+                                 modifiers=[], modifierLabels=[]))
+            continue
         variants = range(spell["variants"]) if args.variants == "all" else [args.variant]
         for variant in variants:
             if not 0 <= variant < spell["variants"]:
@@ -204,10 +222,7 @@ def choose_cases(spells, catalog, args):
                 trajectory = next((key for name in priorities for key in alternatives
                                    if key.split(".")[-1] == name and key != spell["trajectory"]), None)
                 trajectory = trajectory or next((key for key in alternatives if key != spell["trajectory"]), None)
-            modes = args.cases.split(",")
             for mode in modes:
-                if mode not in LABELS:
-                    raise ValueError(f"未知演示类型：{mode}")
                 if mode in {"modifiers", "combined"} and (not spell["adjustable"] or not specs):
                     skipped.append({"id": spell["id"], "case": mode, "reason": "来源专属实体或没有兼容词条"})
                     continue
@@ -423,8 +438,14 @@ def main(all_spells):
             export_inventory((args.output or CONTROL / "inventory").resolve(), starting_version)
             return
         if args.list:
+            needles = args.filter.casefold().split(",") if args.filter else ()
             for entry in catalog["spells"]:
-                print(f"{entry['name']}\t{entry['id']}\t{entry['group']}\t{entry['variants']} 个变体")
+                if args.scope == "base" and not entry["adjustable"]:
+                    continue
+                if needles and not any(needle in (entry["id"] + entry["name"]).casefold() for needle in needles):
+                    continue
+                status = f"暂不可录：{entry['unavailable']}" if entry.get("unavailable") else f"{entry['variants']} 个变体"
+                print(f"{entry['name']}\t{entry['id']}\t{entry['group']}\t{status}")
             for category in ["modifiers", "trajectories"]:
                 print("\n" + ("词条" if category == "modifiers" else "轨迹"))
                 for entry in catalog[category]:
@@ -455,7 +476,9 @@ def main(all_spells):
         else:
             cases, skipped = choose_cases(spells, catalog, args)
         if not cases:
-            parser.error("没有可用演示，请检查 --cases 和兼容范围")
+            reasons = list(dict.fromkeys(row["reason"] for row in skipped))
+            detail = "；".join(reasons) if reasons else "请检查 --cases 和兼容范围"
+            parser.error("没有可用演示：" + detail)
         if args.scene == "battle":
             if any(not spell["adjustable"] for spell in spells) or args.cases != "base":
                 parser.error("自主交战请筛选基础法术并指定 --cases base；每位修士会学会筛选出的全部法术")

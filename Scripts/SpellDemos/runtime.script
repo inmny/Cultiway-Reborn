@@ -239,6 +239,23 @@ public void Install()
         trajectory = "身体接触", relation = "Hostile", trajectories = Array.Empty<string>(),
         modifiers = Array.Empty<string>()
     });
+    // 世界重载会重建构造目录。把这次选择所需的完整资料留在清单里，特别是世界内已创作的构造。
+    var identifiers = new HashSet<string>(rows.Select(row => (string)JObject.FromObject(row)["id"]),
+        StringComparer.Ordinal);
+    var definitions = (IDictionary)typeof(ConstructedAbilityService).GetField("definitions", Flags).GetValue(null);
+    foreach (AbilityDefinition definition in definitions.Values.Cast<AbilityDefinition>()
+                 .OrderBy(value => value.Id, StringComparer.Ordinal))
+    {
+        if (!identifiers.Add(definition.Id)) continue;
+        rows.Add(new
+        {
+            id = definition.Id, name = definition.Name, variants = 1,
+            group = definition.Body == null ? "万法阁构造" : "万法阁战技", adjustable = false,
+            trajectory = "构造资料", trajectories = Array.Empty<string>(), modifiers = Array.Empty<string>(),
+            construction = JObject.FromObject(definition), constructionSource = "当前世界登记",
+            unavailable = ConstructionSceneProblem(definition)
+        });
+    }
     Write(Path.Combine(Root, "catalog.json"), new
     {
         generatedAt = DateTime.UtcNow,
@@ -251,6 +268,31 @@ public void Install()
         trajectories = trajectories.Select(item => new { id = item.id, name = Name(item.id) }).ToArray()
     });
     WriteMigrationInventory(rows);
+}
+
+/// <summary>列出当前通用夹具缺少的原始输入，避免把无法正式受理的能力录成空片。</summary>
+private static string ConstructionSceneProblem(AbilityDefinition definition)
+{
+    string part = definition.Body?.Effector;
+    if (part != null && (part.StartsWith("part:", StringComparison.Ordinal) ||
+                         part.StartsWith("organ:", StringComparison.Ordinal)))
+        return "需要对应的非人部位或器官场景";
+    if (definition.Inventory?.Length > 0) return "需要准备资料声明的原库存物项";
+    if (definition.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina"))
+        return "需要提供实际资源：" + definition.Resource;
+    if (definition.Body?.WeaponForm is string form && DemoWeapon(form) == null)
+        return "夹具找不到实际对应的兵器：" + form;
+    return null;
+}
+
+/// <summary>从原版实际装备登记匹配形体的持物规则，原铁剑保持旧录像的缺省选择。</summary>
+private static EquipmentAsset DemoWeapon(string form)
+{
+    var held = FormResources.Load(form).Description.Held;
+    var sword = AssetManager.items.get("sword_iron");
+    if (sword != null && held.MatchesEquipment(sword.group_id, sword.id)) return sword;
+    return AssetManager.items.list.OrderBy(item => item.id, StringComparer.Ordinal)
+        .FirstOrDefault(item => held.MatchesEquipment(item.group_id, item.id));
 }
 
 /// <summary>导出实际全部登记及引用，不把可录像项目等同于全部能力。</summary>
@@ -515,10 +557,10 @@ private void WriteMigrationInventory(List<object> demoRows)
         {
             key = "construction:" + definition.Id, id = definition.Id, name = definition.Name, kind = "构造资料",
             execution = "ConstructedAbilityService", persistence = "ability_constructions / ability_knowledge",
-            demo = false,
+            demo = demoIds.Contains(definition.Id) && ConstructionSceneProblem(definition) == null,
             migration = definition.Body == null
-                ? "首轮形体构造已接入；使用 --construction 演示"
-                : "已接入共同身体、持物及作用；使用 --construction 演示"
+                ? "已接入共同形体构造；目录可指定原登记编号"
+                : "已接入共同身体、持物及作用；目录列出所需场景"
         });
     }
 
@@ -593,8 +635,7 @@ private void Update()
         ConstructedAbilityService.QueuedDamageConfirmed += OnQueuedDamage;
     ConstructedAbilityService.CastEnded += OnConstructedEnd;
     ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
-    StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
-        (string)request["action"] == "construction" ? RecordConstructions() : Run()));
+    StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() : Run()));
 }
 
 /// <summary>在请求边界记录错误，保证暂停、界面和事件订阅有明确收尾。</summary>
@@ -626,7 +667,8 @@ private IEnumerator Guarded(IEnumerator steps)
     RestoreTerrainFirstPersonLook();
     ControllableUnit.clear(false);
     bool sceneRestored = false;
-    if ((string)request["action"] == "construction")
+    if ((string)request["action"] == "construction" ||
+        ((JArray)request["cases"]).Any(item => item["construction"] is JObject))
     {
         // 每批结束及失败都回到同一个现成夹具，清除临时已学、材料和未结束动作。
         var restoring = LoadFixture();
@@ -801,27 +843,6 @@ private void OnConstructedClash(ConstructedClash clash)
     barrierLowest = Mathf.Min(barrierLowest, remaining);
 }
 
-/// <summary>每份构造重用同一个现成世界，避免上一份的职业、冷却和材料影响下一份。</summary>
-private IEnumerator RecordConstructions()
-{
-    int index = 0;
-    foreach (JObject item in (JArray)request["cases"])
-    {
-        errors.Clear();
-        currentCase = (string)item["id"];
-        string folder = Path.Combine(output, (string)item["key"]);
-        Directory.CreateDirectory(folder);
-        Write(Path.Combine(folder, "definition.json"), item["construction"]);
-        Write(Path.Combine(output, "status.json"),
-            new { done = false, index = ++index, current = item["key"], stage = "准备构造" });
-        var recording = RecordConstruction(item);
-        while (recording.MoveNext()) yield return recording.Current;
-        ReleaseBodyCloseCamera();
-        heldSwordDemo = false;
-        RestoreTerrainFirstPersonLook();
-    }
-}
-
 /// <summary>通过正式学习和施放入口录制当前资料。</summary>
 /// <param name="item">当前构造及其录制编号。</param>
 private IEnumerator RecordConstruction(JObject item)
@@ -865,9 +886,11 @@ private IEnumerator RecordConstruction(JObject item)
         enemy.setStatsDirty();
         enemy.updateStats();
         if (owner.HasComponent<Magic>()) owner.E.RemoveComponent<Magic>();
-        if (definition.Body.WeaponForm != null)
+        if (definition.Body.WeaponForm is string form)
             caster.equipment.setItem(
-                World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: caster), caster);
+                World.world.items.generateItem(DemoWeapon(form) ??
+                    throw new InvalidOperationException("没有对应的实际演示兵器：" + form), pActor: caster), caster);
+        else if (caster.hasWeapon()) caster.equipment.weapon.takeAwayItem();
         Place(caster, 66, 72);
         PositionBodyTarget();
     }
@@ -1286,9 +1309,8 @@ private IEnumerator RecordConstruction(JObject item)
 /// <summary>读取独立测试世界，然后依次准备、释放和录制每一招。</summary>
 private IEnumerator Run()
 {
-    var load = LoadScene();
-    while (load.MoveNext()) yield return load.Current;
     int index = 0;
+    bool legacyScene = false;
     foreach (JObject item in (JArray)request["cases"])
     {
         errors.Clear();
@@ -1298,6 +1320,24 @@ private IEnumerator Run()
         Directory.CreateDirectory(Path.Combine(folder, "frames"));
         Write(Path.Combine(output, "status.json"),
             new { done = false, index = ++index, current = item["key"], stage = "准备" });
+        if (item["construction"] is JObject definition)
+        {
+            Write(Path.Combine(folder, "definition.json"), definition);
+            var recording = RecordConstruction(item);
+            while (recording.MoveNext()) yield return recording.Current;
+            legacyScene = false;
+            ReleaseBodyCloseCamera();
+            heldSwordDemo = false;
+            RestoreTerrainFirstPersonLook();
+            continue;
+        }
+
+        if (!legacyScene)
+        {
+            var load = LoadScene();
+            while (load.MoveNext()) yield return load.Current;
+            legacyScene = true;
+        }
         Prepare(item);
         // 法宝需要等待附加状态建立；掌击不提前推进，避免准备阶段先消耗近战冷却。
         if ((string)item["id"] != "Cultiway.PalmStrike")
@@ -1319,6 +1359,7 @@ private IEnumerator Run()
         ReleaseBodyCloseCamera();
     }
 
+    if (!legacyScene) yield break;
     CleanExecutions();
     Config.paused = false;
     double ending = World.world.getCurWorldTime() + 1.5;
