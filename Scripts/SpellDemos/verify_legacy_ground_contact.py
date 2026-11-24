@@ -12,16 +12,16 @@ SPELLS = ('FireBlade', 'ChainLightning')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('legacy', 'current'), required=True)
-    parser.add_argument('--baseline', type=Path)
+    parser.add_argument('--case', choices=('current',), default='current')
+    parser.add_argument('--baseline', type=Path, required=True)
     parser.add_argument('--spell', choices=SPELLS, action='append')
     args = parser.parse_args()
-    if args.case == 'current' and (args.baseline is None or not args.baseline.is_file()):
+    if not args.baseline.is_file():
         parser.error('需要原执行的 result.json')
     scripts = Path(__file__).parent
     common = (scripts / 'verify_projectile_variants.script').read_text().split('async Task PlaySpike(', 1)[0]
     names = ', '.join(f'SkillEntities.{name}' for name in args.spell or SPELLS)
-    baseline = json.dumps(str(args.baseline.resolve())) if args.baseline else 'null'
+    baseline = json.dumps(str(args.baseline.resolve()))
     inputs = f'var directSpells = new[] {{ {names} }};\nconst string directBaseline = {baseline};\n'
     with TemporaryDirectory(prefix='legacy-ground-contact-') as directory:
         script = Path(directory) / 'verify_legacy_ground_contact.script'

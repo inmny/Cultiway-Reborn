@@ -2748,11 +2748,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 旧攻击命中人物后的地块作用（10.01）
 
-在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_contact.py --case legacy`。随后用 `--case current --baseline <原执行的 result.json>` 对照每次接触、脚下地块和实扣费用。使用 `--spell ChainLightning` 可单独对照跳跃及衰减。报告的 `damage` 分别记录带来源的命中和原版环境伤害，用来查明总掉血的组成。
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_ground_contact.py --baseline <原执行的 result.json>` 对照每次接触、脚下地块和实扣费用。使用 `--spell ChainLightning` 可单独对照跳跃及衰减。报告的 `damage` 分别记录带来源的命中和原版环境伤害，用来查明总掉血的组成。
 
 ### 飞行攻击实际接触建筑（10.01）
 
-在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_building_flight.py --case legacy`。再用 `--case current --baseline <原执行的 result.json>` 对照。可用 `--spell WaterArrow`、`--spell Fireball` 或 `--spell RockProjectile` 单独安排样本。报告包含水矢直击和穿透、火球拦截和拆屋后的复放，以及飞石越过房屋时的真实结果。
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_building_flight.py --baseline <原执行的 result.json>` 对照。可用 `--spell WaterArrow`、`--spell Fireball` 或 `--spell RockProjectile` 单独安排样本。报告包含水矢直击和穿透、火球拦截和拆屋后的复放，以及飞石越过房屋时的真实结果。
 
 以相同入口加 `--group sustained` 可对照曜阳光、毒潭、火墙与风墙对同一类完工建筑的作用。报告保留单次实际扣血、共同接触的年龄、实扣费用及结束观察。
 
@@ -2760,7 +2760,7 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 ### 持续领域的受力、液体与地形（10.01）
 
-在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_field_world.py --case legacy`，再用同一入口的 `--case current --baseline <原执行的 result.json>` 对照。可以用 `--spell Tornado` 或 `--spell YinField` 限定样本。报告记录角色的实际位移、行进及接触产生的水滴、改变的地块与结束后的观测。
+在独立游戏中运行 `dev.py exec -- python3 Scripts/SpellDemos/verify_legacy_field_world.py --baseline <原执行的 result.json>` 对照。可以用 `--spell Tornado` 或 `--spell YinField` 限定样本。报告记录角色的实际位移、行进及接触产生的水滴、改变的地块与结束后的观测。
 
 ### 基础法术整项交付（10.01）
 

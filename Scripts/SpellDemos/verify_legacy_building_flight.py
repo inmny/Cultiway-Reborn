@@ -14,15 +14,15 @@ CHAIN = ('ChainLightning',)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('legacy', 'current'), required=True)
-    parser.add_argument('--baseline', type=Path)
+    parser.add_argument('--case', choices=('current',), default='current')
+    parser.add_argument('--baseline', type=Path, required=True)
     groups = {'flight': FLIGHT, 'sustained': SUSTAINED, 'chain': CHAIN}
     parser.add_argument('--group', choices=tuple(groups), default='flight')
     parser.add_argument('--spell', choices=FLIGHT + SUSTAINED + CHAIN, action='append')
     scenarios = ('actor-relay', 'building-first', 'open')
     parser.add_argument('--chain-case', choices=scenarios, action='append')
     args = parser.parse_args()
-    if args.case == 'current' and (args.baseline is None or not args.baseline.is_file()):
+    if not args.baseline.is_file():
         parser.error('需要原执行的 result.json')
     scripts = Path(__file__).parent
     common = (scripts / 'verify_projectile_variants.script').read_text().split('async Task PlaySpike(', 1)[0]
@@ -30,7 +30,7 @@ def main():
     if args.chain_case and 'ChainLightning' not in names:
         parser.error('--chain-case 需要选择链雷')
     selection = ', '.join(f'SkillEntities.{name}' for name in names)
-    baseline = json.dumps(str(args.baseline.resolve())) if args.baseline else 'null'
+    baseline = json.dumps(str(args.baseline.resolve()))
     inputs = f'var buildingSpells = new[] {{ {selection} }};\nconst string buildingBaseline = {baseline};\n'
     cases = ', '.join(map(json.dumps, args.chain_case or scenarios))
     inputs += f'var chainScenarios = new[] {{ {cases} }};\n'

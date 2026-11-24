@@ -1,7 +1,5 @@
 // 按相同入口实放原术，只观测已发生的原版地块、落滴与人物受力。
-bool legacy = caseName == "legacy";
-var prior = legacy ? null : JObject.Parse(File.ReadAllText(worldFieldBaseline));
-var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var prior = JObject.Parse(File.ReadAllText(worldFieldBaseline));
 var hook = new HarmonyLib.Harmony("cultiway.test.field-world." + Guid.NewGuid().ToString("N"));
 var samples = new List<JObject>();
 var pushes = new List<JObject>();
@@ -97,12 +95,7 @@ Patch(fx.GetMethod("OnFlyOver", F), nameof(FieldWorldProbe.BeforeTravel), nameof
 Patch(typeof(DropManager).GetMethod("spawnParabolicDrop", F), nameof(FieldWorldProbe.BeforeDrop), nameof(FieldWorldProbe.AfterDrop));
 hook.Patch(typeof(ActorExtend).GetMethod("TryGetForce", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(FieldWorldProbe), nameof(FieldWorldProbe.AfterForce)));
-if (legacy)
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
-        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
-            ? SkillEmissionResult.Unhandled : original(emission);
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
 try
 {
     foreach (var asset in worldFields)
@@ -116,7 +109,7 @@ try
         samples.Clear();
         pushes.Clear();
         drops.Clear();
-        int old = oldExecutions, now = casts.Count;
+        int now = casts.Count;
         started = World.world.getCurWorldTime();
         observing = true;
         Vector3 point = new(wind ? 82.5f : start.x, 72.5f, 0f);
@@ -126,7 +119,7 @@ try
         CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
         source.updateStats();
         object separation = null;
-        if (!legacy && !wind)
+        if (!wind)
         {
             await Advance(1.85f);
             separation = ReadFieldSeparation(casts.Last().Value);
@@ -143,18 +136,17 @@ try
             queries = samples.ToArray(), forces = pushes.ToArray(), drops = drops.ToArray() });
         results.Add(row);
         File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = results }, Formatting.Indented));
-        Check(legacy ? oldExecutions == old + 1 && casts.Count == now :
-                       oldExecutions == old && casts.Count == now + 1 && casts.Last().Value.Finished,
+        Check(casts.Count == now + 1 && casts.Last().Value.Finished,
             "同一原入口只产生一次领域并自然结束", asset.id);
         Check(samplesBefore == samples.Count && pushesBefore == pushes.Count && dropsBefore == drops.Count,
             "领域自然结束后不再提交受力、地块操作或水滴", asset.id);
         if (wind)
         {
             Check(pushes.Any(item => (long)item["id"] == target.id && (bool)item["accepted"] && (float)item["speed"] > 1f) &&
-                  pushedOutward() && (legacy ? moved < .04f : moved > .04f) &&
+                  pushedOutward() && moved > .04f &&
                   pushes.All(item => (long)item["id"] != source.id && (long)item["id"] != outside.id) &&
                   (float)row["casterMoved"] < .04f && (float)row["outsideMoved"] < .04f,
-                legacy ? "记录旧风卷受理的水平力及没有位移的结果" : "新风卷真实推进场内人物，来源与场外留在原位", row);
+                "风卷真实推进场内人物，来源与场外留在原位", row);
             Check(drops.Any(item => (string)item["phase"] == "contact" && (string)item["id"] == "rain" && (int)item["delta"] == 1) &&
                   drops.Any(item => (string)item["phase"] == "travel" && (int)item["delta"] == 1) &&
                   samples.SelectMany(item => item["changed"]).Any(cell =>
@@ -169,20 +161,17 @@ try
                   samples.SelectMany(item => item["changed"]).Any(change => (string)change["cell"] == cell &&
                       ((string)change["before"]).StartsWith("soil_high/") && ((string)change["after"]).StartsWith("soil_low/")),
                 "阴域在真实接触对象脚下实际降低主地形", row);
-            if (!legacy && samples.Count < 6)
+            if (samples.Count < 6)
                 Check(!(bool)row["separation"]["overlap"] && (int)row["separation"]["shapeCount"] > 0,
                     "降低后的对象已离开仍存在的真实领域，后续无接触", row["separation"]);
         }
-        if (!legacy)
-        {
-            var before = prior["spells"].Single(item => (string)item["id"] == asset.id);
-            Check(new HashSet<(string, string, float)>(
-                    before["queries"].Select(item => ((string)item["phase"], (string)item["element"], (float)item["radius"])))
-                .SetEquals(samples.Select(item => ((string)item["phase"], (string)item["element"], (float)item["radius"]))),
-                "新旧使用同一元素和同类世界作用范围", asset.id);
-        }
+        var before = prior["spells"].Single(item => (string)item["id"] == asset.id);
+        Check(new HashSet<(string, string, float)>(
+                before["queries"].Select(item => ((string)item["phase"], (string)item["element"], (float)item["radius"])))
+            .SetEquals(samples.Select(item => ((string)item["phase"], (string)item["element"], (float)item["radius"]))),
+            "新旧使用同一元素和同类世界作用范围", asset.id);
     }
-    return new { passed = true, legacy, process, spells = results, checks };
+    return new { passed = true, legacy = false, process, spells = results, checks };
 }
 finally
 {
@@ -191,8 +180,6 @@ finally
     FieldWorldProbe.Write = null;
     FieldWorldProbe.Push = null;
     FieldWorldProbe.Drop = null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;

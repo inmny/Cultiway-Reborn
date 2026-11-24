@@ -1,9 +1,6 @@
 // 用原学习入口实放。世界作用只观察非范围命中，排除正常行进焦痕。
-bool legacy = caseName == "legacy";
-var prior = legacy ? null : JObject.Parse(File.ReadAllText(directBaseline));
-var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var prior = JObject.Parse(File.ReadAllText(directBaseline));
 var effects = new List<JObject>();
-var oldTargets = new List<long>();
 var settlements = new List<JObject>();
 var payments = new List<double>();
 var reports = new JArray();
@@ -58,10 +55,6 @@ bool Use(Entity skill, bool pointOnly)
     return accepted;
 }
 
-void OnOldContact(Entity entity, BaseSimObject hit)
-{
-    if (entity.GetComponent<SkillContext>().SourceObj == source && hit.isActor()) oldTargets.Add(hit.a.id);
-}
 GroundContactProbe.BeforeTile = (point, payer, isArea) => payer == source && !isArea ? Snapshot(point) : null;
 GroundContactProbe.AfterTile = (point, element, radius, before) =>
 {
@@ -89,13 +82,7 @@ hook.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.AfterPayment)));
 hook.Patch(typeof(Cultiway.Core.EventSystem.Systems.GetHitEventSystem).GetMethod("Resolve", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(GroundContactProbe), nameof(GroundContactProbe.AfterDamage)));
-if (legacy)
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
-        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
-            ? SkillEmissionResult.Unhandled : original(emission);
 ConstructedAbilityService.CastStarted += Started;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
-SkillHitResolver.ContactResolved += OnOldContact;
 
 try
 {
@@ -103,7 +90,7 @@ try
     {
         Entity skill = Learn(asset, 0, false);
         bool chain = asset == SkillEntities.ChainLightning;
-        if (!legacy && !chain)
+        if (!chain)
         {
             Arrange(false, true);
             Check(Use(skill, true), "火刃空击受理");
@@ -118,11 +105,11 @@ try
         var receivers = chain ? new[] { target, second, third, fourth } : new[] { target, second };
         var health = receivers.Select(actor => actor.getHealth()).ToArray();
         var burningBefore = receivers.Select(actor => actor.hasStatus("burning")).ToArray();
-        int unused = outside.getHealth(), old = oldExecutions, count = casts.Count;
-        int impacts = effects.Count, oldHits = oldTargets.Count, paymentsBefore = payments.Count, damageBefore = settlements.Count;
+        int unused = outside.getHealth(), count = casts.Count;
+        int impacts = effects.Count, paymentsBefore = payments.Count, damageBefore = settlements.Count;
         Check(Use(skill, false), "原入口受理实际命中", asset.id);
         await Advance(chain ? 1.45f : 1.0f);
-        var hits = legacy ? oldTargets.Skip(oldHits).ToArray() : contacts.Where(hit => hit.CastId == casts.Last().Key)
+        var hits = contacts.Where(hit => hit.CastId == casts.Last().Key)
             .Select(hit => hit.TargetId).ToArray();
         var recorded = effects.Skip(impacts).ToArray();
         var losses = receivers.Select((actor, i) => health[i] - actor.getHealth()).ToArray();
@@ -132,7 +119,7 @@ try
         var result = JObject.FromObject(new { id = asset.id, hits, effects = recorded, losses, burningBefore, payment, damage });
         reports.Add(result);
         File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = reports }, Formatting.Indented));
-        Check((legacy ? oldExecutions == old + 1 && casts.Count == count : oldExecutions == old && casts.Count == count + 1) &&
+        Check(casts.Count == count + 1 &&
               hits.SequenceEqual(receivers.Select(actor => actor.id)) &&
               losses.All(loss => loss > 0) && outside.getHealth() == unused,
             "只有实际命中的人物受伤，且没有多一条执行", new { asset.id, hits, losses });
@@ -148,16 +135,13 @@ try
               recorded.All(item => item["changed"].Any(tile => (string)tile["cell"] == "0:0" &&
                   ((string)tile["after"]).EndsWith("/True"))),
             chain ? "链雷每一跳实际改变地面" : "火刃点燃每个命中对象脚下", asset.id);
-        if (!legacy)
-        {
-            JToken baseline = prior["spells"].Single(item => (string)item["id"] == asset.id);
-            Check(Math.Abs((double)baseline["payment"] - payment) < .001 &&
-                  recorded.Select(item => (string)item["element"]).SequenceEqual(baseline["effects"].Select(item => (string)item["element"])),
-                "保持原元素和每发支付", new { asset.id, previous = baseline["payment"], payment });
-        }
+        JToken baseline = prior["spells"].Single(item => (string)item["id"] == asset.id);
+        Check(Math.Abs((double)baseline["payment"] - payment) < .001 &&
+              recorded.Select(item => (string)item["element"]).SequenceEqual(baseline["effects"].Select(item => (string)item["element"])),
+            "保持原元素和每发支付", new { asset.id, previous = baseline["payment"], payment });
         await Advance(1f);
     }
-    return new { passed = true, process, legacy, spells = reports, checks };
+    return new { passed = true, process, legacy = false, spells = reports, checks };
 }
 finally
 {
@@ -166,9 +150,6 @@ finally
     GroundContactProbe.AfterTile = null;
     GroundContactProbe.Paid = null;
     GroundContactProbe.Settled = null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
-    SkillHitResolver.ContactResolved -= OnOldContact;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.CastEnded -= Ended;
     ConstructedAbilityService.ContactConfirmed -= Hit;

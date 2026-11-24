@@ -1,11 +1,8 @@
 // 直接使用原学习入口；只观察真实建筑、爆发、人物受击和实扣费用。
-bool legacy = caseName == "legacy";
-var baseline = legacy ? null : JObject.Parse(File.ReadAllText(buildingBaseline));
-var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var baseline = JObject.Parse(File.ReadAllText(buildingBaseline));
 var hook = new HarmonyLib.Harmony("cultiway.test.building-flight." + Guid.NewGuid().ToString("N"));
 var buildingHits = new List<JObject>();
 var areas = new List<JObject>();
-var originalTouches = new List<JObject>();
 var actualTouches = new List<ConstructedActionEvent>();
 var chainTouches = new List<AbilityActionEvent>();
 var payments = new List<double>();
@@ -68,16 +65,6 @@ bool Use(Entity skill, float row, float targetX = 78f, float? groundX = null)
     return accepted;
 }
 
-void OnOldContact(Entity entity, BaseSimObject hit)
-{
-    var context = entity.GetComponent<SkillContext>();
-    if (context.SourceObj != source) return;
-    Vector3 pos = entity.GetComponent<Position>().value;
-    entity.TryGetComponent(out Cultiway.Core.SkillLibV3.Components.TrajParams.MotionParams motion);
-    originalTouches.Add(JObject.FromObject(new { subject = hit.getID(), building = hit.isBuilding(),
-        position = new[] { pos.x, pos.y, pos.z }, aimedHeight = context.TargetPos.z,
-        heightGate = motion.HasHeightGate, heightLimit = motion.HeightGateMax }));
-}
 void OnAction(ConstructedActionEvent evt)
 {
     if (evt.SourceId != source.id || evt.Fact.Kind != AbilityActionEventKind.Contact) return;
@@ -108,14 +95,8 @@ hook.Patch(typeof(SkillCastPayment).GetMethod("Commit", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(BuildingFlightProbe), nameof(BuildingFlightProbe.AfterPayment)));
 hook.Patch(typeof(Cultiway.Core.SkillLibV3.Visuals.SkillGroundFx).GetMethod("ApplyImpact", F),
     postfix: new HarmonyLib.HarmonyMethod(typeof(BuildingFlightProbe), nameof(BuildingFlightProbe.AfterGround)));
-if (legacy)
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = emission =>
-        chosenAssets.Contains(emission.SkillContainer.GetComponent<SkillContainer>().Asset.id)
-            ? SkillEmissionResult.Unhandled : original(emission);
 ConstructedAbilityService.CastStarted += Started;
 ConstructedAbilityService.ActionConfirmed += OnAction;
-Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += LegacyExecution;
-SkillHitResolver.ContactResolved += OnOldContact;
 
 async Task PlayChain(Entity skill)
 {
@@ -135,8 +116,8 @@ async Task PlayChain(Entity skill)
         var receivers = new[] { target, second, outside };
         var before = receivers.ToDictionary(actor => actor.id, actor => actor.getHealth());
         owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
-        int old = originalTouches.Count, current = chainTouches.Count, debits = payments.Count, damageBefore = buildingHits.Count;
-        int oldExecutionsBefore = oldExecutions, castCount = casts.Count;
+        int current = chainTouches.Count, debits = payments.Count, damageBefore = buildingHits.Count;
+        int castCount = casts.Count;
         BaseSimObject first = fromHouse ? (BaseSimObject)house : target;
         Vector3 aim = first.GetSimPos();
         Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
@@ -146,8 +127,7 @@ async Task PlayChain(Entity skill)
         CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
         source.updateStats();
         await Advance(1.25f);
-        var order = legacy ? originalTouches.Skip(old).Select(item => (long)item["subject"]).ToArray() :
-            chainTouches.Skip(current).Select(item => item.TargetId).ToArray();
+        var order = chainTouches.Skip(current).Select(item => item.TargetId).ToArray();
         long[] desired = scenario == "actor-relay" ? new[] { target.id, houseId, second.id } :
             fromHouse ? new[] { houseId, second.id } : new[] { target.id, outside.id };
         var damage = buildingHits.Skip(damageBefore).ToArray();
@@ -157,8 +137,7 @@ async Task PlayChain(Entity skill)
         var row = JObject.FromObject(new { id = SkillEntities.ChainLightning.id, scenario, order, desired, paid, damage, losses });
         reports.Add(row);
         File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = reports }, Formatting.Indented));
-        Check(order.SequenceEqual(desired) && (legacy ? oldExecutions == oldExecutionsBefore + 1 && casts.Count == castCount :
-              oldExecutions == oldExecutionsBefore && casts.Count == castCount + 1) &&
+        Check(order.SequenceEqual(desired) && casts.Count == castCount + 1 &&
               losses.All(item => (item.loss > 0) == desired.Contains(item.id)),
             "链雷依次选择实到最近目标，不重复返回", row);
         if (houseId != 0)
@@ -169,13 +148,10 @@ async Task PlayChain(Entity skill)
                 "建筑参与实际衰减并只结算一次", row);
             RemoveFixture(houseId);
         }
-        if (!legacy)
-        {
-            JToken originalRun = baseline["spells"].Single(item => (string)item["scenario"] == scenario);
-            Check(Math.Abs((double)originalRun["paid"] - paid) < .001 &&
-                  endings.Any(item => item.Fact.CastId == casts.Last().Key && !item.Fact.Cancelled),
-                "费用保持原值且链雷自然结束", row);
-        }
+        JToken originalRun = baseline["spells"].Single(item => (string)item["scenario"] == scenario);
+        Check(Math.Abs((double)originalRun["paid"] - paid) < .001 &&
+              endings.Any(item => item.Fact.CastId == casts.Last().Key && !item.Fact.Cancelled),
+            "费用保持原值且链雷自然结束", row);
     }
 }
 
@@ -197,8 +173,8 @@ try
         Vector2 position = house.current_position;
         long houseId = house.getID();
         int priorPayment = payments.Count, priorDamage = buildingHits.Count, priorArea = areas.Count,
-            priorOld = originalTouches.Count, priorBuilt = actualTouches.Count;
-        int oldCount = oldExecutions, builtCount = casts.Count;
+            priorBuilt = actualTouches.Count;
+        int builtCount = casts.Count;
         int health = target.getHealth();
         Check(Use(skill, position.y, wall ? 64f + (position.x - 64f) / .6f : 78f,
             pool ? position.x : null), "有房屋时沿真实入口发射", asset.id);
@@ -206,19 +182,17 @@ try
         await Advance(sustained ? life + .65f : 1.42f);
         var damage = buildingHits.Skip(priorDamage).ToArray();
         var blast = areas.Skip(priorArea).ToArray();
-        var oldTouches = originalTouches.Skip(priorOld).ToArray();
         var newTouches = actualTouches.Skip(priorBuilt).ToArray();
         int lost = health - target.getHealth();
         double paid = payments.Skip(priorPayment).Single();
         var record = JObject.FromObject(new { id = asset.id, house = houseId, center = new[] { position.x, position.y },
-            lost, paid, damage, blast, oldTouches, newTouches = newTouches.Select(value => new
+            lost, paid, damage, blast, newTouches = newTouches.Select(value => new
             {
                 value.Fact.TargetId, value.Fact.Age, position = new[] { value.Fact.Point.x, value.Fact.Point.y, value.Fact.Point.z }
             }) });
         reports.Add(record);
         File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(new { spells = reports }, Formatting.Indented));
-        Check(legacy ? oldExecutions == oldCount + 1 && casts.Count == builtCount :
-              oldExecutions == oldCount && casts.Count == builtCount + 1, "仍为原入口的一次真实发射", asset.id);
+        Check(casts.Count == builtCount + 1, "仍为原入口的一次真实发射", asset.id);
         if (sustained)
         {
             bool forceOnly = asset == SkillEntities.WindWall;
@@ -228,11 +202,10 @@ try
             else
             {
                 Check(owned.Length >= 2 && owned.Any(item => (int)item["before"] > (int)item["after"] || (bool)item["ruins"]) &&
-                      (legacy || newTouches.Count(value => value.Fact.TargetId == houseId) >= owned.Length),
+                      newTouches.Count(value => value.Fact.TargetId == houseId) >= owned.Length,
                     "持续的实际作用面按回合造成建筑伤害", record);
                 float interval = asset.ImpactProfile.RepeatHitInterval;
-                double[] times = legacy ? owned.Select(item => (double)item["time"]).ToArray() :
-                    newTouches.Where(value => value.Fact.TargetId == houseId).Select(value => (double)value.Fact.Age).ToArray();
+                double[] times = newTouches.Where(value => value.Fact.TargetId == houseId).Select(value => (double)value.Fact.Age).ToArray();
                 Check(times.Zip(times.Skip(1), (first, next) => next - first >= interval - .018 &&
                           next - first <= interval + .085).All(valid => valid),
                     "同一建筑只按原间隔反复受击", new { asset.id, interval, times });
@@ -243,38 +216,32 @@ try
         }
         else if (arc)
         {
-            if (legacy)
-                Check(oldTouches.Length > 0, "记录旧飞石实际碰触和原高度设置", oldTouches);
-            else
-                Check(damage.Length == 0 && newTouches.Length == 0 && lost > 0,
-                    "飞石的弧顶越过房屋，抵达后方目标才命中", new { damage, lost });
+            Check(damage.Length == 0 && newTouches.Length == 0 && lost > 0,
+                "飞石的弧顶越过房屋，抵达后方目标才命中", new { damage, lost });
         }
         else
         {
-            Check((legacy || newTouches.Length == 1 && newTouches[0].Fact.TargetId == houseId) &&
+            Check(newTouches.Length == 1 && newTouches[0].Fact.TargetId == houseId &&
                   damage.Any(item => (projectileHasArea || (bool)item["owned"]) &&
                       ((float)item["after"] < (float)item["before"] || (bool)item["ruins"])),
                 "建筑受到原范围冲击或来源直击伤害", record);
             Check(projectileHasArea ? blast.Length == 1 && lost == 0 : blast.Length == 0 && lost > 0,
                 projectileHasArea ? "房屋先拦下火球，房后人物未受伤" : "水矢穿过房屋后仍真实命中后方人物", record);
-            if (projectileHasArea && !legacy)
+            if (projectileHasArea)
             {
                 float[] center = blast[0]["position"].ToObject<float[]>();
                 Check(Vector2.Distance(new Vector2(center[0], center[1]), newTouches[0].Fact.Point) < .001f,
                     "实际建筑接触点也是世界爆发中心", center);
             }
         }
-        if (!legacy)
-        {
-            JToken prior = baseline["spells"].Single(item => (string)item["id"] == asset.id);
-            float[] OwnedDamage(IEnumerable<JToken> items) => items.Where(item => (bool)item["owned"])
-                .Select(item => (float)item["damage"]).ToArray();
-            Check(Math.Abs((double)prior["paid"] - paid) < .001 &&
-                  (sustained ? OwnedDamage(prior["damage"]).Distinct().SequenceEqual(OwnedDamage(damage).Distinct()) :
-                  arc || (projectileHasArea ? Math.Abs((float)prior["blast"][0]["radius"] - (float)blast[0]["radius"]) < .001f :
-                      OwnedDamage(prior["damage"]).SequenceEqual(OwnedDamage(damage)))),
-                "爆发半径或建筑直击伤害、每发费用保留原值", new { asset.id, paid, damage = OwnedDamage(damage) });
-        }
+        JToken prior = baseline["spells"].Single(item => (string)item["id"] == asset.id);
+        float[] OwnedDamage(IEnumerable<JToken> items) => items.Where(item => (bool)item["owned"])
+            .Select(item => (float)item["damage"]).ToArray();
+        Check(Math.Abs((double)prior["paid"] - paid) < .001 &&
+              (sustained ? OwnedDamage(prior["damage"]).Distinct().SequenceEqual(OwnedDamage(damage).Distinct()) :
+              arc || (projectileHasArea ? Math.Abs((float)prior["blast"][0]["radius"] - (float)blast[0]["radius"]) < .001f :
+                  OwnedDamage(prior["damage"]).SequenceEqual(OwnedDamage(damage)))),
+            "爆发半径或建筑直击伤害、每发费用保留原值", new { asset.id, paid, damage = OwnedDamage(damage) });
         if (projectileHasArea)
         {
             RemoveFixture(houseId);
@@ -286,7 +253,7 @@ try
         }
         if (house != null) RemoveFixture(houseId);
     }
-    return new { passed = true, legacy, process, spells = reports, checks };
+    return new { passed = true, legacy = false, process, spells = reports, checks };
 }
 finally
 {
@@ -294,9 +261,6 @@ finally
     BuildingFlightProbe.Hit = null;
     BuildingFlightProbe.Paid = null;
     BuildingFlightProbe.Area = null;
-    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
-    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= LegacyExecution;
-    SkillHitResolver.ContactResolved -= OnOldContact;
     ConstructedAbilityService.CastStarted -= Started;
     ConstructedAbilityService.ActionConfirmed -= OnAction;
     ConstructedAbilityService.CastEnded -= Ended;
