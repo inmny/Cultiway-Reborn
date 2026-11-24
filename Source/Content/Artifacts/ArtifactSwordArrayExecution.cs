@@ -119,20 +119,19 @@ internal static class ArtifactSwordArrayExecution
         return true;
     }
 
-    internal static void Update(
-        ref SkillContext context,
-        ref Position position,
-        ref Rotation rotation,
-        Entity execution,
-        float deltaTime)
+    /// <summary>推进阵体及剑影，并说明本轮是否留下可接触的刃面。</summary>
+    /// <param name="execution">原法宝已经受理的剑阵。</param>
+    /// <param name="deltaTime">本轮消耗的世界秒数。</param>
+    internal static bool Advance(Entity execution, float deltaTime)
     {
-        if (ModClass.I.Game.IsPaused()) return;
+        if (ModClass.I.Game.IsPaused()) return false;
+        ref SkillContext context = ref execution.GetComponent<SkillContext>();
 
         ref ArtifactSwordArrayExecutionState state = ref execution.GetComponent<ArtifactSwordArrayExecutionState>();
         if (execution.GetComponent<SkillExecution>().end_requested)
         {
             DisableBladeColliders(ref state);
-            return;
+            return false;
         }
 
         Actor owner = context.SourceObj?.a;
@@ -141,18 +140,17 @@ internal static class ArtifactSwordArrayExecution
         {
             DisableBladeColliders(ref state);
             SkillExecutionLifecycle.RequestEnd(execution);
-            return;
+            return false;
         }
 
         float now = (float)World.world.getCurWorldTime();
         float elapsed = now - state.started_at;
-        position.value = SpatialActorPose.Foot(owner);
-        rotation.z = 0f;
+        execution.GetComponent<Position>().value = SpatialActorPose.Foot(owner);
         if (elapsed >= state.duration)
         {
             DisableBladeColliders(ref state);
             SkillExecutionLifecycle.RequestEnd(execution);
-            return;
+            return false;
         }
 
         float collapseStart = state.duration - state.collapse_duration;
@@ -161,7 +159,7 @@ internal static class ArtifactSwordArrayExecution
             float collapse = Mathf.Clamp01((elapsed - collapseStart) / state.collapse_duration);
             UpdateCollapse(owner, ref state, collapse);
             SyncBladeEntities(ref state, now, deltaTime, 1f - collapse);
-            return;
+            return false;
         }
 
         float actorScale = ResolveFormationScale(owner);
@@ -194,6 +192,29 @@ internal static class ArtifactSwordArrayExecution
             LaunchDueBlades(owner, ref state, actorScale, now);
 
         SyncBladeEntities(ref state, now, deltaTime, 1f);
+        return true;
+    }
+
+    /// <summary>对与实际剑影相交的对象结算本次出阵接触。</summary>
+    /// <param name="blade">实际相交的剑影实体。</param>
+    /// <param name="target">共同几何已经确认的人物。</param>
+    internal static void ConfirmContact(Entity blade, BaseSimObject target)
+    {
+        if (blade.IsNull || !IsActiveBlade(blade) || !blade.GetComponent<ColliderConfig>().Enabled ||
+            target == null || target.isRekt() || !target.isActor()) return;
+        if (!blade.GetComponent<SkillHitMemory>().TargetIds.Add(ArtifactSpatialTargeting.GetTargetKey(target))) return;
+        ref SkillContext context = ref blade.GetComponent<SkillContext>();
+        if (context.SourceObj == null || !context.SourceObj.isActor() || context.SourceObj.isRekt()) return;
+
+        Actor owner = context.SourceObj.a;
+        if (owner.id != context.SourceId || !owner.canAttackTarget(target.a)) return;
+        SkillHitResolver.HitTarget(
+            ArtifactSkillExecutions.SwordArrayBlade,
+            ref context,
+            default,
+            blade,
+            target,
+            playImpact: true);
     }
 
     private static void UpdateForming(

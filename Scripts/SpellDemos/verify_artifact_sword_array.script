@@ -130,6 +130,8 @@ try
         "按正式原价格只支付一次", new { expected, paid = expenditures.ToArray() });
     rootExecution = Activity().active_execution;
     Entity[] blades = State().blades.Select(value => value.entity).ToArray();
+    Check(!rootExecution.HasComponent<Cultiway.Core.SkillLibV3.Modifiers.Trajectory>() &&
+        blades.All(blade => blade.Tags.Has<TagSkillAnimationNoCollision>()), "阵体和剑影脱离旧轨迹和碰撞");
     var links = rootExecution.GetRelations<SkillExecutionBodyRelation>();
     Check(blades.Length == expectedBlades && blades.Distinct().Count() == expectedBlades &&
         links.Length == expectedBlades && blades.All(blade => blade.GetComponent<SkillExecutionBodyLease>().execution == rootExecution &&

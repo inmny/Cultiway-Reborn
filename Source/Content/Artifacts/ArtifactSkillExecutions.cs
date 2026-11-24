@@ -13,7 +13,7 @@ namespace Cultiway.Content;
 /// <summary>
 /// 法器主动能力使用的技能实体资产。根执行承载跨帧状态，实际 Body 可借用法器或由普通技能实体提供。
 /// </summary>
-[Dependency(typeof(ArtifactSkillTrajectories), typeof(SkillVfxElements))]
+[Dependency(typeof(SkillVfxElements))]
 public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, ArtifactSkillExecutions>
 {
     /// <summary>借用真实法器 Body 追踪、穿刺并折返的空间攻击执行，可持续寻敌或单次出击。</summary>
@@ -80,7 +80,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             new Rotation(),
             new AliveTimer(),
             Tags.Get<TagPrefab>());
-        SwordArray.SetupDefaultTraj(ArtifactSkillTrajectories.SwordArray);
 
         SwordArrayBlade.Element = ElementComposition.Static.Iron;
         SwordArrayBlade.PrefabEntity = SwordArrayBlade.World.CreateEntity(
@@ -91,7 +90,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             },
             new SkillContext(),
             new Position(),
-            Tags.Get<TagPrefab>());
+            Tags.Get<TagPrefab, TagSkillAnimationNoCollision>());
         SwordArrayBlade.PrefabEntity.AddComponent(new SkillHitMemory());
         SwordArrayBlade.PrefabEntity.AddComponent(new AliveTimer());
         SwordArrayBlade
@@ -100,29 +99,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
                 Enabled = false,
                 Actor = true,
                 Enemy = true,
-            })
-            .OnObjCollision = ResolveSwordArrayBladeHit;
-    }
-
-    private static bool ResolveSwordArrayBladeHit(
-        ref SkillContext context,
-        Entity skillContainer,
-        Entity blade,
-        BaseSimObject target)
-    {
-        if (!ArtifactSwordArrayExecution.IsActiveBlade(blade) ||
-            context.SourceObj == null || !context.SourceObj.isActor() || context.SourceObj.isRekt() ||
-            !target.isActor()) return true;
-
-        Actor owner = context.SourceObj.a;
-        if (owner.id != context.SourceId || !owner.canAttackTarget(target.a)) return true;
-        SkillHitResolver.HitTarget(
-            SwordArrayBlade,
-            ref context,
-            skillContainer,
-            blade,
-            target,
-            playImpact: true);
-        return true;
+            });
     }
 }
