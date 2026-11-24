@@ -713,7 +713,7 @@ private IEnumerator Guarded(IEnumerator steps)
     RestoreTerrainFirstPersonLook();
     ControllableUnit.clear(false);
     bool sceneRestored = false;
-    if ((string)request["action"] == "construction" ||
+    if ((bool?)request["continueOnFailure"] == true || (string)request["action"] == "construction" ||
         ((JArray)request["cases"]).Any(item => item["construction"] is JObject))
     {
         // 每批结束及失败都回到同一个现成夹具，清除临时已学、材料和未结束动作。
@@ -964,6 +964,14 @@ private IEnumerator RecordConstruction(JObject item)
         foreach (Entity status in owner.GetStatuses().ToArray())
             if (status.GetComponent<StatusComponent>().Type.id == "Cultiway.SpellDemo.Hold")
                 owner.RemoveSharedStatus(status);
+        if (organScene && externalView == null)
+        {
+            // 场地重载可能撤掉原附体状态。用原版附体阻止脚步干扰独立器官的原地出手。
+            ControllableUnit.setControllableCreatureAndSelected(caster);
+            typeof(ControllableUnit).GetMethod("addStatus", Flags).Invoke(null, new object[] { caster });
+            caster.cancelAllBeh();
+            caster.setPossessedMovement(false);
+        }
         owner.MarkCultiwayStatsDirty();
         caster.setStatsDirty();
         caster.updateStats();
@@ -1495,8 +1503,10 @@ private IEnumerator Run()
 {
     int index = 0;
     bool legacyScene = false;
+    bool continueOnFailure = (bool?)request["continueOnFailure"] == true;
     foreach (JObject item in (JArray)request["cases"])
     {
+        if (File.Exists(Path.Combine(Root, "cancel"))) throw new OperationCanceledException("已取消演示");
         errors.Clear();
         currentCase = (string)item["id"];
         string folder = Path.Combine(output, (string)item["key"]);
@@ -1504,43 +1514,38 @@ private IEnumerator Run()
         Directory.CreateDirectory(Path.Combine(folder, "frames"));
         Write(Path.Combine(output, "status.json"),
             new { done = false, index = ++index, current = item["key"], stage = "准备" });
-        if (item["construction"] is JObject definition)
+        var recording = RecordCase(item, folder, legacyScene);
+        string result = Path.Combine(folder, "result.json");
+        while (true)
         {
-            Write(Path.Combine(folder, "definition.json"), definition);
-            var recording = RecordConstruction(item);
-            while (recording.MoveNext()) yield return recording.Current;
-            legacyScene = false;
-            ReleaseBodyCloseCamera();
-            heldSwordDemo = false;
-            RestoreTerrainFirstPersonLook();
-            continue;
+            bool more;
+            try
+            {
+                more = recording.MoveNext();
+            }
+            catch (Exception error) when (continueOnFailure && error is not OperationCanceledException)
+            {
+                Write(result, new { passed = false, item, error = error.ToString(), errors });
+                break;
+            }
+
+            if (!more) break;
+            yield return recording.Current;
         }
 
-        if (!legacyScene)
-        {
-            var load = LoadScene();
-            while (load.MoveNext()) yield return load.Current;
-            legacyScene = true;
-        }
-        Prepare(item);
-        // 法宝需要等待附加状态建立；掌击不提前推进，避免准备阶段先消耗近战冷却。
-        if ((string)item["id"] != "Cultiway.PalmStrike")
-        {
-            Config.paused = false;
-            for (int frame = 0; frame < 4; frame++) yield return null;
-            Config.paused = true;
-        }
-
-        if (externalView != null && (WantsBodyCloseView() ||
-            !(bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)))
-        {
-            var enter = EnterView();
-            while (enter.MoveNext()) yield return enter.Current;
-        }
-
-        var record = (string)request["scene"] == "battle" ? RecordBattle(item, folder) : Record(item, folder);
-        while (record.MoveNext()) yield return record.Current;
         ReleaseBodyCloseCamera();
+        heldSwordDemo = false;
+        RestoreTerrainFirstPersonLook();
+        legacyScene = item["construction"] is not JObject;
+        if (continueOnFailure && (bool?)JObject.Parse(File.ReadAllText(result))["passed"] != true)
+        {
+            // 失败点可能已经开始施放。先恢复夹具，再允许后续录像。
+            Config.paused = true;
+            CleanExecutions();
+            var restoring = LoadFixture();
+            while (restoring.MoveNext()) yield return restoring.Current;
+            legacyScene = false;
+        }
     }
 
     if (!legacyScene) yield break;
@@ -1550,6 +1555,41 @@ private IEnumerator Run()
     while (World.world.getCurWorldTime() < ending) yield return null;
     Config.paused = true;
     CleanExecutions();
+}
+
+private IEnumerator RecordCase(JObject item, string folder, bool legacyScene)
+{
+    if (item["construction"] is JObject definition)
+    {
+        Write(Path.Combine(folder, "definition.json"), definition);
+        var recording = RecordConstruction(item);
+        while (recording.MoveNext()) yield return recording.Current;
+        yield break;
+    }
+
+    if (!legacyScene)
+    {
+        var load = LoadScene();
+        while (load.MoveNext()) yield return load.Current;
+    }
+    Prepare(item);
+    // 法宝需要等待附加状态建立；掌击不提前推进，避免准备阶段先消耗近战冷却。
+    if ((string)item["id"] != "Cultiway.PalmStrike")
+    {
+        Config.paused = false;
+        for (int frame = 0; frame < 4; frame++) yield return null;
+        Config.paused = true;
+    }
+
+    if (externalView != null && (WantsBodyCloseView() ||
+        !(bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)))
+    {
+        var enter = EnterView();
+        while (enter.MoveNext()) yield return enter.Current;
+    }
+
+    var record = (string)request["scene"] == "battle" ? RecordBattle(item, folder) : Record(item, folder);
+    while (record.MoveNext()) yield return record.Current;
 }
 
 /// <summary>仅加载仓库中的测试夹具，不保存或覆盖玩家世界。</summary>

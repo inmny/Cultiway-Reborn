@@ -305,7 +305,7 @@ def caption_font():
     raise RuntimeError("未找到中文字体，请安装 Noto Sans CJK 后再录制")
 
 
-def publish(output, cases, results, skipped):
+def publish(output, cases, results, skipped, failures=()):
     """生成逐招网页、中文目录、分类合集和完整下载包。"""
     body, markdown = [], ["# 法术实机演示", "", "单招标题标明变体、词条与轨迹；自主交战由游戏 AI 出手。通过标记只表示运行检查通过，美术验收须观看录像。", ""]
     groups = {}
@@ -331,8 +331,20 @@ def publish(output, cases, results, skipped):
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(playlist),
                         "-c", "copy", "-movflags", "+faststart", str(output / "全部法术-总览.mp4")], check=True)
         markdown.insert(4, "- [全部法术总览](全部法术-总览.mp4)")
+    if failures:
+        markdown.extend(["", "## 录制失败", ""])
+        for failure in failures:
+            case, reason = failure["case"], failure["reason"]
+            report = case["key"] + "/result.json"
+            markdown.append(f"- [{case['name']} · {case['label']}]({report})　{reason}")
+            body.append(f'<article><h2>录制失败 · {html.escape(case["name"])}</h2>'
+                        f'<p>{html.escape(case["id"])} · {html.escape(reason)}</p><a href="{report}">结果</a></article>')
     if skipped:
-        markdown.extend(["", f"跳过 {len(skipped)} 项不适用变化，具体原因见 manifest.json。"])
+        markdown.extend(["", "## 跳过", ""])
+        for entry in skipped:
+            markdown.append(f"- {entry['id']} · {entry['case']}　{entry['reason']}")
+            body.append(f'<article><h2>跳过 · {html.escape(entry["id"])}</h2>'
+                        f'<p>{html.escape(entry["case"])} · {html.escape(entry["reason"])}</p></article>')
     (output / "演示目录.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
     navigation = ('<a href="全部法术-总览.mp4">全部总览</a>　' if len(results) > 1 else "") + "　".join(f'<a href="{html.escape(group)}-合集.mp4">{html.escape(group)}</a>' for group in groups)
     (output / "index.html").write_text('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>法术实机演示</title><style>body{margin:30px;background:#111820;color:#eee;font-family:sans-serif}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:24px}article{background:#202b38;padding:16px;border-radius:10px}h2{font-size:19px}p{font-size:12px;color:#b8c6d6}video{width:100%}a{color:#9bd6ff}nav{margin-bottom:20px}input{width:95%;padding:12px;margin-bottom:20px}</style><h1>法术实机演示</h1><nav>' + navigation + '</nav><input placeholder="搜索中文名、编号、词条或轨迹" oninput="for(const a of document.querySelectorAll(\'article\'))a.hidden=!a.textContent.toLowerCase().includes(this.value.toLowerCase())"><main>' + "".join(body) + "</main></html>", encoding="utf-8")
@@ -539,18 +551,27 @@ def main(all_spells):
         remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
         for case in remaining:
             (output / case["key"] / "result.json").unlink(missing_ok=True)
-        request = dict(manifest, id=str(time.time_ns()), action="construction" if constructions is not None else "resources" if args.resource_probe else "record", output=str(output), cases=remaining)
+        continue_on_failure = all_spells and args.scene == "single" and not args.resource_probe
+        request = dict(manifest, id=str(time.time_ns()), action="construction" if constructions is not None else "resources" if args.resource_probe else "record",
+                       output=str(output), cases=remaining, continueOnFailure=continue_on_failure)
         write_json(CONTROL / "request.json", request)
         recording_requested = True
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)
-        results, last_change, last_status = {}, time.monotonic(), ""
+        results, failures, last_change, last_status = {}, [], time.monotonic(), ""
         while len(results) < len(cases):
             for case in cases:
                 report = output / case["key"] / "result.json"
                 if case["key"] not in results and report.exists():
                     data = json.loads(report.read_text(encoding="utf-8"))
                     if not data.get("passed"):
-                        raise RuntimeError(f"演示失败：{case['name']}；查看 {report}")
+                        reason = data.get("error", "").split("\n", 1)[0] or "实际结果未通过"
+                        if not continue_on_failure:
+                            raise RuntimeError(f"演示失败：{case['name']}，{reason}。查看 {report}")
+                        failures.append(dict(case=case, reason=reason))
+                        results[case["key"]] = data
+                        last_change = time.monotonic()
+                        print(f"[{len(results)}/{len(cases)}] 失败：{case['name']} · {case['label']}，{reason}", flush=True)
+                        continue
                     cached = args.resume and (report.parent / "demo.mp4").exists()
                     if not cached:
                         data = encode(output, case, args.keep_frames)
@@ -587,7 +608,10 @@ def main(all_spells):
             raise RuntimeError("录像已完成，但游戏尚未完成收尾，请查看 status.json")
         if version_stamp()[0]["sha256"] != version["sha256"]:
             raise ValueError("录制期间代码或资源发生了修改，本目录不可作为同一版本的验收结果，请重新录制")
-        publish(output, cases, results, skipped)
+        recording_requested = False
+        publish(output, cases, {key: result for key, result in results.items() if result["passed"]}, skipped, failures)
+        if failures:
+            raise RuntimeError(f"批次已结束，{len(failures)} 项失败。查看 {output / '演示目录.md'}")
         print(f"完成：{output / '演示目录.md'}", flush=True)
     except KeyboardInterrupt:
         if recording_requested:
