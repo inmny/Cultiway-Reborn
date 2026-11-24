@@ -43,7 +43,7 @@ try
                 entry.Form+"来源连接、原容量、词条与纯防御资料可保存编译",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用留原入口");
+        Check(Convert(Build(extra:true),out _)==null,entry.Form+"拒绝未登记的回调");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;int hp=source.data.health;
         Check(Use(normal),entry.Form+"原已学自用入口受理");await Advance(.25f);
         var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
@@ -56,10 +56,10 @@ try
         Entity made=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
         string signature=SkillContainerSignature.Build(made);var enemy=target.GetExtend();enemy.LearnSkillV3(made);
         Entity stoneSkill=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(enemy,null)).First(s=>SkillContainerSignature.Build(s)==signature);
-        Entity stone=manager.SpawnSkillAtPosition(stoneSkill,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+        Check(enemy.CastSkillV3(stoneSkill, source, strength: 13f, power_level: 0f,
+            funding_source: SkillCastFundingSource.Prepaid), "实际石锥发射受理");
         await Advance(.45f);
-        Check((stone.IsNull||stone.Tags.Has<TagRecycle>()||stone.Tags.Has<TagSkillAnimationNoCollision>())&&
-            Math.Abs(live.RemainingForce(0)-(initial-13))<.01f&&source.data.health==hp&&
+        Check(Math.Abs(live.RemainingForce(0)-(initial-13))<.01f&&source.data.health==hp&&
             contacts.All(c=>c.CastId!=starts.Last().CastId),entry.Form+"在实际壳面拦截且仅损耗一次容量，没有反伤",new{initial,remaining=live.RemainingForce(0),hp,after=source.data.health});
         Check(Block(target,new Vector2(70,72)).x==70,entry.Form+"护盾保留不阻挡人物行走的规则");
         if(entry.Asset==SkillEntities.SpiritShield)

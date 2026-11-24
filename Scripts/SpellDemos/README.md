@@ -60,7 +60,7 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 状态检查同时在 `artifacts/skill_rebuild/` 生成 `matter-water.json` 和 `matter-iron.json`，用于开发中逐视角录制。每次只运行一个游戏测试或演示；资源包构建必须先退出游戏。`result.json` 的 `materialFrames` 记录每张截图对应的材料、物态、主体表面和染色，`contactsLog` 记录伤害前后材料；它们不能替代实际画面检查。
 
-原土墙迁移与旧世界阻挡使用 `python3 Scripts/SpellDemos/verify_wall_migration.py`：复用独立测试游戏和现成世界，检查旧飞行法术、原版弹丸、地面走动/步法/受力、实际容量、结束恢复与失败退款。结果写入 `artifacts/skill_rebuild/trajectories/wall-migration/`。加 `--section solid-walls` 仅检查新增冰墙与木壁的独立形体、来源接管、真实阻挡及失败恢复，证据独立写入 `artifacts/skill_rebuild/trajectories/solid-walls/`，不覆盖土墙结果。完整编辑、自主创作、保存冷启动与集中录像仍在5.05的C交付点进行。
+原土墙迁移与旧世界阻挡使用 `python3 Scripts/SpellDemos/verify_wall_migration.py`：复用独立测试游戏和现成世界，检查正式石锥、原版弹丸、地面走动/步法/受力、实际容量、结束恢复与失败退款。结果写入 `artifacts/skill_rebuild/trajectories/wall-migration/`。加 `--section solid-walls` 仅检查新增冰墙与木壁的独立形体、来源接管、真实阻挡及失败恢复，证据独立写入 `artifacts/skill_rebuild/trajectories/solid-walls/`，不覆盖土墙结果。完整编辑、自主创作、保存冷启动与集中录像仍在5.05的C交付点进行。
 
 土墙打磨只需 `dev.py exec --timeout 245 -- python3 Scripts/SpellDemos/verify_wall_migration.py --section earth-appearance`。沿用 B21 原已学来源和固定世界，检查人物正面、墙端内外与撤墙通行，输出近远、Worldfall 斜视与撤墙画面。已经拍过同一版资源时，使用 `--section earth-walk` 只复验普通寻路步行和撤墙。 土墙成形和收势使用 `--section earth-motion`，只重验墙身未成形、临到期、碎块仍可见和撤完时的正面通行，保留阶段图和实际时间。
 

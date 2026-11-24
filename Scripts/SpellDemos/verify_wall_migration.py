@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""5.05 B21至B25：验证原实体墙迁移及与旧法术、原版弹丸、人物运动的实际交互。"""
+"""5.05 B21至B25：验证正式实体墙与石锥、原版弹丸和人物运动的实际交互。"""
 import argparse
 import json
 import os

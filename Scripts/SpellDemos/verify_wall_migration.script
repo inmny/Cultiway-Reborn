@@ -1,4 +1,4 @@
-// B21：只覆盖土墙迁移及本批实际交互，复用原世界与人物准备。
+// B21：复用原世界与人物准备，核对正式土墙的实际交互。
 var manager=Cultiway.ModClass.I.SkillV3;
 var original=Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
 var starts=new List<ConstructedCastStarted>();var accepted=new List<AbilityCast>();
@@ -16,7 +16,10 @@ Entity Build(bool boost=false,bool extra=false)
     if(boost){builder.AddModifier(new HugeModifier{Value=1.4f});builder.AddModifier(new EmpowerModifier{SetupBonus=.3f});builder.AddModifier(new HasteModifier{SpeedMultiplier=.5f});}
     if(extra)builder.AddModifier(new BurnModifier{Duration=1,DamageRatio=.1f});
     Entity e=builder.Build(SkillContainerBuildMode.RuleOnly);string signature=SkillContainerSignature.Build(e);
-    owner.LearnSkillV3(e);return Learned().First(s=>SkillContainerSignature.Build(s)==signature);
+    owner.LearnSkillV3(e);
+    Entity learned = Learned().First(skill => SkillContainerSignature.Build(skill) == signature);
+    if (extra) learned.GetComponent<SkillContainer>().OnSetup += _ => { };
+    return learned;
 }
 var converter=service.Assembly.GetType("Cultiway.Content.Skills.BarrierConstructionMigration").GetMethod("Convert",F);
 /// <summary>读取真正会交给新执行的可保存资料。</summary><param name="skill">原来源。</param><param name="damage">保留的原力量与境界。</param>
@@ -77,7 +80,7 @@ try
     }
     var bad=Convert(normal,out _);bad.Root.ContactRole=ConstructionContactRole.Attack;bool rejected=false;
     try{AbilityCompiler.Compile(bad,cache:false);}catch(InvalidDataException){rejected=true;}
-    Check(rejected&&Convert(Build(extra:true),out _)==null,"非屏障阻挡声明拒绝，未知附加作用保留原执行");
+    Check(rejected&&Convert(Build(extra:true),out _)==null,"非屏障阻挡声明与未登记的回调都被拒绝");
     Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
     {
         if(request.SkillContainer.GetComponent<SkillContainer>().Asset!=SkillEntities.EarthWall)return original(request);
@@ -127,15 +130,21 @@ try
     Ready(target);
     impulse.GetMethod("BeginDirected",F).Invoke(null,new object[]{target,new Vector3(20,0,0),.35f,terrain});
     await Advance(.4f);Check(target.current_position.x>64&&target.current_position.x<66.4f&&!BodyControlState.IsBusy(target.id),"真实受力贴地位移也不能穿墙，并正常归还控制",new{x=target.current_position.x});Place(target,64);CombatStatusEffects.ApplyStatus(target,hold,10000,target);target.updateStats();
-    // 旧飞行实体仍经原轨迹和原伤害系统，本批桥接必须在其伤害前回收。
-    Entity legacyMade=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
-    string legacySignature=SkillContainerSignature.Build(legacyMade);var legacyOwner=target.GetExtend();legacyOwner.LearnSkillV3(legacyMade);
-    Entity legacyContainer=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(legacyOwner,null)).First(s=>SkillContainerSignature.Build(s)==legacySignature);
-    float beforeLegacy=live.RemainingForce(0);
-    Entity legacy=manager.SpawnSkillAtPosition(legacyContainer,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
-    await Advance(.45f);
-    Check((legacy.IsNull||legacy.Tags.Has<TagRecycle>()||legacy.Tags.Has<TagSkillAnimationNoCollision>()&&legacy.Tags.Has<TagSkillAnimationNoMovement>())&&source.data.health==hp&&Math.Abs(live.RemainingForce(0)-(beforeLegacy-13))<.01f,
-        "旧飞行实体在实际墙面退出，后方人物无伤且容量消费一次",new{beforeLegacy,after=live.RemainingForce(0),hp,health=source.data.health,legacy=legacy.IsNull?null:new {tags=legacy.Tags.ToString(),position=legacy.GetComponent<Position>().value.ToString(),trajectory=legacy.GetComponent<Trajectory>().ID,config=legacy.GetComponent<ColliderConfig>().Enabled}});
+    // 正式石锥在墙面实际拦截，保留原来袭强度。
+    Entity stone = new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.SourceGranted);
+    var enemy = target.GetExtend();
+    async Task FireStone(float strength)
+    {
+        Check(enemy.CastSkillV3(stone, source, strength, power_level: 0f,
+            funding_source: SkillCastFundingSource.Prepaid), "实际石锥发射受理");
+        await Advance(.45f);
+    }
+
+    float beforeStone = live.RemainingForce(0);
+    await FireStone(13f);
+    Check(source.data.health == hp && Math.Abs(live.RemainingForce(0) - (beforeStone - 13f)) < .01f,
+        "石锥在实际墙面被拦截，后方人物无伤且容量消费一次",
+        new { beforeStone, after = live.RemainingForce(0), hp, health = source.data.health });
     // 原版弹丸单步跨墙：保留真实碰撞和落点回调，记录其实际落点。
     var positionField=typeof(Projectile).GetField("_current_position_3d",F);var velocityField=typeof(Projectile).GetField("_velocity",F);
     var projectileMove=typeof(Projectile).GetMethod("updateVelocity",F);Vector2? impact=null;
@@ -168,25 +177,28 @@ try
     CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();await Advance(.03f);
     var nearRun=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>((AbilityCast)Field(r,"Cast")).Plan.Id==nearDefinition.Id);
     var nearWall=(AbilityCast)Field(nearRun,"Cast");activeCasts.Add(nearWall);
-    var bridge=service.Assembly.GetType("Cultiway.Core.SkillLibV3.ISkillBarrierBridge").GetMethod("Intercept");
-    var simulation=service.GetField("simulation",F).GetValue(null);
-    Entity Crossing(float strength)
-    {
-        Entity e=manager.SpawnSkillAtPosition(legacyContainer,target,new Vector3(72,72,.6f),source,new Vector3(64,72,.6f),strength,0);
-        e.GetComponent<PrevPosition>().Value=new Vector2(72,72);e.GetComponent<PrevPosition>().Height=.6f;
-        e.GetComponent<Position>().value=new Vector3(64,72,.6f);bridge.Invoke(simulation,new object[]{e});return e;
-    }
-    float farBefore=live.RemainingForce(0),nearBefore=nearWall.RemainingForce(0);Crossing(11);
+    Place(source, 64f);
+    Place(target, 72f);
+    ConstructedAbilityService.NotifyActorChanged(source);
+    ConstructedAbilityService.NotifyActorChanged(target);
+    float farBefore = live.RemainingForce(0), nearBefore = nearWall.RemainingForce(0);
+    await FireStone(11f);
     Check(Math.Abs(nearWall.RemainingForce(0)-(nearBefore-11))<.001f&&Math.Abs(live.RemainingForce(0)-farBefore)<.001f,
         "同一跨墙路径按最近墙处理，登记先后不改变结果",new{nearBefore,nearAfter=nearWall.RemainingForce(0),farBefore,farAfter=live.RemainingForce(0)});
-    Crossing(nearWall.RemainingForce(0)+1);Place(target,72);
-    Check(nearWall.RemainingForce(0)==0&&Block(target,new Vector2(68,72)).x==68&&Math.Abs(live.RemainingForce(0)-farBefore)<.001f,
-        "过量来袭仍由原拦截规则退出，近墙耗尽后不留下隐藏阻挡");
+    int healthBeforeBreak = source.data.health;
+    await FireStone(nearWall.RemainingForce(0) + 1f);
+    float passage = Block(target, new Vector2(68f, 72f)).x;
+    Check(nearWall.RemainingForce(0) == 0f && passage == 68f &&
+        Math.Abs(live.RemainingForce(0) - (farBefore - 1f)) < .001f && source.data.health == healthBeforeBreak,
+        "石锥打穿近墙，剩余力量由远墙吸收，近墙不再阻挡",
+        new { near = nearWall.RemainingForce(0), farBefore, far = live.RemainingForce(0), passage,
+            healthBeforeBreak, health = source.data.health });
     await Advance(.05f);Check(nearWall.RemainingForce(0)==0,"破墙后下一共同预测不会恢复容量");
     // 同容器再次施放只替换旧墙；不用费用失败来挤掉尚可使用的墙。
     ResetPeople();int previous=starts.Count;Check(Use(normal),"同来源再次建立土墙");await Advance(.25f);
     Check(live.Finished&&starts.Count>previous&&accepted.Count(c=>!c.Finished)==1,"同来源仅一个土墙，成功受理后替换原墙");
-    var secondWall=accepted.Last();await Advance(4.1f);
+    var secondWall = accepted.Last();
+    await Advance(Mathf.Max(0f, secondWall.Plan.Lifetime - secondWall.Age) + .05f);
     Check(secondWall.Finished&&Shapes(secondWall).Count==0&&Views(secondWall).Count==0,"原寿命结束后墙面及作用清理");
     Place(target,64);Check(Block(target,new Vector2(70,72)).x==70,"自然结束后人物正常通过，没有隐藏阻挡");
     ResetPeople();int count=starts.Count;float beforeFailure=owner.GetCultisys<Xian>().wakan;invalidate=true;
@@ -194,7 +206,9 @@ try
     Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==count&&Math.Abs(owner.GetCultisys<Xian>().wakan-beforeFailure)<.001f&&oldWalls==0,
         "受理失败撤销本发费用，不产生新旧墙",new{beforeFailure,after=owner.GetCultisys<Xian>().wakan});
     scopeValid=true;ResetPeople();Check(Use(boosted),"失败恢复后带词条的原土墙正常受理");await Advance(.25f);
-    Check(accepted.Last().RemainingForce(0)>0&&oldWalls==0,"带范围与强度词条的真实原墙运行");await Advance(4.1f);
+    var boostedWall = accepted.Last();
+    Check(boostedWall.RemainingForce(0)>0&&oldWalls==0,"带范围与强度词条的真实原墙运行");
+    await Advance(Mathf.Max(0f, boostedWall.Plan.Lifetime - boostedWall.Age) + .05f);
     Check(accepted.All(c=>c.Finished)&&!BodyControlState.IsBusy(source.id)&&!BodyControlState.IsBusy(target.id),"自然退出并恢复人物控制");
     return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
 }

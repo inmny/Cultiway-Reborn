@@ -33,7 +33,7 @@ try
                 entry.Form+"独立形体、实际材料、原强度及词条完整进入可保存构造",new{damage.Damage,d.Root.Scale,d.Lifetime});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用仍留原入口");
+        Check(Convert(Build(extra:true),out _)==null,entry.Form+"拒绝未登记的回调");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;
         Check(Use(normal),entry.Form+"原已学入口受理");await Advance(.25f);
         var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
@@ -49,11 +49,11 @@ try
         Entity made=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
         string signature=SkillContainerSignature.Build(made);var enemy=target.GetExtend();enemy.LearnSkillV3(made);
         Entity originalStone=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(enemy,null)).First(s=>SkillContainerSignature.Build(s)==signature);
-        Entity stone=manager.SpawnSkillAtPosition(originalStone,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+        Check(enemy.CastSkillV3(originalStone, source, strength: 13f, power_level: 0f,
+            funding_source: SkillCastFundingSource.Prepaid), "实际石锥发射受理");
         await Advance(.45f);
-        Check((stone.IsNull||stone.Tags.Has<TagRecycle>()||stone.Tags.Has<TagSkillAnimationNoCollision>())&&
-            source.data.health==hp&&Math.Abs(live.RemainingForce(0)-(initial-13))<.01f,
-            entry.Form+"在自身实体墙面拦截原石锥且容量只消费一次",new{initial,remaining=live.RemainingForce(0),live.Finished,live.Age,hp,health=source.data.health,war=source.kingdom.isEnemy(target.kingdom),hostile=SkillTargetRelationResolver.IsHostile(source,target),stone=stone.IsNull?null:new{tags=stone.Tags.ToString(),p=stone.GetComponent<Position>().value.ToString()}});
+        Check(source.data.health==hp&&Math.Abs(live.RemainingForce(0)-(initial-13))<.01f,
+            entry.Form+"在自身实体墙面拦截原石锥且容量只消费一次",new{initial,remaining=live.RemainingForce(0),live.Finished,live.Age,hp,health=source.data.health,war=source.kingdom.isEnemy(target.kingdom),hostile=SkillTargetRelationResolver.IsHostile(source,target)});
         ResetPeople();int previous=starts.Count;Check(Use(normal),entry.Form+"同一已学来源再次受理");await Advance(.25f);
         Check(live.Finished&&starts.Count>previous&&accepted.Count(c=>!c.Finished)==1,
             entry.Form+"同一容器只留一个并替换原墙");

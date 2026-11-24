@@ -43,7 +43,7 @@ try
                 entry.Form+"原强度、词条、间隔和独立伤害规则可保存及编译",new{damage.Damage,d.Root.Scale,d.Lifetime,plan.ContactDamageScale,plan.ContactForce});
             File.WriteAllText(Path.Combine(folder,entry.Form+(boost?"-enhanced.json":".json")),JsonConvert.SerializeObject(d,Formatting.Indented));
         }
-        Check(Convert(Build(extra:true),out _)==null,entry.Form+"未映射附加作用保留原入口");
+        Check(Convert(Build(extra:true),out _)==null,entry.Form+"拒绝未登记的回调");
         ResetPeople();float balance=owner.GetCultisys<Xian>().wakan;
         Check(Use(normal),entry.Form+"真实已学来源受理");await Advance(.25f);
         var live=accepted.Last();float initial=live.RemainingForce(0);Vector3 center=Center(live);
@@ -80,7 +80,8 @@ try
             Entity made=new SkillContainerBuilder(SkillEntities.StoneCone).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
             string signature=SkillContainerSignature.Build(made);var enemy=target.GetExtend();enemy.LearnSkillV3(made);
             Entity stoneSkill=((IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(enemy,null)).First(s=>SkillContainerSignature.Build(s)==signature);
-            Entity stone=manager.SpawnSkillAtPosition(stoneSkill,target,new Vector3(64,72,.6f),source,new Vector3(70,72,.6f),13,0);
+            Check(enemy.CastSkillV3(stoneSkill, source, strength: 13f, power_level: 0f,
+                funding_source: SkillCastFundingSource.Prepaid), "实际石锥发射受理");
             await Advance(.45f);float remaining=live.RemainingForce(0);
             Check(Math.Abs(remaining-(initial-13))<.01f,entry.Form+"仍由自身形体防御且消耗真实容量",new{initial,remaining});
             damageEvents.Clear();Place(target,66.2f);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.65f);
